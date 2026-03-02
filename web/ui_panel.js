@@ -9,7 +9,7 @@ import { setupStaticToolbarEvents, renderDynamicToolbar, attachDynamicToolbarEve
 import { renderCardsList, attachCardEvents } from "./components/comp_taskcard.js";
 import { attachAreaEvents } from "./components/comp_modulearea.js";
 
-console.log("[ShellLink] UI 已成功恢复至纯净原版右键菜单状态");
+console.log("[ShellLink] UI 拆分重构版本已被成功导入 (极速响应安全版)");
 
 let panelContainer = null;
 let backdropContainer = null;
@@ -172,97 +172,6 @@ function createPanelDOM() {
     `;
 
     setupStaticToolbarEvents(panelContainer);
-    
-    // =========================================================================
-    // 【原版还原】：纯净版右键删除菜单恢复
-    // =========================================================================
-    const previewMenu = document.createElement('div');
-    previewMenu.id = 'sl-preview-ctx-menu';
-    previewMenu.className = 'sl-custom-select-dropdown';
-    previewMenu.style.cssText = 'display:none; position:fixed; z-index:10005; min-width: 140px; padding: 4px 0; border: 1px solid #555; background: #2a2a2a; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);';
-    previewMenu.innerHTML = `
-        <div class="sl-custom-select-item" id="sl-ctx-del-btn" style="color:#ff4d4f; display:flex; align-items:center; gap:6px;">
-            <span>🗑️</span> 在本地彻底删除
-        </div>
-    `;
-    document.body.appendChild(previewMenu);
-
-    let activeCtx = null;
-    window.ShellLink.showPreviewContextMenu = (x, y, cardId, areaId, url) => {
-        activeCtx = { cardId, areaId, url };
-        previewMenu.style.display = 'block';
-        
-        const rect = previewMenu.getBoundingClientRect();
-        let finalX = x;
-        let finalY = y;
-        if (x + 140 > window.innerWidth) finalX -= 140;
-        if (y + rect.height > window.innerHeight) finalY -= rect.height;
-        
-        previewMenu.style.left = finalX + 'px';
-        previewMenu.style.top = finalY + 'px';
-    };
-
-    document.addEventListener('mousedown', (e) => {
-        if (!previewMenu.contains(e.target)) previewMenu.style.display = 'none';
-    }, true);
-
-    previewMenu.querySelector('#sl-ctx-del-btn').onclick = async (e) => {
-        e.stopPropagation();
-        previewMenu.style.display = 'none';
-        if (!activeCtx) return;
-        
-        try {
-            const urlObj = new URL(activeCtx.url, window.location.origin);
-            const filename = urlObj.searchParams.get('filename');
-            const subfolder = urlObj.searchParams.get('subfolder') || "";
-            const type = urlObj.searchParams.get('type') || "output";
-
-            if (filename) {
-                await fetch('/shell_link/delete_file', { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ filename, subfolder, type }) 
-                });
-            }
-            if (window.ShellLink.handleMediaError) {
-                window.ShellLink.handleMediaError(activeCtx.cardId, activeCtx.areaId, activeCtx.url);
-            }
-        } catch (err) { 
-            console.error("[ShellLink] 本地删除失败:", err); 
-        }
-    };
-    // =========================================================================
-
-    // 【暴露全局清理方法】：防碎图机制依然保留在全局供其他组件复用
-    window.ShellLink.handleMediaError = (cardId, areaId, failedUrl) => {
-        const card = state.cards.find(c => c.id === cardId);
-        const area = card?.areas.find(a => a.id === areaId);
-        if (area && area.history && area.history.length > 0) {
-            const failedPath = new URL(failedUrl, window.location.origin).pathname + new URL(failedUrl, window.location.origin).search;
-            const idx = area.history.findIndex(hUrl => {
-                const hPath = new URL(hUrl, window.location.origin).pathname + new URL(hUrl, window.location.origin).search;
-                return hPath === failedPath;
-            });
-            
-            if (idx !== -1) {
-                area.history.splice(idx, 1);
-                if (area.history.length === 0) {
-                    area.resultUrl = '';
-                    area.historyIndex = 0;
-                } else {
-                    area.historyIndex = Math.min(idx, area.history.length - 1);
-                    area.resultUrl = area.history[area.historyIndex];
-                }
-                setTimeout(() => saveAndRender(), 10);
-            } else if (area.resultUrl === failedUrl) {
-                area.resultUrl = '';
-                setTimeout(() => saveAndRender(), 10);
-            }
-        } else if (area && area.resultUrl === failedUrl) {
-             area.resultUrl = '';
-             setTimeout(() => saveAndRender(), 10);
-        }
-    };
 
     panelContainer.addEventListener("click", (e) => {
         if (!state.painterMode) return;
@@ -420,6 +329,126 @@ function createPanelDOM() {
             widthCtrlNode.addEventListener('click', stopProp);
         }
     }
+
+    // =========================================================================
+    // 【新增】：创建并挂载输出模块专属的右键菜单 DOM
+    // =========================================================================
+    const previewMenu = document.createElement('div');
+    previewMenu.id = 'sl-preview-ctx-menu';
+    previewMenu.className = 'sl-custom-select-dropdown';
+    previewMenu.style.cssText = 'display:none; position:fixed; z-index:10005; min-width: 140px; padding: 6px;';
+    previewMenu.innerHTML = `
+        <div class="sl-custom-select-item" id="sl-btn-delete-local" style="color: #ff4d4f; display:flex; align-items:center; gap:8px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+            在本地彻底删除
+        </div>
+    `;
+    document.body.appendChild(previewMenu);
+
+    let activePreviewCtx = null;
+
+    // 暴露全局唤出接口给 comp_modulearea.js 里的监听器调用
+    window.ShellLink.showPreviewContextMenu = (x, y, cardId, areaId, url) => {
+        activePreviewCtx = { cardId, areaId, url };
+        previewMenu.style.display = 'block';
+        
+        // 边界保护
+        const rect = previewMenu.getBoundingClientRect();
+        let finalX = x;
+        let finalY = y;
+        if (x + 150 > window.innerWidth) finalX -= 150;
+        if (y + rect.height > window.innerHeight) finalY -= rect.height;
+        
+        previewMenu.style.left = `${finalX}px`;
+        previewMenu.style.top = `${finalY}px`;
+    };
+
+    // 全局点击关闭菜单
+    document.addEventListener('mousedown', (e) => {
+        if (!previewMenu.contains(e.target)) {
+            previewMenu.style.display = 'none';
+        }
+    }, true);
+
+    // 删除逻辑与后端通信
+    previewMenu.querySelector('#sl-btn-delete-local').onclick = async (e) => {
+        e.stopPropagation();
+        previewMenu.style.display = 'none';
+        if (!activePreviewCtx) return;
+
+        const { cardId, areaId, url } = activePreviewCtx;
+        
+        try {
+            const urlObj = new URL(url, window.location.origin);
+            const filename = urlObj.searchParams.get('filename');
+            const subfolder = urlObj.searchParams.get('subfolder') || "";
+            const type = urlObj.searchParams.get('type') || "output";
+
+            if (!filename) throw new Error("无法解析要删除的文件名");
+
+            // 请求后端自定义删除接口
+            const res = await fetch('/shell_link/delete_file', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename, subfolder, type })
+            });
+
+            if (!res.ok) {
+                if (res.status === 404) {
+                    throw new Error("后端接口缺失！请参照说明，在 server.py 中添加 /shell_link/delete_file 接口。");
+                }
+                throw new Error("请求失败 (状态码: " + res.status + ")");
+            }
+            
+            const result = await res.json();
+            if (result.status !== 'success') throw new Error(result.error || '未知错误');
+
+            // 核心技巧：利用幽灵文件清理机制，把它从历史记录中砍掉并自动切换到下一张！
+            window.ShellLink.handleMediaError(cardId, areaId, url);
+            
+            showBindingToast("✅ 实体文件已彻底删除并移出历史记录", true);
+            setTimeout(hideBindingToast, 3000);
+
+        } catch (err) {
+            alert("❌ 删除失败: " + err.message);
+        }
+    };
+
+    // 【新增】：核心的“幽灵文件”防碎图清理机制（向外暴露给媒体标签的 onerror 属性）
+    window.ShellLink.handleMediaError = (cardId, areaId, failedUrl) => {
+        const card = state.cards.find(c => c.id === cardId);
+        const area = card?.areas.find(a => a.id === areaId);
+        if (area && area.history && area.history.length > 0) {
+            // 利用路径匹配避免跨域编码差异
+            const failedPath = new URL(failedUrl, window.location.origin).pathname + new URL(failedUrl, window.location.origin).search;
+            const idx = area.history.findIndex(hUrl => {
+                const hPath = new URL(hUrl, window.location.origin).pathname + new URL(hUrl, window.location.origin).search;
+                return hPath === failedPath;
+            });
+            
+            if (idx !== -1) {
+                area.history.splice(idx, 1);
+                if (area.history.length === 0) {
+                    area.resultUrl = '';
+                    area.historyIndex = 0;
+                } else {
+                    // 如果删掉的是最后一张，索引往前退一位；否则保持原位（自动顶上来一张新的）
+                    area.historyIndex = Math.min(idx, area.history.length - 1);
+                    area.resultUrl = area.history[area.historyIndex];
+                }
+                setTimeout(() => saveAndRender(), 10);
+            } else if (area.resultUrl === failedUrl) {
+                // 异常兜底保护
+                area.resultUrl = '';
+                setTimeout(() => saveAndRender(), 10);
+            }
+        } else if (area && area.resultUrl === failedUrl) {
+             area.resultUrl = '';
+             setTimeout(() => saveAndRender(), 10);
+        }
+    };
 }
 
 function makePanelDraggable() {
@@ -518,7 +547,9 @@ function setupGlobalEventListeners() {
             return;
         }
 
+        // 【新增】：历史记录键盘导航逻辑 (左与右)
         if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && state.selectedAreaIds.length === 1) {
+            // 防误触：如果你正在输入框里打字，绝对不要切换图片！
             if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
             
             const areaId = state.selectedAreaIds[0];
@@ -528,8 +559,9 @@ function setupGlobalEventListeners() {
                 if (a) { targetArea = a; break; }
             }
             
+            // 执行丝滑切换
             if (targetArea && targetArea.type === 'preview' && targetArea.history && targetArea.history.length > 1) {
-                e.preventDefault(); 
+                e.preventDefault(); // 阻止页面可能发生的滚动
                 let idx = targetArea.historyIndex !== undefined ? targetArea.historyIndex : targetArea.history.length - 1;
                 
                 if (e.key === 'ArrowLeft') {
@@ -624,6 +656,7 @@ function setupGlobalEventListeners() {
         }
     });
 
+    // 【新增】：利用核心任务池拦截 Executed 事件，自动将后端返回的文件推入历史数组，彻底独立于各种复杂的老代码
     api.addEventListener("executed", (event) => {
         const detail = event.detail;
         const executedNodeId = detail.node;     
@@ -655,13 +688,12 @@ function setupGlobalEventListeners() {
                 
                 if (newUrl) {
                     if (!area.history) area.history = [];
+                    // 去重检查：如果因为某些连线设计导致重复返回了同一张图，就不记录
                     if (area.history.length === 0 || area.history[area.history.length - 1] !== newUrl) {
                         area.history.push(newUrl);
                     }
+                    // 无论如何，强制跳到最新的一张图上
                     area.historyIndex = area.history.length - 1;
-                    
-                    area.resultUrl = newUrl;
-                    saveAndRender();
                 }
             }
         });

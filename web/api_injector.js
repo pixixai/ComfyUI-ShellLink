@@ -13,43 +13,126 @@ export function setupAPIInjector(app) {
     window._slExecQueue = window._slExecQueue || []; // 安全的任务队列
     window._slTaskMap = window._slTaskMap || {};     // 记录 prompt_id -> 任务映射
     window._slLastGeneratedTask = null;              // 桥接前后端的暂存任务
-    window._slCurrentBatchPromptIds = [];            // 【新增】：记录当前批次的所有 prompt_id
+    window._slCurrentBatchPromptIds = [];            // 记录当前批次的所有 prompt_id
+    window._slCardProgress = window._slCardProgress || {}; // 独立缓存进度条状态，防止UI重绘时丢失
+    window._slHideTimers = window._slHideTimers || {};     // 定时器管家，防止不同任务的隐藏动画互相打架
+    window._slDoneTasks = window._slDoneTasks || new Set(); // 【新增】：完成名单，防止后端发送迟到的信号导致进度条诈尸
 
     // =========================================================================
     // 【核弹级 UI 渲染器】：支持报错红灯模式，最高权限 (!important) 压制闪烁
     // =========================================================================
-    const setUIProgress = (cardId, percentage, isHide = false, isError = false) => {
-        const progContainer = document.querySelector(`.sl-card-progress-container[data-card-prog-id="${cardId}"]`);
-        if (progContainer) {
-            const bar = progContainer.querySelector('.sl-card-progress-bar');
-            if (!bar) return;
+    const setUIProgress = (cardId, percentage, isHide = false, isError = false, isRestore = false) => {
+        // 【防诈尸锁】：如果这个任务已经被标记为完成，且不是在执行最终隐藏或恢复，直接拦截！
+        if (window._slDoneTasks.has(cardId) && !isHide && !isRestore && percentage < 100) {
+            return; 
+        }
 
-            if (isError) {
-                progContainer.style.opacity = '1';
-                bar.classList.add('error');
-                bar.style.setProperty('transition', 'none', 'important'); 
-                bar.style.setProperty('width', '100%', 'important');
-            } else if (isHide) {
-                if (!bar.classList.contains('error')) {
-                    progContainer.style.opacity = '0';
-                    setTimeout(() => {
-                        if (!bar.classList.contains('error')) {
-                            bar.style.setProperty('transition', 'none', 'important');
-                            bar.style.setProperty('width', '0%', 'important');
-                        }
-                    }, 300);
-                }
+        // 保存状态到内存，防止重绘丢失
+        if (!isRestore) {
+            if (isHide) {
+                // 只要收到隐藏指令，立刻从缓存中彻底抹除！绝不等动画！
+                delete window._slCardProgress[cardId];
             } else {
-                progContainer.style.opacity = '1';
-                if (!bar.classList.contains('error')) {
-                    bar.style.setProperty('transition', 'width 0.3s ease-out', 'important');
-                    bar.style.setProperty('width', `${percentage}%`, 'important');
+                window._slCardProgress[cardId] = { percentage, isHide, isError };
+                // 新任务开始时，立刻清理可能残留的隐藏倒计时
+                if (window._slHideTimers[cardId]) {
+                    clearTimeout(window._slHideTimers[cardId]);
+                    delete window._slHideTimers[cardId];
                 }
             }
         }
+
+        // 【核心修复】：每次操作都重新获取 DOM，防止操作到被 sl_render_ui 销毁的旧元素
+        const progContainer = document.querySelector(`.sl-card-progress-container[data-card-prog-id="${cardId}"]`);
+        if (!progContainer) return;
+        const bar = progContainer.querySelector('.sl-card-progress-bar');
+        if (!bar) return;
+
+        if (isError) {
+            progContainer.style.display = 'block'; // 唤醒物理布局
+            progContainer.style.opacity = '1';
+            bar.classList.add('error');
+            bar.style.setProperty('transition', 'none', 'important'); 
+            bar.style.setProperty('width', '100%', 'important');
+        } else if (isHide) {
+            bar.classList.remove('error');
+            progContainer.style.opacity = '0'; // 开始透明度渐隐
+            setTimeout(() => {
+                // 动画结束后，重新再查一次 DOM！并执行彻底的物理隐藏
+                const freshContainer = document.querySelector(`.sl-card-progress-container[data-card-prog-id="${cardId}"]`);
+                if (freshContainer) {
+                    freshContainer.style.display = 'none'; // 【核心修复】：彻底剔除灰色底边
+                }
+                const freshBar = document.querySelector(`.sl-card-progress-container[data-card-prog-id="${cardId}"] .sl-card-progress-bar`);
+                if (freshBar) {
+                    freshBar.style.setProperty('transition', 'none', 'important');
+                    freshBar.style.setProperty('width', '0%', 'important');
+                }
+            }, 300);
+        } else {
+            progContainer.style.display = 'block'; // 唤醒物理布局
+            progContainer.style.opacity = '1';
+            if (isRestore) {
+                // 恢复模式下，直接赋予宽度，避免从0开始的动画闪烁
+                bar.style.setProperty('transition', 'none', 'important');
+                bar.style.setProperty('width', `${percentage}%`, 'important');
+                void bar.offsetWidth; // 强制DOM重绘应用样式
+            }
+            bar.style.setProperty('transition', 'width 0.3s ease-out', 'important');
+            bar.style.setProperty('width', `${percentage}%`, 'important');
+        }
     };
 
-    // 【新增】：监听后端的运行报错，弹出 Toast 提示并直接中断当前批次的后续任务！
+    // =========================================================================
+    // 【核心修复】：监听 UI 重绘事件，防僵尸进度条机制
+    // =========================================================================
+    document.addEventListener("sl_render_ui", () => {
+        // 延迟 100ms，确保 DOM 已经完全真实替换完毕
+        setTimeout(() => {
+            const allContainers = document.querySelectorAll('.sl-card-progress-container');
+            
+            allContainers.forEach(container => {
+                const cardId = container.getAttribute('data-card-prog-id');
+                const state = window._slCardProgress[cardId];
+                
+                if (state && !state.isHide) {
+                    // 场景A：该卡片正在排队/运行中，静默恢复它的进度蓝色条
+                    setUIProgress(cardId, state.percentage, state.isHide, state.isError, true);
+                } else {
+                    // 场景B：该卡片不在运行队列中（已经跑完或从未跑过）。
+                    // 【终极暴力隐藏】：彻底杀死任何可能暴露的“僵尸”底线！
+                    container.style.display = 'none';
+                    container.style.opacity = '0';
+                    const bar = container.querySelector('.sl-card-progress-bar');
+                    if (bar) {
+                        bar.style.setProperty('transition', 'none', 'important');
+                        bar.style.setProperty('width', '0%', 'important');
+                    }
+                }
+            });
+        }, 100);
+    });
+
+    // =========================================================================
+    // 【新增底线兜底】：全局监听 ComfyUI 队列清空事件
+    // =========================================================================
+    api.addEventListener("status", (e) => {
+        // 当右上角的运行队列变为 0 时，执行终极清理，不管之前漏了什么信号，全部清盘！
+        if (e.detail && e.detail.exec_info && e.detail.exec_info.queue_remaining === 0) {
+            for (const cardId in window._slCardProgress) {
+                const state = window._slCardProgress[cardId];
+                if (state && !state.isHide) {
+                    setUIProgress(cardId, 100);
+                    if (window._slHideTimers[cardId]) clearTimeout(window._slHideTimers[cardId]);
+                    window._slHideTimers[cardId] = setTimeout(() => {
+                        setUIProgress(cardId, 0, true);
+                    }, 800);
+                }
+            }
+        }
+    });
+
+    // 监听后端的运行报错，弹出 Toast 提示并直接中断当前批次的后续任务！
     api.addEventListener("execution_error", (e) => {
         showBindingToast("❌ 工作流后台运行报错！请关闭面板，查看详细错误提示。", true);
         setTimeout(() => hideBindingToast(), 6000);
@@ -60,6 +143,12 @@ export function setupAPIInjector(app) {
         if (task) {
             // 1. 将当前后端报错的卡片瞬间标红 100%
             setUIProgress(task.cardId, 100, false, true);
+            
+            // 6秒后自动把红色的进度条抹除，不留僵尸状态
+            if (window._slHideTimers[task.cardId]) clearTimeout(window._slHideTimers[task.cardId]);
+            window._slHideTimers[task.cardId] = setTimeout(() => {
+                setUIProgress(task.cardId, 0, true);
+            }, 6000);
 
             // 2. 将当前批次中的其他后续任务全部从 ComfyUI 后端队列中直接删除（强力拦截）
             if (window._slCurrentBatchPromptIds && window._slCurrentBatchPromptIds.length > 0) {
@@ -86,45 +175,47 @@ export function setupAPIInjector(app) {
     });
 
     // =========================================================================
-    // 1. 坚如磐石的异步执行队列 (彻底解决报错刷屏、且只红第一个)
+    // 1. 坚如磐石的异步执行队列
     // =========================================================================
     window.ShellLink.executeTasks = async function(tasks) {
-        window._slCurrentBatchPromptIds = []; // 每次发车前清空批次追踪
+        window._slCurrentBatchPromptIds = []; 
+        window._slDoneTasks = window._slDoneTasks || new Set(); // 初始化完成名单
 
-        // 先把所有选中的任务推入排队队列，并瞬间点亮 5%
         for (let task of tasks) {
+            window._slDoneTasks.delete(task.cardId); // 【重置锁】：新任务发车前解除限制
             window._slExecQueue.push(task);
             
             const bar = document.querySelector(`.sl-card-progress-container[data-card-prog-id="${task.cardId}"] .sl-card-progress-bar`);
-            if (bar) bar.classList.remove('error'); // 拔掉可能残留的红灯
+            if (bar) bar.classList.remove('error'); 
             setUIProgress(task.cardId, 5);
         }
 
         const count = tasks.length;
         for (let i = 0; i < count; i++) {
             try {
-                // 发送排队请求给服务器 (ComfyUI 会在此刻进行前端图谱连线校验)
                 await app.queuePrompt(0, 1); 
             } catch (submitErr) {
                 console.warn("[ShellLink] 🚫 前端图谱校验未通过，触发阻断！", submitErr);
                 
-                // 弹出一次友好的提示框告知用户
                 showBindingToast("❌ 节点前端校验失败！请检查工作流连线或必填参数。", true);
                 setTimeout(() => hideBindingToast(), 6000);
                 
-                // 【多任务阻断：只红当前报错的这一个】
                 if (window._slLastGeneratedTask) {
-                    setUIProgress(window._slLastGeneratedTask.cardId, 100, false, true);
+                    const errorCardId = window._slLastGeneratedTask.cardId;
+                    setUIProgress(errorCardId, 100, false, true);
+                    
+                    if (window._slHideTimers[errorCardId]) clearTimeout(window._slHideTimers[errorCardId]);
+                    window._slHideTimers[errorCardId] = setTimeout(() => {
+                        setUIProgress(errorCardId, 0, true);
+                    }, 6000);
+
                     window._slLastGeneratedTask = null;
                 }
 
-                // 【清理剩余】：将剩下的无辜排队任务全部取消（不再发包、也不变红）
                 while (window._slExecQueue.length > 0) {
                     let skippedTask = window._slExecQueue.shift();
                     setUIProgress(skippedTask.cardId, 0, true);
                 }
-
-                // 彻底中断循环，ComfyUI 官方的错误提示框只会弹一次！
                 break;
             }
         }
@@ -134,11 +225,10 @@ export function setupAPIInjector(app) {
     const origQueuePrompt = api.queuePrompt;
     api.queuePrompt = async function() {
         const res = await origQueuePrompt.apply(this, arguments);
-        // 成功突破前端校验，拿到了真实发往后端的 id！
         if (res && res.prompt_id && window._slLastGeneratedTask) {
             window._slTaskMap[res.prompt_id] = window._slLastGeneratedTask;
-            window._slCurrentBatchPromptIds.push(res.prompt_id); // 加入批次追踪
-            window._slLastGeneratedTask = null; // 消费掉暂存任务
+            window._slCurrentBatchPromptIds.push(res.prompt_id); 
+            window._slLastGeneratedTask = null; 
         }
         return res;
     };
@@ -150,7 +240,6 @@ export function setupAPIInjector(app) {
     app.graphToPrompt = async function () {
         const result = await originalGraphToPrompt.apply(this, arguments);
         
-        // 使用安全队列弹出任务上下文
         let execTask = window._slExecQueue.shift();
 
         if (!execTask) {
@@ -158,22 +247,18 @@ export function setupAPIInjector(app) {
             return result; 
         }
 
-        // 暂存为最新生成成功的任务，等待 HTTP 返回结果映射 ID
         window._slLastGeneratedTask = execTask;
-
         console.log(`[ShellLink] 🚀 插件运行模式：当前注入任务卡片: ${execTask.cardId}`);
 
         const activeCard = StateManager.state.cards.find(c => c.id === execTask.cardId);
         if (!activeCard) return result;
 
-        // 【深拷贝】保护 ComfyUI 图谱内存免受污染
         const promptOutput = JSON.parse(JSON.stringify(result.output));
         result.output = promptOutput;
 
         // --- 阶段 A: 参数注入 ---
         if (activeCard.areas && activeCard.areas.length > 0) {
             activeCard.areas.filter(a => a.type === 'edit').forEach(area => {
-                // 读取全部被多选绑定的参数列表
                 let targets = [];
                 if (Array.isArray(area.targetWidgets) && area.targetWidgets.length > 0) {
                     targets = area.targetWidgets.map(tw => {
@@ -184,7 +269,6 @@ export function setupAPIInjector(app) {
                     targets = [{ nodeId: area.targetNodeId, widget: area.targetWidget }];
                 }
 
-                // 循环将值注入到每一个被绑定的节点参数中
                 targets.forEach(t => {
                     const nodeData = promptOutput[t.nodeId];
                     if (nodeData && nodeData.inputs) {
@@ -195,7 +279,6 @@ export function setupAPIInjector(app) {
                             try { injectValue = JSON.parse(injectValue); } catch (e) {}
                         }
                         nodeData.inputs[t.widget] = injectValue;
-                        console.log(`[ShellLink] 注入 -> 节点 ${t.nodeId} [${t.widget}] =`, injectValue);
                     }
                 });
             });
@@ -209,7 +292,6 @@ export function setupAPIInjector(app) {
                         const nodeData = promptOutput[area.targetNodeId];
                         let prefix = `ShellLink/Pix`;
                         
-                        // 【核心修改】：拦截 PreviewImage 和原版 SaveImage，悄悄替换为我们后端的专属无下划线节点！
                         if (nodeData.class_type === 'PreviewImage' || nodeData.class_type === 'SaveImage') {
                             nodeData.class_type = 'ShellLinkSaveImage';
                             if (!nodeData.inputs) nodeData.inputs = {};
@@ -254,7 +336,51 @@ export function setupAPIInjector(app) {
     };
 
     // =========================================================================
-    // 3. 监听引擎执行完成事件 (Output 路由回传)
+    // 3. 全局进度监听
+    // =========================================================================
+    
+    api.addEventListener("progress_state", (e) => {
+        const pid = e.detail?.prompt_id;
+        const nodes = e.detail?.nodes;
+        const task = window._slTaskMap[pid];
+        
+        if (task && nodes) {
+            let total = 0;
+            let done = 0;
+            
+            for (const nid in nodes) {
+                const nodeState = nodes[nid];
+                total += nodeState.max || 0;
+                done += nodeState.value || 0;
+            }
+            
+            if (total > 0) {
+                const percent = Math.max(5, (done / total) * 100);
+                setUIProgress(task.cardId, percent);
+            }
+        }
+    });
+
+    api.addEventListener("executing", (e) => {
+        const pid = e.detail?.prompt_id;
+        const task = window._slTaskMap[pid];
+        
+        // 当 e.detail.node 为 null 时，表示整个队列(prompt_id)中的所有节点都执行完毕了！
+        if (task && !e.detail.node) {
+            window._slDoneTasks = window._slDoneTasks || new Set();
+            window._slDoneTasks.add(task.cardId); // 【核心防线】：写入完成名单
+
+            setUIProgress(task.cardId, 100);
+            
+            if (window._slHideTimers[task.cardId]) clearTimeout(window._slHideTimers[task.cardId]);
+            window._slHideTimers[task.cardId] = setTimeout(() => {
+                setUIProgress(task.cardId, 0, true);
+            }, 800);
+        }
+    });
+
+    // =========================================================================
+    // 4. 监听引擎执行完成事件
     // =========================================================================
     api.addEventListener("executed", (event) => {
         const detail = event.detail;

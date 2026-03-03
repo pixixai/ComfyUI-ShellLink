@@ -161,8 +161,6 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
         const selectedAreas = [];
         state.cards.forEach(c => c.areas?.forEach(a => { if (state.selectedAreaIds.includes(a.id)) selectedAreas.push({card: c, area: a}); }));
         const mainType = selectedAreas[0]?.area.type;
-        
-        // 【修复】：在此处安全地捕获 mainArea 变量，修复管理按钮点击报错的问题！
         const mainArea = selectedAreas[0]?.area;
 
         const updateSelected = (updater) => {
@@ -293,7 +291,7 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                                     const hasVal = (a.value !== undefined && a.value !== null && a.value !== '');
                                     if (!isManual || !hasVal) a.value = firstValidWidgetDef.value;
                                     if (firstValidWidgetDef.type === "toggle" || typeof firstValidWidgetDef.value === "boolean") a.dataType = 'boolean';
-                                    else if (typeof firstValidWidgetDef.value === "number") a.dataType = 'number';
+                                    else if (typeof typeof firstValidWidgetDef.value === "number") a.dataType = 'number';
                                     else a.dataType = 'string';
                                 }
                             });

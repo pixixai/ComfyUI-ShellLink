@@ -199,7 +199,6 @@ export function attachDataIOEvents(panelContainer) {
                 </button>
                 <div id="sl-export-json-dropdown" class="sl-custom-select-dropdown" style="display:none; top: calc(100% + 4px); right: 0; left: auto; min-width: 230px; z-index: 10002;">
                     
-                    <!-- 1. 打包为ZIP -->
                     <div class="sl-custom-select-group-title" style="padding: 6px 12px; font-size: 12px; margin-top: 0; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05); display: flex; align-items: center; white-space: nowrap; gap: 12px;">打包为ZIP</div>
                     <div class="sl-custom-select-item" id="sl-export-media-all">下载全部</div>
                     <div class="sl-custom-select-item" id="sl-export-media-sel">下载选中</div>
@@ -365,11 +364,13 @@ export function attachDataIOEvents(panelContainer) {
             cardsToExport.forEach((card) => {
                 const cardObj = {};
                 let unnamedInputCount = 1, unnamedOutputCount = 1;
+                
                 if (mode === 'input' || mode === 'all') {
                     card.areas?.filter(a => a.type === 'edit').forEach((a) => {
                         cardObj[a.title || `##${unnamedInputCount++}`] = a.value || "";
                     });
                 }
+                
                 if (mode === 'output' || mode === 'all') {
                     card.areas?.filter(a => a.type === 'preview').forEach((a) => {
                         let val = a.resultUrl || "";
@@ -422,6 +423,7 @@ export function attachDataIOEvents(panelContainer) {
             state.cards.forEach((card, cardIndex) => {
                 const taskName = card.title ? card.title.replace(/[\\/:"*?<>|]/g, "_").trim() : String(cardIndex + 1);
                 let previewCount = 0;
+                
                 card.areas?.forEach((area) => {
                     if (area.type === 'preview') {
                         previewCount++;
@@ -430,12 +432,16 @@ export function attachDataIOEvents(panelContainer) {
                                 const urlObj = new URL(area.resultUrl, window.location.origin);
                                 const filename = urlObj.searchParams.get('filename');
                                 if (filename) {
+                                    const subfolder = urlObj.searchParams.get('subfolder') || "";
+                                    const areaName = area.title ? area.title.replace(/[\\/:"*?<>|]/g, "_").trim() : String(previewCount);
+                                    
                                     filesToProcess.push({
-                                        id: area.id,
+                                        id: area.id, 
                                         filename: filename,
-                                        subfolder: urlObj.searchParams.get('subfolder') || "",
+                                        type: urlObj.searchParams.get('type') || "output", 
+                                        subfolder: subfolder,
                                         target_subfolder: `ShellLink/${workflowName}`,
-                                        target_filename: `${taskName}_${area.title ? area.title.replace(/[\\/:"*?<>|]/g, "_").trim() : String(previewCount)}`
+                                        target_filename: `${taskName}_${areaName}`
                                     });
                                 }
                             } catch (e) {}
@@ -453,16 +459,32 @@ export function attachDataIOEvents(panelContainer) {
                     if (action === 'move') {
                         res.results.forEach(r => {
                             state.cards.forEach(c => c.areas?.forEach(a => {
-                                if (a.id === r.old_id && a.resultUrl) {
-                                    const urlObj = new URL(a.resultUrl, window.location.origin);
-                                    urlObj.searchParams.set('filename', r.new_filename);
-                                    urlObj.searchParams.set('subfolder', r.new_subfolder);
-                                    a.resultUrl = urlObj.toString();
+                                if (a.id === r.old_id) {
+                                    if (a.resultUrl) {
+                                        const urlObj = new URL(a.resultUrl, window.location.origin);
+                                        urlObj.searchParams.set('filename', r.new_filename);
+                                        urlObj.searchParams.set('subfolder', r.new_subfolder);
+                                        a.resultUrl = urlObj.toString();
+                                    }
+                                    
+                                    if (a.history && a.history.length > 0) {
+                                        a.history = a.history.map(hUrl => {
+                                            try {
+                                                const hObj = new URL(hUrl, window.location.origin);
+                                                if (hObj.searchParams.get('filename') === r.old_filename) {
+                                                    hObj.searchParams.set('filename', r.new_filename);
+                                                    hObj.searchParams.set('subfolder', r.new_subfolder);
+                                                    return hObj.toString();
+                                                }
+                                            } catch(e){}
+                                            return hUrl;
+                                        });
+                                    }
                                 }
                             }));
                         });
-                        saveAndRender();
                     }
+                    saveAndRender();
                     alert(`✅ 成功${action === 'move' ? '移动' : '复制'}并重命名了 ${res.results.length} 个文件到 ${workflowName} 文件夹！`);
                 } else alert("❌ 操作失败: " + (res.error || "未知错误"));
             } catch (err) { alert("❌ 请求后端接口失败。\n" + err.message); }

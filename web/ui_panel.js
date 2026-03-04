@@ -225,7 +225,7 @@ function createPanelDOM() {
                 <line x1="9" y1="3" x2="9" y2="21"></line>
             </svg>
             <input type="range" id="sl-card-width-slider" min="260" max="600" value="320" style="width: 80px; accent-color: #888; cursor: pointer; height: 4px; background: rgba(255,255,255,0.2); outline: none; border-radius: 2px; -webkit-appearance: none;">
-            <input type="number" id="sl-card-width-input" title="手动输入宽度 (回车确认)" style="width: 36px; background: transparent; border: none; color: #888; font-size: 12px; outline: none; text-align: left; padding: 0; margin: 0; font-family: monospace; transition: color 0.2s;" onfocus="this.style.color='#fff'" onblur="this.style.color='#888'">
+            <input type="number" id="sl-card-width-input" title="手动输入宽度 (回车确认)" style="width: 36px; background: transparent; border: none; color: #888; font-size: 12px; outline: none; text-align: left; padding: 0; margin: 0; font-family: sans-serif; transition: color 0.2s;" onfocus="this.style.color='#fff'" onblur="this.style.color='#888'">
         </div>
     `;
 

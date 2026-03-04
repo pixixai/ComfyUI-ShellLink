@@ -727,9 +727,33 @@ function setupGlobalEventListeners() {
         const { cardId, areaId, url } = e.detail;
         const areaEl = document.querySelector(`.sl-area[data-area-id="${areaId}"]`);
         if (areaEl) {
-            const imgEl = areaEl.querySelector('.sl-preview-img');
+            const mediaEl = areaEl.querySelector('.sl-preview-img');
+            
+            // 【修复2-1】：如果在生成记录管理（网格）模式下，DOM 结构不同，强制走全量重绘
+            if (!mediaEl) {
+                document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                return;
+            }
+
             const placeholder = areaEl.querySelector('.sl-preview-placeholder');
-            if (imgEl) { imgEl.src = url; imgEl.style.display = "block"; }
+            
+            const isVideo = url.toLowerCase().match(/\.(mp4|webm|mov)$/);
+            const isImgTag = mediaEl.tagName.toLowerCase() === 'img';
+            
+            // 【修复2-2】：智能替换媒体标签！再也不会出现把视频喂给 img 标签的情况了
+            if (isVideo && isImgTag) {
+                const errCall = `if(window.ShellLink && window.ShellLink.handleMediaError) window.ShellLink.handleMediaError('${cardId}', '${areaId}', '${url}');`;
+                const vidHtml = `<video id="sl-img-${areaId}" class="sl-preview-img" src="${url}" draggable="false" style="${mediaEl.style.cssText}; display:block;" autoplay loop muted controls onerror="${errCall}"></video>`;
+                mediaEl.outerHTML = vidHtml;
+            } else if (!isVideo && !isImgTag) {
+                const errCall = `if(window.ShellLink && window.ShellLink.handleMediaError) window.ShellLink.handleMediaError('${cardId}', '${areaId}', '${url}');`;
+                const imgHtml = `<img id="sl-img-${areaId}" class="sl-preview-img" src="${url}" draggable="false" style="${mediaEl.style.cssText}; display:block;" onerror="${errCall}" />`;
+                mediaEl.outerHTML = imgHtml;
+            } else {
+                mediaEl.src = url;
+                mediaEl.style.display = "block";
+            }
+            
             if (placeholder) placeholder.style.display = "none";
         }
     });

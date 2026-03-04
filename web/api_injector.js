@@ -19,6 +19,104 @@ export function setupAPIInjector(app) {
     window._slDoneTasks = window._slDoneTasks || new Set(); // 【新增】：完成名单，防止后端发送迟到的信号导致进度条诈尸
 
     // =========================================================================
+    // 【神级防护】：拦截全局重绘事件，使用“DOM 拔插术”实现视频真正 0 闪烁播放
+    // =========================================================================
+    if (!window._slDispatchHijacked) {
+        const originalDispatchEvent = document.dispatchEvent;
+        document.dispatchEvent = function(event) {
+            let savedVideoDOMs = null;
+            
+            // 阶段 1：在发送重绘信号前，把页面上所有的真实 <video> DOM 节点暂时拔下来，藏在内存里！
+            if (event && event.type === "sl_render_ui") {
+                savedVideoDOMs = new Map();
+                document.querySelectorAll('video').forEach(v => {
+                    // 【核心修复】：必须是 ID 和 SRC 的强绑定！防止切换历史记录时旧视频鸠占鹊巢
+                    const key = v.id ? `${v.id}|${v.src}` : v.src;
+                    if (key) {
+                        const state = { time: v.currentTime, paused: v.paused };
+                        // 拔下真实的 video 节点，不销毁它的解码器和播放状态
+                        v.parentNode.removeChild(v);
+                        savedVideoDOMs.set(key, { element: v, state: state });
+                    }
+                });
+            }
+            
+            // 执行真正的 DOM 刷新 (innerHTML 被全量覆盖，生成了全新的空 <video> 标签)
+            const result = originalDispatchEvent.apply(this, arguments);
+            
+            // 阶段 2：重绘完成后，立刻同步把我们保护好的真实 <video> DOM 节点塞回去！
+            if (event && event.type === "sl_render_ui" && savedVideoDOMs && savedVideoDOMs.size > 0) {
+                document.querySelectorAll('video').forEach(newVideo => {
+                    const key = newVideo.id ? `${newVideo.id}|${newVideo.src}` : newVideo.src;
+                    if (key && savedVideoDOMs.has(key)) {
+                        const data = savedVideoDOMs.get(key);
+                        const realVideo = data.element;
+                        
+                        // 继承新渲染出的样式或类名（比如由于匹配比例引发的宽高变化）
+                        realVideo.className = newVideo.className;
+                        realVideo.style.cssText = newVideo.style.cssText;
+                        
+                        // 狸猫换太子：把空壳 video 换成我们一直在平稳播放的真 video
+                        newVideo.parentNode.replaceChild(realVideo, newVideo);
+                        
+                        // 瞬间恢复播放进度和状态
+                        realVideo.currentTime = data.state.time;
+                        if (!data.state.paused) {
+                            const p = realVideo.play();
+                            if (p !== undefined) p.catch(() => {});
+                        }
+                    }
+                });
+                savedVideoDOMs.clear();
+            }
+            return result;
+        };
+        window._slDispatchHijacked = true;
+    }
+
+    // =========================================================================
+    // 【神级修复】：全局媒体加载监听器，实现切换历史记录时动态适配尺寸
+    // =========================================================================
+    if (!window._slMediaLoadHijacked) {
+        const handleMediaLoad = (element, width, height) => {
+            if (!width || !height) return;
+            const areaEl = element.closest('.sl-area');
+            if (!areaEl) return;
+            const cardId = areaEl.dataset.cardId;
+            const areaId = areaEl.dataset.areaId;
+            const card = StateManager.state.cards.find(c => c.id === cardId);
+            const area = card?.areas.find(a => a.id === areaId);
+            
+            if (area && area.matchMedia) {
+                // 只有当尺寸确实发生了变化，才去触发重绘，避免无限循环死锁
+                if (area.width !== width || area.height !== height || area.ratio !== '自定义比例') {
+                    area.ratio = '自定义比例';
+                    area.width = width;
+                    area.height = height;
+                    StateManager.syncToNode(app.graph);
+                    document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                }
+            }
+        };
+
+        // 捕获阶段监听所有的图片加载 (天然支持从内存缓存极速加载的情况)
+        document.addEventListener('load', (e) => {
+            if (e.target && e.target.tagName === 'IMG' && e.target.classList && e.target.classList.contains('sl-preview-img')) {
+                handleMediaLoad(e.target, e.target.naturalWidth, e.target.naturalHeight);
+            }
+        }, true);
+
+        // 捕获阶段监听所有的视频数据加载
+        document.addEventListener('loadeddata', (e) => {
+            if (e.target && e.target.tagName === 'VIDEO' && e.target.classList && e.target.classList.contains('sl-preview-img')) {
+                handleMediaLoad(e.target, e.target.videoWidth, e.target.videoHeight);
+            }
+        }, true);
+
+        window._slMediaLoadHijacked = true;
+    }
+
+    // =========================================================================
     // 【核弹级 UI 渲染器】：支持报错红灯模式，最高权限 (!important) 压制闪烁
     // =========================================================================
     const setUIProgress = (cardId, percentage, isHide = false, isError = false, isRestore = false) => {
@@ -380,7 +478,7 @@ export function setupAPIInjector(app) {
     });
 
     // =========================================================================
-    // 4. 监听引擎执行完成事件
+    // 4. 监听引擎执行完成事件 (增强版：支持多种格式的视频识别与获取尺寸)
     // =========================================================================
     api.addEventListener("executed", (event) => {
         const detail = event.detail;
@@ -400,37 +498,103 @@ export function setupAPIInjector(app) {
             }
 
             if (String(area.targetNodeId) === String(executedNodeId)) {
-                if (outputData.images && outputData.images.length > 0) {
-                    const img = outputData.images[0];
-                    const params = new URLSearchParams({ filename: img.filename, type: img.type, subfolder: img.subfolder || "" });
-                    const imageUrl = api.apiURL(`/view?${params.toString()}`);
-                    area.resultUrl = imageUrl;
+                let newUrl = null;
+                let isVideo = false;
+
+                // 【修复核心】：兼容 ComfyUI 各种节点（包含原生保存视频节点）的输出格式
+                let targetItems = null;
+                if (outputData.videos && outputData.videos.length > 0) targetItems = outputData.videos;
+                else if (outputData.gifs && outputData.gifs.length > 0) targetItems = outputData.gifs;
+                else if (outputData.images && outputData.images.length > 0) targetItems = outputData.images;
+
+                if (targetItems && targetItems.length > 0) {
+                    const media = targetItems[0];
+                    const params = new URLSearchParams({ filename: media.filename, type: media.type, subfolder: media.subfolder || "" });
+                    newUrl = api.apiURL(`/view?${params.toString()}`);
+                    
+                    // 通过扩展名和格式双重判断是否为视频，防止视频被错判为图片
+                    const ext = media.filename.split('.').pop().toLowerCase();
+                    if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext) || (media.format && media.format.startsWith('video/'))) {
+                        isVideo = true;
+                    }
+                }
+
+                if (newUrl) {
+                    area.resultUrl = newUrl;
 
                     if (area.matchMedia) {
-                        const tempImg = new Image();
-                        tempImg.onload = () => {
-                            area.ratio = '自定义比例';
-                            area.width = tempImg.naturalWidth;
-                            area.height = tempImg.naturalHeight;
-                            StateManager.syncToNode(app.graph);
-                            document.dispatchEvent(new CustomEvent("sl_render_ui"));
-                        };
-                        tempImg.src = imageUrl; 
+                        if (isVideo) {
+                            // 增强视频尺寸读取。使用原生 <video> 标签及 onloadeddata
+                            const tempVid = document.createElement('video');
+                            tempVid.muted = true;
+                            tempVid.playsInline = true;
+                            tempVid.onloadeddata = () => {
+                                area.ratio = '自定义比例';
+                                area.width = tempVid.videoWidth;
+                                area.height = tempVid.videoHeight;
+                                StateManager.syncToNode(app.graph);
+                                document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                            };
+                            tempVid.onerror = (e) => console.error("[ShellLink] 读取视频尺寸失败", e);
+                            tempVid.src = newUrl;
+                            tempVid.load();
+                        } else {
+                            const tempImg = new Image();
+                            tempImg.onload = () => {
+                                area.ratio = '自定义比例';
+                                area.width = tempImg.naturalWidth;
+                                area.height = tempImg.naturalHeight;
+                                StateManager.syncToNode(app.graph);
+                                document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                            };
+                            tempImg.src = newUrl; 
+                        }
                     } else {
+                        // 无论图片还是视频，统一下发热更新事件
                         StateManager.syncToNode(app.graph);
                         document.dispatchEvent(new CustomEvent("shell_link_update_preview", {
-                            detail: { cardId: card.id, areaId: area.id, url: imageUrl, type: 'image' }
+                            detail: { cardId: card.id, areaId: area.id, url: newUrl }
                         }));
                     }
-                } 
-                else if (outputData.gifs && outputData.gifs.length > 0) {
-                    const video = outputData.gifs[0]; 
-                    const params = new URLSearchParams({ filename: video.filename, type: video.type, subfolder: video.subfolder || "" });
-                    area.resultUrl = api.apiURL(`/view?${params.toString()}`);
-                    StateManager.syncToNode(app.graph);
-                    document.dispatchEvent(new CustomEvent("sl_render_ui"));
                 }
             }
         });
     });
 }
+
+// =========================================================================
+// 拦截 api.queuePrompt：专为面板运行的视频任务重定向保存路径
+// =========================================================================
+const originalQueuePrompt = api.queuePrompt;
+api.queuePrompt = async function(number, payload) {
+    // 判断是否是从 ShellLink 面板点击发起的运行 (通过识别 _slLastGeneratedTask 标志)
+    if (window._slLastGeneratedTask && payload && payload.output) {
+        // 遍历即将发给后端的 JSON 格式节点数据
+        for (const nodeId in payload.output) {
+            const node = payload.output[nodeId];
+            
+            // 识别主流的视频保存节点 (例如 Video Helper Suite 的 VHS_VideoCombine)
+            if (node.class_type === "VHS_VideoCombine" || (node.class_type && node.class_type.includes("Video"))) {
+                
+                // 强行统一命名！只要是面板触发的视频生成，无论原生节点原本叫什么，一律改叫 Pix
+                const targetPrefix = "ShellLink/video/Pix";
+                
+                if (node.inputs) {
+                    if (node.inputs.save_prefix !== undefined) {
+                        node.inputs.save_prefix = targetPrefix;
+                    } 
+                    else if (node.inputs.filename_prefix !== undefined) {
+                        node.inputs.filename_prefix = targetPrefix;
+                    } 
+                    else {
+                        // 兜底方案：如果原生节点连前缀属性都没有，强行给它塞一个进去
+                        node.inputs.save_prefix = targetPrefix;
+                    }
+                }
+            }
+        }
+    }
+    
+    // 隐形修改完毕，放行继续执行原生的发包流程
+    return originalQueuePrompt.apply(this, arguments);
+};

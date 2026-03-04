@@ -12,18 +12,19 @@ export function renderVideo(area, objectFit, url, errCall) {
                 <div class="sl-video-toolbar">
                     <span class="sl-timecode" style="font-family: sans-serif;">00:00 / 00:00</span>
                     <div class="sl-video-tools-right">
-                        <!-- 自定义音量滑杆悬浮效果 -->
-                        <div class="sl-volume-wrap sl-video-controls-interactive">
+                        
+                        <!-- 极简音量滑杆 (同步音频组件的透明无背景风格) -->
+                        <div class="sl-volume-wrap sl-video-controls-interactive" style="background: transparent !important;">
                             <div class="sl-volume-slider-container sl-vid-vol-slider" title="调节音量">
                                 <div class="sl-volume-slider-track">
                                     <div class="sl-volume-slider-fill"></div>
                                     <div class="sl-volume-slider-thumb"></div>
                                 </div>
                             </div>
-                            <button class="sl-media-opt-btn sl-opt-mute" title="静音/取消静音">
-                                <svg class="sl-vol-icon-high" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-                                <svg class="sl-vol-icon-muted" style="display:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
-                                <svg class="sl-vol-icon-none" style="display:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon></svg>
+                            <button class="sl-media-opt-btn sl-opt-mute" title="静音/取消静音" style="padding: 4px 6px; background: transparent !important; color: #aaa; transition: color 0.2s;" onmouseover="if(this.style.pointerEvents !== 'none') this.style.color='#fff'" onmouseout="if(this.style.pointerEvents !== 'none') this.style.color='#aaa'">
+                                <svg class="sl-vol-icon-high" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                                <svg class="sl-vol-icon-muted" style="display:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                                <svg class="sl-vol-icon-none" style="display:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon></svg>
                             </button>
                         </div>
                         
@@ -87,7 +88,9 @@ export function updateVideoProgress() {
                 if (slider) slider.style.display = 'none';
             } else {
                 if (volWrap) volWrap.classList.remove('no-audio');
-                muteOpt.style.color = '#eee';
+                if (muteOpt.style.color === 'rgb(136, 136, 136)' || muteOpt.style.color === '#888') {
+                    muteOpt.style.color = '#aaa'; 
+                }
                 muteOpt.style.pointerEvents = 'auto';
                 muteOpt.title = (vid.muted || vid.volume === 0) ? '取消静音' : '静音';
                 if (slider) slider.style.display = 'block';
@@ -151,7 +154,9 @@ export function attachVideoEvents(container) {
                 if (slider) slider.style.display = 'none';
             } else {
                 if (volWrap) volWrap.classList.remove('no-audio');
-                muteOpt.style.color = '#eee';
+                if (muteOpt.style.color === 'rgb(136, 136, 136)' || muteOpt.style.color === '#888') {
+                    muteOpt.style.color = '#aaa'; 
+                }
                 muteOpt.style.pointerEvents = 'auto';
                 muteOpt.style.cursor = 'pointer';
                 muteOpt.title = (vid.muted || vid.volume === 0) ? '取消静音' : '静音';

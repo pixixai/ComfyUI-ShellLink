@@ -500,10 +500,12 @@ export function setupAPIInjector(app) {
             if (String(area.targetNodeId) === String(executedNodeId)) {
                 let newUrl = null;
                 let isVideo = false;
+                let isAudio = false;
 
-                // 【修复核心】：兼容 ComfyUI 各种节点（包含原生保存视频节点）的输出格式
+                // 【核心修复1】：支持读取 outputData.audio 数组！
                 let targetItems = null;
                 if (outputData.videos && outputData.videos.length > 0) targetItems = outputData.videos;
+                else if (outputData.audio && outputData.audio.length > 0) targetItems = outputData.audio;
                 else if (outputData.gifs && outputData.gifs.length > 0) targetItems = outputData.gifs;
                 else if (outputData.images && outputData.images.length > 0) targetItems = outputData.images;
 
@@ -512,10 +514,11 @@ export function setupAPIInjector(app) {
                     const params = new URLSearchParams({ filename: media.filename, type: media.type, subfolder: media.subfolder || "" });
                     newUrl = api.apiURL(`/view?${params.toString()}`);
                     
-                    // 通过扩展名和格式双重判断是否为视频，防止视频被错判为图片
                     const ext = media.filename.split('.').pop().toLowerCase();
                     if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext) || (media.format && media.format.startsWith('video/'))) {
                         isVideo = true;
+                    } else if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(ext) || (media.format && media.format.startsWith('audio/'))) {
+                        isAudio = true;
                     }
                 }
 
@@ -524,7 +527,6 @@ export function setupAPIInjector(app) {
 
                     if (area.matchMedia) {
                         if (isVideo) {
-                            // 增强视频尺寸读取。使用原生 <video> 标签及 onloadeddata
                             const tempVid = document.createElement('video');
                             tempVid.muted = true;
                             tempVid.playsInline = true;
@@ -538,6 +540,11 @@ export function setupAPIInjector(app) {
                             tempVid.onerror = (e) => console.error("[ShellLink] 读取视频尺寸失败", e);
                             tempVid.src = newUrl;
                             tempVid.load();
+                        } else if (isAudio) {
+                            // 【核心修复2】：音频没有天然尺寸，如果开启了“匹配媒体比例”，则跳过尺寸计算直接渲染
+                            area.ratio = 'auto';
+                            StateManager.syncToNode(app.graph);
+                            document.dispatchEvent(new CustomEvent("sl_render_ui"));
                         } else {
                             const tempImg = new Image();
                             tempImg.onload = () => {
@@ -550,7 +557,6 @@ export function setupAPIInjector(app) {
                             tempImg.src = newUrl; 
                         }
                     } else {
-                        // 无论图片还是视频，统一下发热更新事件
                         StateManager.syncToNode(app.graph);
                         document.dispatchEvent(new CustomEvent("shell_link_update_preview", {
                             detail: { cardId: card.id, areaId: area.id, url: newUrl }
@@ -567,17 +573,14 @@ export function setupAPIInjector(app) {
 // =========================================================================
 const originalQueuePrompt = api.queuePrompt;
 api.queuePrompt = async function(number, payload) {
-    // 判断是否是从 ShellLink 面板点击发起的运行 (通过识别 _slLastGeneratedTask 标志)
     if (window._slLastGeneratedTask && payload && payload.output) {
-        // 遍历即将发给后端的 JSON 格式节点数据
         for (const nodeId in payload.output) {
             const node = payload.output[nodeId];
             
-            // 识别主流的视频保存节点 (例如 Video Helper Suite 的 VHS_VideoCombine)
-            if (node.class_type === "VHS_VideoCombine" || (node.class_type && node.class_type.includes("Video"))) {
+            // 【核心修复3】：把音频保存节点 (SaveAudio) 也纳入自动路径分类管理
+            if (node.class_type === "VHS_VideoCombine" || (node.class_type && node.class_type.includes("Video")) || (node.class_type && node.class_type.includes("Audio"))) {
                 
-                // 强行统一命名！只要是面板触发的视频生成，无论原生节点原本叫什么，一律改叫 Pix
-                const targetPrefix = "ShellLink/video/Pix";
+                const targetPrefix = "ShellLink/media/Pix";
                 
                 if (node.inputs) {
                     if (node.inputs.save_prefix !== undefined) {
@@ -587,14 +590,11 @@ api.queuePrompt = async function(number, payload) {
                         node.inputs.filename_prefix = targetPrefix;
                     } 
                     else {
-                        // 兜底方案：如果原生节点连前缀属性都没有，强行给它塞一个进去
                         node.inputs.save_prefix = targetPrefix;
                     }
                 }
             }
         }
     }
-    
-    // 隐形修改完毕，放行继续执行原生的发包流程
     return originalQueuePrompt.apply(this, arguments);
 };

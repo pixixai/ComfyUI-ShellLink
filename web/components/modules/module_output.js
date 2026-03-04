@@ -24,10 +24,18 @@ export function generateOutputHTML(area, card) {
             else if (isSelected) border = '2px solid #2196F3';
 
             const urlLower = hUrl.toLowerCase();
-            const isVid = urlLower.includes('.mp4') || urlLower.includes('.webm') || urlLower.includes('.mov');
-            const media = isVid 
-                ? `<video src="${hUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" muted></video>` 
-                : `<img src="${hUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" />`;
+            const isVid = urlLower.match(/\.(mp4|webm|mov|avi|mkv)/);
+            const isAud = urlLower.match(/\.(mp3|wav|ogg|flac|aac|m4a)/);
+            
+            let media = '';
+            if (isVid) {
+                media = `<video src="${hUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" muted></video>`;
+            } else if (isAud) {
+                // 【核心修复】：为音频文件在历史网格中提供专属占位图标，防止裂图
+                media = `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#222; color:#fff; font-size:24px;">🎵</div>`;
+            } else {
+                media = `<img src="${hUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" />`;
+            }
 
             const overlay = isSelected ? `<div style="position:absolute;inset:0;background:rgba(33,150,243,0.3);pointer-events:none;"></div>` : '';
             

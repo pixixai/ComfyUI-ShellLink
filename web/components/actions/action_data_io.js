@@ -411,7 +411,8 @@ export function attachDataIOEvents(panelContainer) {
             const jsonStr = generateExportJSON(mode);
             if (currentJsonAction === 'copy') {
                 try {
-                    await clipboard.writeText(jsonStr);
+                    // 【修复】：补全 navigator.clipboard 前缀
+                    await navigator.clipboard.writeText(jsonStr);
                     alert("✅ JSON 数据已成功复制到剪切板！");
                 } catch (err) { alert("❌ 复制失败。\n" + err.message); }
             } else if (currentJsonAction === 'download') {

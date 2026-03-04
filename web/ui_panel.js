@@ -658,23 +658,24 @@ function setupGlobalEventListeners() {
 
             if (String(area.targetNodeId) === String(executedNodeId)) {
                 let newUrl = null;
-                if (outputData.images && outputData.images.length > 0) {
-                    const img = outputData.images[0];
-                    const params = new URLSearchParams({ filename: img.filename, type: img.type, subfolder: img.subfolder || "" });
-                    newUrl = api.apiURL(`/view?${params.toString()}`);
-                } else if (outputData.gifs && outputData.gifs.length > 0) {
-                    const video = outputData.gifs[0]; 
-                    const params = new URLSearchParams({ filename: video.filename, type: video.type, subfolder: video.subfolder || "" });
+                // 【核心同步】：支持提取历史记录中的 outputData.audio
+                let targetItems = null;
+                if (outputData.videos && outputData.videos.length > 0) targetItems = outputData.videos;
+                else if (outputData.audio && outputData.audio.length > 0) targetItems = outputData.audio;
+                else if (outputData.gifs && outputData.gifs.length > 0) targetItems = outputData.gifs;
+                else if (outputData.images && outputData.images.length > 0) targetItems = outputData.images;
+
+                if (targetItems && targetItems.length > 0) {
+                    const media = targetItems[0];
+                    const params = new URLSearchParams({ filename: media.filename, type: media.type, subfolder: media.subfolder || "" });
                     newUrl = api.apiURL(`/view?${params.toString()}`);
                 }
                 
                 if (newUrl) {
                     if (!area.history) area.history = [];
-                    // 去重检查：如果因为某些连线设计导致重复返回了同一张图，就不记录
                     if (area.history.length === 0 || area.history[area.history.length - 1] !== newUrl) {
                         area.history.push(newUrl);
                     }
-                    // 无论如何，强制跳到最新的一张图上
                     area.historyIndex = area.history.length - 1;
                 }
             }
@@ -729,7 +730,6 @@ function setupGlobalEventListeners() {
         if (areaEl) {
             const mediaEl = areaEl.querySelector('.sl-preview-img');
             
-            // 【修复2-1】：如果在生成记录管理（网格）模式下，DOM 结构不同，强制走全量重绘
             if (!mediaEl) {
                 document.dispatchEvent(new CustomEvent("sl_render_ui"));
                 return;
@@ -737,22 +737,24 @@ function setupGlobalEventListeners() {
 
             const placeholder = areaEl.querySelector('.sl-preview-placeholder');
             
-            const isVideo = url.toLowerCase().match(/\.(mp4|webm|mov)$/);
-            const isImgTag = mediaEl.tagName.toLowerCase() === 'img';
+            const isVideo = url.toLowerCase().match(/\.(mp4|webm|mov|avi|mkv)$/);
+            const isAudio = url.toLowerCase().match(/\.(mp3|wav|ogg|flac|aac|m4a)$/);
             
-            // 【修复2-2】：智能替换媒体标签！再也不会出现把视频喂给 img 标签的情况了
-            if (isVideo && isImgTag) {
-                const errCall = `if(window.ShellLink && window.ShellLink.handleMediaError) window.ShellLink.handleMediaError('${cardId}', '${areaId}', '${url}');`;
-                const vidHtml = `<video id="sl-img-${areaId}" class="sl-preview-img" src="${url}" draggable="false" style="${mediaEl.style.cssText}; display:block;" autoplay loop muted controls onerror="${errCall}"></video>`;
-                mediaEl.outerHTML = vidHtml;
-            } else if (!isVideo && !isImgTag) {
-                const errCall = `if(window.ShellLink && window.ShellLink.handleMediaError) window.ShellLink.handleMediaError('${cardId}', '${areaId}', '${url}');`;
-                const imgHtml = `<img id="sl-img-${areaId}" class="sl-preview-img" src="${url}" draggable="false" style="${mediaEl.style.cssText}; display:block;" onerror="${errCall}" />`;
-                mediaEl.outerHTML = imgHtml;
-            } else {
-                mediaEl.src = url;
-                mediaEl.style.display = "block";
+            const tagName = mediaEl.tagName.toLowerCase();
+            const isImgTag = tagName === 'img';
+            const isVidTag = tagName === 'video';
+            const isAudTag = tagName === 'audio';
+            
+            // 【核心修复】：如果你上一次生成的是图片，这次是音频，DOM 标签 (img 和 audio) 根本不匹配！
+            // 此时最安全的做法是：直接触发 sl_render_ui 让 module_media 重新生成对应组件的播放器
+            if ((isVideo && !isVidTag) || (isAudio && !isAudTag) || (!isVideo && !isAudio && !isImgTag)) {
+                document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                return;
             }
+
+            // 如果媒体类型没变，直接替换 src 实现无感更新
+            mediaEl.src = url;
+            mediaEl.style.display = "block";
             
             if (placeholder) placeholder.style.display = "none";
         }

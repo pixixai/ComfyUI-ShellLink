@@ -143,6 +143,7 @@ export function attachCardEvents(container) {
         };
     });
 
+    // 这里你之前的批量删除逻辑写得非常棒，完全保留
     container.querySelectorAll('.sl-del-card-btn').forEach(btn => {
         btn.onclick = (e) => {
             const id = e.target.dataset.id;
@@ -157,7 +158,9 @@ export function attachCardEvents(container) {
         };
     });
 
-    // 🚨 所有的 click/mousedown 全盘铲除，彻底绝后患
+    // =========================================================================
+    // 【核心升级】：卡片层级的批量拖拽与重组引擎
+    // =========================================================================
     container.querySelectorAll('.sl-card').forEach(cardEl => {
         if (cardEl.classList.contains('sl-add-card-inline')) return;
 
@@ -167,23 +170,39 @@ export function attachCardEvents(container) {
             }
             if (e.target.closest('.sl-area')) return; 
 
+            const currentCardId = cardEl.dataset.cardId;
+
+            // 识别是否处于多选阵列中
+            let draggedIds = [currentCardId];
+            if (state.selectedCardIds && state.selectedCardIds.includes(currentCardId)) {
+                draggedIds = [...state.selectedCardIds];
+            }
+
             dragState.type = 'card';
-            dragState.cardId = cardEl.dataset.cardId;
+            dragState.cardIds = draggedIds; // 核心：记录多选数组
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', 'card');
-            setTimeout(() => cardEl.classList.add('sl-dragging'), 0);
+            
+            setTimeout(() => {
+                // 让被选中的所有卡片都变半透明进入拖拽状态
+                draggedIds.forEach(id => {
+                    const el = document.querySelector(`.sl-card[data-card-id="${id}"]`);
+                    if (el) el.classList.add('sl-dragging');
+                });
+            }, 0);
         });
 
         cardEl.addEventListener('dragend', () => {
-            cardEl.classList.remove('sl-dragging');
+            document.querySelectorAll('.sl-dragging').forEach(el => el.classList.remove('sl-dragging'));
             document.querySelectorAll('.sl-drag-over-card-left, .sl-drag-over-card-right').forEach(el => {
                 el.classList.remove('sl-drag-over-card-left', 'sl-drag-over-card-right');
             });
-            dragState.type = null; dragState.cardId = null; dragState.areaId = null;
+            dragState.type = null; dragState.cardIds = null; dragState.areaIds = null;
         });
 
         cardEl.addEventListener('dragover', (e) => {
-            if (dragState.type === 'card' && cardEl.dataset.cardId !== dragState.cardId) {
+            // 禁止拖放到自己或自己多选的卡片上
+            if (dragState.type === 'card' && dragState.cardIds && !dragState.cardIds.includes(cardEl.dataset.cardId)) {
                 e.preventDefault();
                 const rect = cardEl.getBoundingClientRect();
                 const midX = rect.left + rect.width / 2; 
@@ -208,7 +227,7 @@ export function attachCardEvents(container) {
         });
 
         cardEl.addEventListener('drop', (e) => {
-            if (dragState.type === 'card') {
+            if (dragState.type === 'card' && dragState.cardIds) {
                 e.preventDefault(); e.stopPropagation();
                 
                 const dropPos = cardEl.dataset.dropPosition;
@@ -216,30 +235,38 @@ export function attachCardEvents(container) {
                 delete cardEl.dataset.dropPosition;
                 
                 const targetCardId = cardEl.dataset.cardId;
-                if (targetCardId && targetCardId !== dragState.cardId) {
-                    const sourceIdx = state.cards.findIndex(c => c.id === dragState.cardId);
+                if (targetCardId && !dragState.cardIds.includes(targetCardId)) {
                     
-                    if (sourceIdx !== -1) {
-                        const [moved] = state.cards.splice(sourceIdx, 1);
-                        let targetIdx = state.cards.findIndex(c => c.id === targetCardId);
-                        
-                        if (targetIdx !== -1) {
-                            if (dropPos === 'right') targetIdx += 1; 
-                            state.cards.splice(targetIdx, 0, moved);
-                            saveAndRender();
-                        } else {
-                            state.cards.push(moved);
-                            saveAndRender();
-                        }
+                    // 1. 将被拖拽的所有卡片从原位置剥离
+                    const movedCards = [];
+                    const remainingCards = [];
+                    state.cards.forEach(c => {
+                        if (dragState.cardIds.includes(c.id)) movedCards.push(c);
+                        else remainingCards.push(c);
+                    });
+                    state.cards = remainingCards;
+                    
+                    // 2. 找到目标卡片并整体插入
+                    let targetIdx = state.cards.findIndex(c => c.id === targetCardId);
+                    if (targetIdx !== -1) {
+                        if (dropPos === 'right') targetIdx += 1; 
+                        state.cards.splice(targetIdx, 0, ...movedCards);
+                        saveAndRender();
+                    } else {
+                        state.cards.push(...movedCards);
+                        saveAndRender();
                     }
                 }
             }
         });
     });
 
+    // =========================================================================
+    // 处理模块(Area) 被批量拖拽到卡片空白主体(Card Body) 内的跨界操作
+    // =========================================================================
     container.querySelectorAll('.sl-card-body').forEach(bodyEl => {
         bodyEl.addEventListener('dragover', (e) => {
-            if (dragState.type === 'area') {
+            if (dragState.type === 'area' && dragState.areaIds) {
                 e.preventDefault();
                 if (!e.target.closest('.sl-area')) {
                     bodyEl.classList.add('sl-drag-over-list');
@@ -256,7 +283,7 @@ export function attachCardEvents(container) {
         });
 
         bodyEl.addEventListener('drop', (e) => {
-            if (dragState.type === 'area') {
+            if (dragState.type === 'area' && dragState.areaIds) {
                 e.preventDefault(); e.stopPropagation();
                 bodyEl.classList.remove('sl-drag-over-list');
                 
@@ -264,16 +291,23 @@ export function attachCardEvents(container) {
                     const targetCardId = bodyEl.dataset.cardId;
                     if (!targetCardId) return;
                     
-                    const sourceCard = state.cards.find(c => c.id === dragState.cardId);
+                    // 剥离所有拖动的模块
+                    const movedAreas = [];
+                    state.cards.forEach(c => {
+                        if (!c.areas) return;
+                        const remaining = [];
+                        c.areas.forEach(a => {
+                            if (dragState.areaIds.includes(a.id)) movedAreas.push(a);
+                            else remaining.push(a);
+                        });
+                        c.areas = remaining;
+                    });
+                    
+                    // 插入到目标卡片最末尾
                     const targetCard = state.cards.find(c => c.id === targetCardId);
                     if (!targetCard.areas) targetCard.areas = [];
-                    
-                    const sourceIdx = sourceCard.areas.findIndex(a => a.id === dragState.areaId);
-                    if (sourceIdx !== -1) {
-                        const [moved] = sourceCard.areas.splice(sourceIdx, 1);
-                        targetCard.areas.push(moved); 
-                        saveAndRender();
-                    }
+                    targetCard.areas.push(...movedAreas); 
+                    saveAndRender();
                 }
             }
         });

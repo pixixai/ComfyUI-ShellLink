@@ -1,7 +1,7 @@
 /**
  * 文件名: comp_contextmenu.js
  * 路径: web/components/comp_contextmenu.js
- * 职责: 拦截模块（输入/输出）的右键事件，生成动态菜单，并支持多选批量操作与全局资产清理
+ * 职责: 拦截模块（输入/输出）的右键事件，生成动态菜单，并支持多选批量操作与局部资产清理
  */
 import { state, saveAndRender } from "./ui_state.js";
 import { showBindingToast, hideBindingToast } from "./ui_utils.js";
@@ -76,6 +76,9 @@ export function setupContextMenu(panelContainer) {
                 <div class="sl-context-menu-divider"></div>
                 <div class="sl-context-menu-item" id="sl-ctx-remove">移除</div>
                 <div class="sl-context-menu-item" id="sl-ctx-clear">清除所有生成记录</div>
+                <div class="sl-context-menu-divider"></div>
+                <div class="sl-context-menu-item" id="sl-ctx-clean-dead">清理失效记录 (404)</div>
+                <div class="sl-context-menu-item" id="sl-ctx-resync">重新同步记录 (强制刷新)</div>
             `;
         }
 
@@ -158,6 +161,99 @@ export function setupContextMenu(panelContainer) {
                     if (o.area.selectedThumbIndices) o.area.selectedThumbIndices = [];
                 });
                 saveAndRender(); 
+            };
+
+            // 【高级扩展功能】：清理失效记录 (纯前端试探，仅针对选中的模块)
+            menuEl.querySelector('#sl-ctx-clean-dead').onclick = async () => {
+                menuEl.style.display = 'none';
+                showAutoToast("🔍 正在扫描失效记录，请稍候...", false);
+
+                let totalChecked = 0;
+                const checkPromises = [];
+
+                selectedAreaObjs.forEach(o => {
+                    const arr = getHistoryArr(o.area);
+                    if (arr && arr.length > 0) {
+                        arr.forEach((url) => {
+                            if (!url) return;
+                            totalChecked++;
+                            const p = fetch(url, { method: 'HEAD', cache: 'no-store' }).then(res => {
+                                if (!res.ok && res.status === 404) {
+                                    return { area: o.area, url: url };
+                                }
+                                return null;
+                            }).catch(err => null); // 忽略网络波动错误
+                            checkPromises.push(p);
+                        });
+                    }
+                });
+
+                if (totalChecked === 0) {
+                    showAutoToast("选中模块没有任何有效的生成记录需要清理。");
+                    return;
+                }
+
+                const results = await Promise.all(checkPromises);
+                const deadItems = results.filter(item => item !== null);
+
+                if (deadItems.length === 0) {
+                    showAutoToast("✨ 扫描完毕：选中模块的本地资产均完好无损！");
+                } else {
+                    deadItems.forEach(item => {
+                        const area = item.area;
+                        const arr = getHistoryArr(area);
+                        if (arr) {
+                            const idx = arr.indexOf(item.url);
+                            if (idx !== -1) {
+                                arr.splice(idx, 1);
+                                if (area.resultUrl === item.url) {
+                                    area.resultUrl = arr.length > 0 ? arr[0] : "";
+                                    if (area.historyIndex !== undefined) area.historyIndex = 0;
+                                    if (area.currentRecordIndex !== undefined) area.currentRecordIndex = 0;
+                                }
+                            }
+                        }
+                    });
+                    saveAndRender();
+                    showAutoToast(`🧹 清理完成：已彻底剔除该模块 ${deadItems.length} 条丢失记录。`);
+                }
+            };
+
+            // 【高级扩展功能】：重新同步记录 (局部时间戳破除缓存，PS 联动神技)
+            menuEl.querySelector('#sl-ctx-resync').onclick = () => {
+                menuEl.style.display = 'none';
+                showAutoToast("🔄 正在强制重新拉取选中模块的本地资产...", false);
+                const now = Date.now();
+                let syncCount = 0;
+
+                selectedAreaObjs.forEach(o => {
+                    if (o.area.history && o.area.history.length > 0) {
+                        o.area.history = o.area.history.map(url => {
+                            if (!url) return url;
+                            try {
+                                const urlObj = new URL(url, window.location.origin);
+                                urlObj.searchParams.set('t', now);
+                                syncCount++;
+                                return urlObj.pathname + urlObj.search;
+                            } catch(e) { return url; }
+                        });
+                    }
+                    if (o.area.resultUrl) {
+                        try {
+                            const urlObj = new URL(o.area.resultUrl, window.location.origin);
+                            urlObj.searchParams.set('t', now);
+                            o.area.resultUrl = urlObj.pathname + urlObj.search;
+                        } catch(e) {}
+                    }
+                });
+
+                if (syncCount === 0) {
+                    showAutoToast("选中模块没有任何图像记录需要同步。");
+                    return;
+                }
+
+                saveAndRender();
+                showAutoToast("✅ 缓存已清理，选中模块的图像已重新加载！");
             };
         }
 

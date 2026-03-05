@@ -59,7 +59,6 @@ export function renderCardsList(container) {
         state.cards.forEach((card, index) => {
             const cardEl = document.createElement("div");
             const isCardSelected = state.selectedCardIds && state.selectedCardIds.includes(card.id);
-            // 修复：生成 HTML 时赋予 active 类名，适配 CSS
             cardEl.className = `sl-card ${isCardSelected ? 'active selected' : ''}`;
             if (isCardSelected) cardEl.style.borderColor = '#4CAF50';
             cardEl.dataset.cardId = card.id;
@@ -143,7 +142,7 @@ export function attachCardEvents(container) {
         };
     });
 
-    // 这里你之前的批量删除逻辑写得非常棒，完全保留
+    // 批量删除逻辑完全保留
     container.querySelectorAll('.sl-del-card-btn').forEach(btn => {
         btn.onclick = (e) => {
             const id = e.target.dataset.id;
@@ -158,12 +157,12 @@ export function attachCardEvents(container) {
         };
     });
 
-    // =========================================================================
-    // 【核心升级】：卡片层级的批量拖拽与重组引擎
-    // =========================================================================
     container.querySelectorAll('.sl-card').forEach(cardEl => {
         if (cardEl.classList.contains('sl-add-card-inline')) return;
 
+        // =========================================================================
+        // 卡片层级的批量拖拽与重组引擎 (利用全局护盾，无需拦截 click)
+        // =========================================================================
         cardEl.addEventListener('dragstart', (e) => {
             if (['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName) || e.target.closest('.sl-custom-select') || e.target.closest('.sl-edit-val-bool')) {
                 e.preventDefault(); return;

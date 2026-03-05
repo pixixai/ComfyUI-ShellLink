@@ -1,6 +1,6 @@
 /**
  * 文件名: event_global.js
- * 职责: 处理全局级别的生命周期事件、快捷键、以及组件间自定义事件的广播
+ * 职责: 处理全局级别的生命周期事件、快捷键、以及系统级点击防误触护盾
  */
 import { state, appState, saveAndRender } from "../ui_state.js";
 import { updateSelectionUI } from "../ui_selection.js";
@@ -8,6 +8,84 @@ import { enterBindingModeForSelected } from "../actions/action_binding.js";
 
 export function setupGlobalEvents(panelContainer, backdropContainer, togglePanelFunc, performRenderFunc) {
     
+    // =========================================================================
+    // 【系统级终极护盾】：Window级拦截器，彻底解决事件冒泡导致的多选失效！
+    // 兼管“卡片”和“模块”的多选保护逻辑，放在这里符合 MVC 职责单一原则
+    // =========================================================================
+    if (!window._slGlobalSelectionShield) {
+        let isDragging = false;
+        
+        window.addEventListener('dragstart', () => { isDragging = true; }, true);
+        window.addEventListener('dragend', () => { 
+            setTimeout(() => { isDragging = false; }, 100); 
+        }, true);
+
+        const shieldEvent = (e) => {
+            // 放行所有交互型控件
+            const isInteractive = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) ||
+                                  e.target.closest('.sl-custom-select') ||
+                                  e.target.closest('.sl-history-thumb') ||
+                                  e.target.closest('.sl-bool-label') ||
+                                  e.target.closest('.sl-upload-zone') ||
+                                  e.target.closest('.sl-del-card-btn') ||
+                                  e.target.closest('.sl-del-area-btn') ||
+                                  e.target.closest('.sl-video-controls-interactive');
+
+            if (isInteractive) return;
+
+            const areaEl = e.target.closest('.sl-area');
+            const cardEl = e.target.closest('.sl-card:not(.sl-add-card-inline)');
+
+            let isTargetSelected = false;
+            let targetId = null;
+            let targetType = null;
+
+            if (areaEl) {
+                targetId = areaEl.dataset.areaId;
+                isTargetSelected = state.selectedAreaIds && state.selectedAreaIds.includes(targetId);
+                targetType = 'area';
+            } else if (cardEl) {
+                targetId = cardEl.dataset.cardId;
+                isTargetSelected = state.selectedCardIds && state.selectedCardIds.includes(targetId);
+                targetType = 'card';
+            }
+
+            // 【核心防御】：如果点击的是“已选中”的元素，并且没有按 Ctrl/Shift，拦截一切向下的事件流！
+            if (isTargetSelected && !e.ctrlKey && !e.shiftKey) {
+                e.stopPropagation();
+
+                if (e.type === 'mousedown' || e.type === 'pointerdown') {
+                    isDragging = false; 
+                }
+
+                if (e.type === 'mouseup') {
+                    // 如果鼠标抬起时发现并没有触发拖拽，说明用户就是想单选它
+                    if (!isDragging) {
+                        if (targetType === 'area') {
+                            state.selectedAreaIds = [targetId];
+                            state.selectedCardIds = [];
+                        } else {
+                            state.selectedCardIds = [targetId];
+                            state.selectedAreaIds = [];
+                            state.activeCardId = targetId;
+                        }
+                        saveAndRender();
+                        updateSelectionUI();
+                    }
+                }
+            }
+        };
+
+        // 以最高优先级挂载在 Window 对象上，阻断任何隐藏的全局选择监听器
+        window.addEventListener('pointerdown', shieldEvent, true);
+        window.addEventListener('mousedown', shieldEvent, true);
+        window.addEventListener('mouseup', shieldEvent, true);
+        window.addEventListener('click', shieldEvent, true);
+        window._slGlobalSelectionShield = true;
+    }
+
+    // =========================================================================
+
     window.addEventListener('contextmenu', (e) => {
         if (appState.isBindingMode) {
             e.preventDefault(); 
@@ -31,7 +109,6 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                 state.painterMode = false;
                 state.painterSource = null;
             }
-            // ESC 键清空所有选中，局部刷新！
             state.selectedCardIds = [];
             state.activeCardId = null;
             state.selectedAreaIds = [];
@@ -39,9 +116,7 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
             return;
         }
 
-        // 历史记录键盘导航逻辑 (左与右)
         if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && state.selectedAreaIds.length === 1) {
-            // 防误触：如果你正在输入框里打字，绝对不要切换图片！
             if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
             
             const areaId = state.selectedAreaIds[0];
@@ -51,9 +126,8 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                 if (a) { targetArea = a; break; }
             }
             
-            // 执行丝滑切换
             if (targetArea && targetArea.type === 'preview' && targetArea.history && targetArea.history.length > 1) {
-                e.preventDefault(); // 阻止页面可能发生的滚动
+                e.preventDefault(); 
                 let idx = targetArea.historyIndex !== undefined ? targetArea.historyIndex : targetArea.history.length - 1;
                 
                 if (e.key === 'ArrowLeft') {

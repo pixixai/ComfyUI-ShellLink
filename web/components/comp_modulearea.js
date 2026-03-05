@@ -19,13 +19,13 @@ export function attachAreaEvents(container) {
     bindComboSelectEvents(container, state, saveAndRender);
 
     // =========================================================================
-    // 【核心升级】：支持模块多选后的批量删除
+    // 支持模块多选后的批量删除
     // =========================================================================
     container.querySelectorAll('.sl-del-area-btn').forEach(btn => {
         btn.onclick = (e) => {
             e.stopPropagation();
             const { card: cardId, area: areaId } = e.target.dataset;
-            const isSelected = state.selectedAreaIds.includes(areaId);
+            const isSelected = state.selectedAreaIds && state.selectedAreaIds.includes(areaId);
 
             if (isSelected && state.selectedAreaIds.length > 1) {
                 // 批量删除所有选中的模块
@@ -40,7 +40,9 @@ export function attachAreaEvents(container) {
                 const card = state.cards.find(c => c.id === cardId);
                 if(card) {
                     card.areas = card.areas.filter(a => a.id !== areaId);
-                    state.selectedAreaIds = state.selectedAreaIds.filter(id => id !== areaId);
+                    if (state.selectedAreaIds) {
+                        state.selectedAreaIds = state.selectedAreaIds.filter(id => id !== areaId);
+                    }
                 }
             }
             saveAndRender();
@@ -64,7 +66,6 @@ export function attachAreaEvents(container) {
         };
     });
 
-    // 🚨 所有的 click/mousedown 全盘铲除，彻绝冲突
     container.querySelectorAll('.sl-area').forEach(areaEl => {
         areaEl.addEventListener('contextmenu', (e) => {
             const areaId = areaEl.dataset.areaId;
@@ -89,29 +90,40 @@ export function attachAreaEvents(container) {
         });
 
         // =========================================================================
-        // 【核心升级】：拖拽起飞阶段，识别多选阵列
+        // 【高级升级】：起飞阶段 - 记录锚点身份与各模块的原始坐标
         // =========================================================================
         areaEl.addEventListener('dragstart', (e) => {
-            if (['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName) || e.target.closest('.sl-custom-select') || e.target.closest('.sl-bool-label') || e.target.closest('.sl-upload-zone') || e.target.closest('.sl-history-thumb')) return;
+            if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) || e.target.closest('.sl-custom-select') || e.target.closest('.sl-bool-label') || e.target.closest('.sl-upload-zone') || e.target.closest('.sl-history-thumb')) return;
             
             e.stopPropagation(); 
             const currentAreaId = areaEl.dataset.areaId;
 
-            // 判断拖拽的是否在多选数组内，如果是，则拉起整个多选阵列；否则只拉起自己
             let draggedIds = [currentAreaId];
-            if (state.selectedAreaIds.includes(currentAreaId)) {
+            if (state.selectedAreaIds && state.selectedAreaIds.includes(currentAreaId)) {
                 draggedIds = [...state.selectedAreaIds];
             }
 
             dragState.type = 'area';
-            dragState.cardId = areaEl.dataset.cardId;
-            dragState.areaIds = draggedIds; // 核心：使用数组存储被拖拽的所有模块 ID
+            dragState.cardId = areaEl.dataset.cardId;   // 拖拽的主力(锚点)所在的卡片
+            dragState.anchorAreaId = currentAreaId;     // 记录是哪个模块被抓起
+            dragState.areaIds = draggedIds; 
+
+            // 引擎预热：扫描全场，记录所有被选中模块的初始卡片归属和坐标
+            dragState.sourceInfo = {};
+            state.cards.forEach(c => {
+                if (c.areas) {
+                    c.areas.forEach((a, idx) => {
+                        if (draggedIds.includes(a.id)) {
+                            dragState.sourceInfo[a.id] = { cardId: c.id, index: idx };
+                        }
+                    });
+                }
+            });
             
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', 'area');
             
             setTimeout(() => {
-                // 让所有被拖拽的模块都进入半透明拖拽状态
                 draggedIds.forEach(id => {
                     const el = document.querySelector(`.sl-area[data-area-id="${id}"]`);
                     if (el) el.classList.add('sl-dragging');
@@ -126,12 +138,11 @@ export function attachAreaEvents(container) {
                 el.classList.remove('sl-drag-over-area-top', 'sl-drag-over-area-bottom');
             });
             document.querySelectorAll('.sl-drag-over-list').forEach(el => el.classList.remove('sl-drag-over-list'));
-            dragState.type = null; dragState.cardId = null; dragState.areaIds = null;
+            dragState.type = null; dragState.cardId = null; dragState.anchorAreaId = null; dragState.areaIds = null; dragState.sourceInfo = null;
         });
 
         areaEl.addEventListener('dragover', (e) => {
             if (e.dataTransfer.types.includes('Files')) return;
-            // 判断如果拖拽的是模块，并且目标模块不在拖拽阵列中，则允许放置
             if (dragState.type === 'area' && dragState.areaIds && !dragState.areaIds.includes(areaEl.dataset.areaId)) {
                 e.preventDefault(); e.stopPropagation();
                 const rect = areaEl.getBoundingClientRect();
@@ -158,7 +169,7 @@ export function attachAreaEvents(container) {
         });
 
         // =========================================================================
-        // 【核心升级】：降落阶段，批量提取并重组排序
+        // 【高级升级】：降落阶段 - 智能双模引擎 (平行同步位移 vs 跨卡片汇聚)
         // =========================================================================
         areaEl.addEventListener('drop', (e) => {
             if (e.dataTransfer.types.includes('Files')) return;
@@ -174,14 +185,21 @@ export function attachAreaEvents(container) {
                 // 禁止放置在被拖拽阵列自身上
                 if (dragState.areaIds.includes(targetAreaId)) return;
 
-                // 1. 从整个面板的所有卡片中，将这批模块按原顺序剥离出来
-                const movedAreas = [];
+                // 核心判断：鼠标松开的目标卡片，是不是锚点原本的家？
+                const isSameCard = (targetCardId === dragState.cardId);
+
+                // 1. 从各路卡片中将这批模块剥离出来，按卡片归属分好组
+                const movedAreasByCard = {};
+                const allMovedAreas = []; // 备用：供情况2跨卡片大一统时使用
+                
                 state.cards.forEach(c => {
+                    movedAreasByCard[c.id] = [];
                     if (!c.areas) return;
                     const remainingAreas = [];
                     c.areas.forEach(a => {
                         if (dragState.areaIds.includes(a.id)) {
-                            movedAreas.push(a);
+                            movedAreasByCard[c.id].push(a);
+                            allMovedAreas.push(a);
                         } else {
                             remainingAreas.push(a);
                         }
@@ -189,19 +207,45 @@ export function attachAreaEvents(container) {
                     c.areas = remainingAreas;
                 });
 
-                // 2. 找到目标卡片及插入锚点
+                // 2. 找到鼠标实际所在的锚点并计算索引
                 const targetCard = state.cards.find(c => c.id === targetCardId);
-                if (!targetCard.areas) targetCard.areas = [];
-                
-                let targetIdx = targetCard.areas.findIndex(a => a.id === targetAreaId);
-                
-                if (targetIdx !== -1) {
-                    if (dropPos === 'bottom') targetIdx += 1;
-                    // 使用 spread 语法将整个阵列一次性插入
-                    targetCard.areas.splice(targetIdx, 0, ...movedAreas);
-                    saveAndRender();
-                } else {
-                    targetCard.areas.push(...movedAreas);
+                if (targetCard) {
+                    if (!targetCard.areas) targetCard.areas = [];
+                    let targetIdx = targetCard.areas.findIndex(a => a.id === targetAreaId);
+                    
+                    if (targetIdx !== -1) {
+                        if (dropPos === 'bottom') targetIdx += 1;
+                    } else {
+                        targetIdx = targetCard.areas.length;
+                    }
+
+                    if (isSameCard) {
+                        // 【情况 1：本卡片内拖动 -> 平行空间同步位移引擎】
+                        const anchorOrigIdx = dragState.sourceInfo[dragState.anchorAreaId].index;
+                        const delta = targetIdx - anchorOrigIdx; // 计算出位移差
+
+                        state.cards.forEach(c => {
+                            const moved = movedAreasByCard[c.id];
+                            if (moved && moved.length > 0) {
+                                if (c.id === targetCardId) {
+                                    // 鼠标所在的源卡片，精准插入指定位置
+                                    c.areas.splice(targetIdx, 0, ...moved);
+                                } else {
+                                    // 平行空间的其它卡片，应用 Delta 位移
+                                    const firstOrigIdx = dragState.sourceInfo[moved[0].id].index;
+                                    let newIdx = firstOrigIdx + delta;
+                                    // 绝对防越界系统：顶破天算0，坠到底算数组长度
+                                    newIdx = Math.max(0, Math.min(newIdx, c.areas.length));
+                                    c.areas.splice(newIdx, 0, ...moved);
+                                }
+                            }
+                        });
+                    } else {
+                        // 【情况 2：跨界拖动 -> 万物归一汇聚引擎】
+                        // 将全宇宙被选中的模块，全部插入到新卡片的指定缝隙中
+                        targetCard.areas.splice(targetIdx, 0, ...allMovedAreas);
+                    }
+                    
                     saveAndRender();
                 }
             }

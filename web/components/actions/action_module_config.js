@@ -390,43 +390,121 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
         }
     }
 
+    // =========================================================================
+    // 【核心升级】：多选批量矩阵克隆引擎
+    // =========================================================================
     tb.querySelector('#tb-clone-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
+        
+        // 1. 批量克隆模块 (Areas)
         if (state.selectedAreaIds && state.selectedAreaIds.length > 0) {
-            const areaId = state.selectedAreaIds[0];
             let newSelectedAreaIds = [];
-            for (let card of state.cards) {
-                const srcIndex = card.areas?.findIndex(a => a.id === areaId);
-                if (srcIndex !== undefined && srcIndex !== -1) {
-                    const newArea = JSON.parse(JSON.stringify(card.areas[srcIndex]));
-                    newArea.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-                    card.areas.splice(srcIndex + 1, 0, newArea);
-                    newSelectedAreaIds.push(newArea.id);
-                    break;
+            
+            // 按卡片对选中的模块进行分组，保证在各自的卡片内进行操作
+            const areasByCard = {};
+            state.selectedAreaIds.forEach(areaId => {
+                const card = state.cards.find(c => c.areas?.some(a => a.id === areaId));
+                if (card) {
+                    if (!areasByCard[card.id]) areasByCard[card.id] = [];
+                    areasByCard[card.id].push(areaId);
                 }
+            });
+
+            // 遍历每个受影响的卡片
+            for (const cardId in areasByCard) {
+                const card = state.cards.find(c => c.id === cardId);
+                if (!card || !card.areas) continue;
+                
+                // 将该卡片内选中的模块按当前顺序排序
+                const sortedAreaIdsToClone = areasByCard[cardId].sort((idA, idB) => {
+                    return card.areas.findIndex(a => a.id === idA) - card.areas.findIndex(a => a.id === idB);
+                });
+                
+                // 倒序遍历插入，确保多模块连续克隆时的相对顺序正确 (例如连选 1,2, 克隆后变为 1, 2, 1_copy, 2_copy)
+                // 先找到这批模块中最后一个的位置作为插入锚点
+                const lastSrcIndex = card.areas.findIndex(a => a.id === sortedAreaIdsToClone[sortedAreaIdsToClone.length - 1]);
+                let insertBaseIndex = lastSrcIndex + 1;
+
+                const clonedAreas = [];
+                sortedAreaIdsToClone.forEach(areaId => {
+                    const srcArea = card.areas.find(a => a.id === areaId);
+                    if (srcArea) {
+                        const newArea = JSON.parse(JSON.stringify(srcArea));
+                        newArea.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+                        // 如果有历史记录也应清空，作为全新克隆体
+                        if(newArea.type === 'preview') {
+                            newArea.resultUrl = '';
+                            newArea.history = [];
+                            newArea.historyIndex = 0;
+                            newArea.selectedThumbIndices = [];
+                        }
+                        clonedAreas.push(newArea);
+                        newSelectedAreaIds.push(newArea.id);
+                    }
+                });
+                
+                // 批量插入克隆体
+                card.areas.splice(insertBaseIndex, 0, ...clonedAreas);
             }
+            
+            // 更新选中状态为所有新克隆的模块
             state.selectedAreaIds = newSelectedAreaIds;
             saveAndRender();
+            
+            // 滚动定位
             setTimeout(() => {
-                newSelectedAreaIds.forEach(id => {
-                    document.querySelector(`.sl-area[data-area-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                });
+                if(newSelectedAreaIds.length > 0) {
+                     document.querySelector(`.sl-area[data-area-id="${newSelectedAreaIds[newSelectedAreaIds.length - 1]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
             }, 50);
-        } else if (state.selectedCardIds && state.selectedCardIds.length > 0) {
-            const cardId = state.selectedCardIds[0];
-            const srcIndex = state.cards.findIndex(c => c.id === cardId);
-            if (srcIndex !== -1) {
-                const newCard = JSON.parse(JSON.stringify(state.cards[srcIndex]));
-                newCard.id = 'card_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-                if (newCard.areas) newCard.areas.forEach(a => a.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000));
-                state.cards.splice(srcIndex + 1, 0, newCard);
-                state.selectedCardIds = [newCard.id];
-                state.activeCardId = newCard.id;
-                saveAndRender();
-                setTimeout(() => {
-                    document.querySelector(`.sl-card[data-card-id="${newCard.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                }, 50);
-            }
+
+        } 
+        // 2. 批量克隆任务卡片 (Cards)
+        else if (state.selectedCardIds && state.selectedCardIds.length > 0) {
+            let newSelectedCardIds = [];
+            
+            // 按当前卡片顺序排序
+            const sortedCardIdsToClone = [...state.selectedCardIds].sort((idA, idB) => {
+                return state.cards.findIndex(c => c.id === idA) - state.cards.findIndex(c => c.id === idB);
+            });
+            
+            const lastSrcIndex = state.cards.findIndex(c => c.id === sortedCardIdsToClone[sortedCardIdsToClone.length - 1]);
+            let insertBaseIndex = lastSrcIndex + 1;
+            
+            const clonedCards = [];
+            sortedCardIdsToClone.forEach(cardId => {
+                const srcCard = state.cards.find(c => c.id === cardId);
+                if (srcCard) {
+                    const newCard = JSON.parse(JSON.stringify(srcCard));
+                    newCard.id = 'card_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+                    // 为克隆卡片内的所有模块生成新ID
+                    if (newCard.areas) {
+                        newCard.areas.forEach(a => {
+                            a.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+                            if(a.type === 'preview') {
+                                a.resultUrl = '';
+                                a.history = [];
+                                a.historyIndex = 0;
+                                a.selectedThumbIndices = [];
+                            }
+                        });
+                    }
+                    clonedCards.push(newCard);
+                    newSelectedCardIds.push(newCard.id);
+                }
+            });
+            
+            state.cards.splice(insertBaseIndex, 0, ...clonedCards);
+            state.selectedCardIds = newSelectedCardIds;
+            state.activeCardId = newSelectedCardIds[newSelectedCardIds.length - 1];
+            
+            saveAndRender();
+            
+            setTimeout(() => {
+                if(newSelectedCardIds.length > 0) {
+                     document.querySelector(`.sl-card[data-card-id="${newSelectedCardIds[newSelectedCardIds.length - 1]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }, 50);
         }
     });
     

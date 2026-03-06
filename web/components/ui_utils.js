@@ -3,6 +3,7 @@
  * 职责: UI 渲染辅助工具、ComfyUI 图谱解析、CSS 样式库
  */
 import { app } from "../../../scripts/app.js";
+import { appState } from "./ui_state.js"; // 【补丁】：引入 appState 记录点击锚点
 
 // =========================================================================
 // --- DOM 辅助构建方法 ---
@@ -299,6 +300,8 @@ export function bindComboSelectEvents(container, stateObj, saveAndRenderCallback
                     area.value = val;
                     stateObj.selectedAreaIds = [areaId];
                     stateObj.selectedCardIds = [];
+                    // 【补丁】：更新最后点击锚点，使得点击下拉菜单后也能发起 Shift 连选！
+                    appState.lastClickedAreaId = areaId;
                     saveAndRenderCallback(); 
                 }
             });

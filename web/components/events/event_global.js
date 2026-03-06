@@ -8,28 +8,18 @@ import { enterBindingModeForSelected } from "../actions/action_binding.js";
 
 export function setupGlobalEvents(panelContainer, backdropContainer, togglePanelFunc, performRenderFunc) {
     
-    // =========================================================================
-    // 【系统级终极护盾】：Window级拦截器，保护多选失效问题
-    // =========================================================================
     if (!window._slGlobalSelectionShield) {
         let isDragging = false;
-        
         window.addEventListener('dragstart', () => { isDragging = true; }, true);
-        window.addEventListener('dragend', () => { 
-            setTimeout(() => { isDragging = false; }, 100); 
-        }, true);
+        window.addEventListener('dragend', () => { setTimeout(() => { isDragging = false; }, 100); }, true);
 
         const shieldEvent = (e) => {
-            // 绝对放行右键！让右键事件能干干净净地落到底层的视频控件里
             if (e.button !== 0 && e.type !== 'contextmenu') return;
 
             const isInteractive = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) ||
-                                  e.target.closest('.sl-custom-select') ||
-                                  e.target.closest('.sl-history-thumb') ||
-                                  e.target.closest('.sl-bool-label') ||
-                                  e.target.closest('.sl-upload-zone') ||
-                                  e.target.closest('.sl-del-card-btn') ||
-                                  e.target.closest('.sl-del-area-btn') ||
+                                  e.target.closest('.sl-custom-select') || e.target.closest('.sl-history-thumb') ||
+                                  e.target.closest('.sl-bool-label') || e.target.closest('.sl-upload-zone') ||
+                                  e.target.closest('.sl-del-card-btn') || e.target.closest('.sl-del-area-btn') ||
                                   e.target.closest('.sl-video-controls-interactive');
 
             if (isInteractive) return;
@@ -52,7 +42,6 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
             }
 
             if (isTargetSelected && !e.ctrlKey && !e.shiftKey) {
-                // 如果是点击事件，且点在了视频区域上，放行冒泡！
                 if (e.type === 'click' && (e.target.tagName === 'VIDEO' || e.target.tagName === 'AUDIO')) {
                     // 放行
                 } else {
@@ -61,9 +50,6 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
 
                 if (e.type === 'mousedown' || e.type === 'pointerdown') {
                     isDragging = false; 
-                    
-                    // 【核心修复 A】：锚点挽救！即使被护盾拦截了事件，也要在底层静默更新锚点。
-                    // 这样当你点击一个已选中的模块后，再按 Shift 连选，系统就知道该从哪里开始了！
                     if (targetType === 'area') appState.lastClickedAreaId = targetId;
                     if (targetType === 'card') appState.lastClickedCardId = targetId;
                 }
@@ -91,13 +77,9 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
         window._slGlobalSelectionShield = true;
     }
 
-    // =========================================================================
-
     window.addEventListener('contextmenu', (e) => {
         if (appState.isBindingMode) {
-            e.preventDefault(); 
-            e.stopPropagation();
-            return;
+            e.preventDefault(); e.stopPropagation(); return;
         }
 
         if (state.painterMode) {
@@ -128,51 +110,28 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
             
             const areaId = state.selectedAreaIds[0];
             let targetArea = null;
-            let targetCardId = null;
             for (const c of state.cards) {
                 const a = c.areas?.find(x => x.id === areaId);
-                if (a) { targetArea = a; targetCardId = c.id; break; }
+                if (a) { targetArea = a; break; }
             }
             
             if (targetArea && targetArea.type === 'preview' && targetArea.history && targetArea.history.length > 1) {
                 e.preventDefault(); 
                 let idx = targetArea.historyIndex !== undefined ? targetArea.historyIndex : targetArea.history.length - 1;
                 
-                if (e.key === 'ArrowLeft') {
-                    idx = Math.max(0, idx - 1);
-                } else {
-                    idx = Math.min(targetArea.history.length - 1, idx + 1);
-                }
+                if (e.key === 'ArrowLeft') idx = Math.max(0, idx - 1);
+                else idx = Math.min(targetArea.history.length - 1, idx + 1);
                 
                 if (targetArea.historyIndex !== idx) {
                     targetArea.historyIndex = idx;
                     targetArea.resultUrl = targetArea.history[idx];
-                    
-                    document.dispatchEvent(new CustomEvent("shell_link_update_preview", {
-                        detail: { cardId: targetCardId, areaId: targetArea.id, url: targetArea.resultUrl }
-                    }));
 
-                    const areaEl = document.querySelector(`.sl-area[data-area-id="${areaId}"]`);
-                    if (areaEl) {
-                        const badges = areaEl.querySelectorAll('div');
-                        badges.forEach(div => {
-                            if (div.style.position === 'absolute' && div.style.top === '8px') {
-                                div.textContent = `${idx + 1} / ${targetArea.history.length}`;
-                            }
-                        });
-                        
-                        const grid = areaEl.querySelector('.sl-history-grid');
-                        if (grid) {
-                            grid.querySelectorAll('.sl-history-thumb').forEach((thumb, tIdx) => {
-                                if (tIdx === idx) thumb.style.borderColor = '#4CAF50';
-                                else if (targetArea.selectedThumbIndices?.includes(tIdx)) thumb.style.borderColor = '#2196F3';
-                                else thumb.style.borderColor = 'rgba(255,255,255,0.1)';
-                            });
-                        }
-                    }
-
-                    if (window.StateManager && window.StateManager.syncToNode) {
-                        window.StateManager.syncToNode(window.app.graph);
+                    // 【核心修复】：彻底接入局部更新引擎，键盘切换不再闪屏重绘！
+                    if (window._slSurgicallyUpdateArea) {
+                        window._slSurgicallyUpdateArea(targetArea.id);
+                        if (window._slJustSave) window._slJustSave();
+                    } else {
+                        saveAndRender();
                     }
                 }
                 return;

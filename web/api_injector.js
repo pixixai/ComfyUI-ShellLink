@@ -19,7 +19,7 @@ export function setupAPIInjector(app) {
     window._slDoneTasks = window._slDoneTasks || new Set();
 
     // =========================================================================
-    // 【神级修复】：全局媒体加载监听器，实现切换历史记录时动态适配尺寸
+    // 【神级修复】：全局媒体加载监听器，实现切换历史记录时动态适配尺寸，且支持无感刷新
     // =========================================================================
     if (!window._slMediaLoadHijacked) {
         const handleMediaLoad = (element, width, height) => {
@@ -37,7 +37,10 @@ export function setupAPIInjector(app) {
                     area.width = width;
                     area.height = height;
                     StateManager.syncToNode(app.graph);
-                    document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                    
+                    // 【核心修复】：动态适配尺寸时，优先使用局部微创更新，拒绝全屏闪烁！
+                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(areaId);
+                    else document.dispatchEvent(new CustomEvent("sl_render_ui"));
                 }
             }
         };
@@ -352,7 +355,7 @@ export function setupAPIInjector(app) {
     });
 
     // =========================================================================
-    // 4. 监听引擎执行完成事件 (增强版：截胡转存与状态回写闭环)
+    // 4. 监听引擎执行完成事件 (增强版：截胡转存与无感局部回写闭环)
     // =========================================================================
     api.addEventListener("executed", async (event) => {
         const detail = event.detail;
@@ -383,8 +386,6 @@ export function setupAPIInjector(app) {
                 else if (outputData.images && outputData.images.length > 0) targetItems = outputData.images;
 
                 if (targetItems && targetItems.length > 0) {
-                    
-                    // 🔥【优化】：遍历所有的生成资产（处理多图批次出图），彻底消灭漏网之鱼
                     for (let i = 0; i < targetItems.length; i++) {
                         let media = targetItems[i];
                         
@@ -397,12 +398,10 @@ export function setupAPIInjector(app) {
                             isAudio = true;
                         }
 
-                        // 记录原始的临时路径，等会要去 history 里面“抓人”
                         const oldParams = new URLSearchParams({ filename: media.filename, type: media.type, subfolder: media.subfolder || "" });
                         const oldUrlStr = `/view?${oldParams.toString()}`;
                         const oldUrl = api.apiURL(oldUrlStr);
 
-                        // 🛡️ 截胡归档系统
                         if (media.type === "temp" || media.type === "output") {
                             try {
                                 const asset_type = isVideo ? "video" : (isAudio ? "audio" : "image");
@@ -422,36 +421,25 @@ export function setupAPIInjector(app) {
                                     media.filename = data.new_filename;
                                     media.subfolder = data.new_subfolder;
                                     media.type = data.new_type; 
-                                } else {
-                                    console.error("[ShellLink] 截胡资产失败:", data.error);
                                 }
                             } catch (err) {
                                 console.error("[ShellLink] 截胡资产网络请求失败:", err);
                             }
                         }
 
-                        // 构造后端复制完毕后的永久物理路径
                         const newParams = new URLSearchParams({ filename: media.filename, type: media.type, subfolder: media.subfolder || "" });
                         const newUrl = api.apiURL(`/view?${newParams.toString()}`);
 
-                        // 🔥 【核心状态回写】：强制纠正由于异步时间差被提前写进去的 temp 路径！
                         if (newUrl) {
                             if (!area.history) area.history = [];
-                            
-                            // 查找是否已经存在于 history 中（匹配完整路径或包含参数）
                             const foundIdx = area.history.findIndex(h => h === oldUrl || h.includes(oldUrlStr));
                             if (foundIdx !== -1) {
-                                // 替换为永久资产路径
                                 area.history[foundIdx] = newUrl;
                             } else {
-                                // 如果没被别处拦截写入，那么我们主动帮它存入历史记录里，防止丢失
-                                if (!area.history.includes(newUrl)) {
-                                    area.history.push(newUrl);
-                                }
+                                if (!area.history.includes(newUrl)) area.history.push(newUrl);
                             }
                         }
 
-                        // 记录第一项结果用于设置封面和触发排版
                         if (i === 0 && newUrl) {
                             newUrlFirst = newUrl;
                             isVideoFirst = isVideo;
@@ -461,8 +449,6 @@ export function setupAPIInjector(app) {
 
                     if (newUrlFirst) {
                         area.resultUrl = newUrlFirst;
-
-                        // 🔥 状态变更后，立即序列化同步到 ComfyUI 图谱内保存配置！
                         StateManager.syncToNode(app.graph);
 
                         if (area.matchMedia) {
@@ -475,7 +461,9 @@ export function setupAPIInjector(app) {
                                     area.width = tempVid.videoWidth;
                                     area.height = tempVid.videoHeight;
                                     StateManager.syncToNode(app.graph);
-                                    document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                                    // 【核心修复】：视频运算完尺寸后，依然走外科手术级局部更新
+                                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(area.id);
+                                    else document.dispatchEvent(new CustomEvent("sl_render_ui"));
                                 };
                                 tempVid.onerror = (e) => console.error("[ShellLink] 读取视频尺寸失败", e);
                                 tempVid.src = newUrlFirst;
@@ -483,7 +471,8 @@ export function setupAPIInjector(app) {
                             } else if (isAudioFirst) {
                                 area.ratio = 'auto';
                                 StateManager.syncToNode(app.graph);
-                                document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                                if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(area.id);
+                                else document.dispatchEvent(new CustomEvent("sl_render_ui"));
                             } else {
                                 const tempImg = new Image();
                                 tempImg.onload = () => {
@@ -491,14 +480,19 @@ export function setupAPIInjector(app) {
                                     area.width = tempImg.naturalWidth;
                                     area.height = tempImg.naturalHeight;
                                     StateManager.syncToNode(app.graph);
-                                    document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(area.id);
+                                    else document.dispatchEvent(new CustomEvent("sl_render_ui"));
                                 };
                                 tempImg.src = newUrlFirst; 
                             }
                         } else {
-                            document.dispatchEvent(new CustomEvent("shell_link_update_preview", {
-                                detail: { cardId: card.id, areaId: area.id, url: newUrlFirst }
-                            }));
+                            // 【核心修复】：取消通过派发 shell_link_update_preview 处理，直接统一进行原生手术级更新
+                            if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(area.id);
+                            else {
+                                document.dispatchEvent(new CustomEvent("shell_link_update_preview", {
+                                    detail: { cardId: card.id, areaId: area.id, url: newUrlFirst }
+                                }));
+                            }
                         }
                     }
                 }

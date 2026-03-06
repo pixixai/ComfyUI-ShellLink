@@ -1,7 +1,6 @@
 /**
- * 文件名: action_module_config.js
- * 路径: web/components/actions/action_module_config.js
- * 职责: 负责动态悬浮工具栏渲染、模块属性配置、克隆与格式刷逻辑
+ * action_module_config.js
+ * 负责动态悬浮工具栏渲染、模块属性配置、克隆与格式刷逻辑
  */
 import { state, saveAndRender } from "../ui_state.js";
 import { buildCustomSelect, getCustomNodeMenuHTML, getMultiNodeMenuHTML, getMultiWidgetMenuHTML, getWidgetDef } from "../ui_utils.js";
@@ -105,7 +104,6 @@ export function renderDynamicToolbar(toolbarHandleContainer) {
                 `;
             }
 
-            // 【UI 优化】：同步参数按钮使用原生 24x24 画布重绘，确保 stroke-width=1.5 视觉完全一致，并带有圆角
             html += `
                 <div style="display:flex; align-items:center; margin-left: 4px; gap: 2px;">
                     <button id="tb-reset-module" style="background:transparent; border:none; color:#aaa; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center; transition:color 0.2s, transform 0.2s; width: 28px; height: 28px;" title="重置模块参数到新建状态" onmouseover="this.style.color='#fff'; this.style.transform='rotate(-45deg)'" onmouseout="this.style.color='#aaa'; this.style.transform='rotate(0deg)'">
@@ -125,7 +123,6 @@ export function renderDynamicToolbar(toolbarHandleContainer) {
         }
     }
 
-    // 【UI 优化】：垂直分割线间距大幅缩小 (margin 降到 2px，高度降到 16px)
     if (html !== '') html += `<div style="width:1px; height:16px; background:rgba(255,255,255,0.25); margin:0 2px;"></div>`;
     
     html += `
@@ -140,7 +137,6 @@ export function renderDynamicToolbar(toolbarHandleContainer) {
     `;
 
     if (mainType === 'preview') {
-        // 【UI 优化】：垂直分割线间距大幅缩小
         html += `<div style="width:1px; height:16px; background:rgba(255,255,255,0.25); margin:0 2px;"></div>`;
         html += `
             <div style="display:flex; align-items:center; gap:2px;">
@@ -166,18 +162,26 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
         const mainType = selectedAreas[0]?.area.type;
         const mainArea = selectedAreas[0]?.area;
 
+        // 【核心修复 1】：在所有局部更新动作的结尾，强制刷新工具栏自身的 HTML 和事件，让下拉框和开关恢复响应联动！
         const updateSelected = (updater) => {
-            selectedAreas.forEach(sa => { if (sa.area.type === mainType) updater(sa.area); });
-            saveAndRender(); 
+            selectedAreas.forEach(sa => { 
+                if (sa.area.type === mainType) {
+                    updater(sa.area);
+                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(sa.area.id);
+                } 
+            });
+            if (window._slJustSave) window._slJustSave(); else saveAndRender();
+            
+            // 刷新工具栏自我状态！
+            renderDynamicToolbar(toolbarHandleContainer);
+            attachDynamicToolbarEvents(toolbarHandleContainer);
         };
 
         tb.querySelector('#tb-manage-history')?.addEventListener('click', (e) => {
             e.stopPropagation();
             if(!mainArea) return;
             const targetState = !mainArea.isManageMode;
-            updateSelected(a => {
-                a.isManageMode = targetState;
-            });
+            updateSelected(a => { a.isManageMode = targetState; });
         });
 
         tb.querySelectorAll('.sl-type-btn').forEach(btn => {
@@ -185,19 +189,19 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                 e.stopPropagation();
                 const newType = btn.dataset.type;
                 if (newType === mainType) return;
-                selectedAreas.forEach(sa => {
-                    sa.area.type = newType;
+                
+                updateSelected(a => {
+                    a.type = newType;
                     if (newType === 'preview') {
-                        sa.area.matchMedia = sa.area.matchMedia ?? true;
-                        sa.area.ratio = sa.area.ratio ?? '16:9';
-                        sa.area.fillMode = sa.area.fillMode ?? '显示全部';
-                        sa.area.isManageMode = false;
+                        a.matchMedia = a.matchMedia ?? true;
+                        a.ratio = a.ratio ?? '16:9';
+                        a.fillMode = a.fillMode ?? '显示全部';
+                        a.isManageMode = false;
                     } else {
-                        sa.area.dataType = sa.area.dataType ?? 'string';
-                        sa.area.autoHeight = sa.area.autoHeight ?? true;
+                        a.dataType = a.dataType ?? 'string';
+                        a.autoHeight = a.autoHeight ?? true;
                     }
                 });
-                saveAndRender();
             };
         });
 
@@ -299,11 +303,9 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                                 }
                             });
                         } else {
-                            el.classList.remove('open');
                             updateSelected(a => a.targetNodeId = val);
                         }
                     } else if (el.id === 'tb-fill-select-custom') {
-                        el.classList.remove('open');
                         updateSelected(a => a.fillMode = val);
                     } else if (el.id === 'tb-widget-select-custom') {
                         if (!val) return;
@@ -334,7 +336,6 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                             }
                         });
                     } else if (el.id === 'tb-ratio-select-custom') {
-                        el.classList.remove('open');
                         updateSelected(a => {
                             a.ratio = val;
                             if (val !== '自定义比例' && val.includes(':')) {
@@ -383,6 +384,7 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
             if(ratioW) ratioW.onkeydown = onDimKeydown;
             if(ratioH) ratioH.onkeydown = onDimKeydown;
             const matchCb = tb.querySelector('#tb-match-media');
+            // 【核心联动修复】：当勾选匹配比例时，也同步走局部更新和工具栏重绘
             if(matchCb) matchCb.onchange = e => updateSelected(a => a.matchMedia = e.target.checked);
         } else {
             const autoCb = tb.querySelector('#tb-auto-height');
@@ -390,17 +392,11 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
         }
     }
 
-    // =========================================================================
-    // 【核心升级】：多选批量矩阵克隆引擎
-    // =========================================================================
     tb.querySelector('#tb-clone-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         
-        // 1. 批量克隆模块 (Areas)
         if (state.selectedAreaIds && state.selectedAreaIds.length > 0) {
             let newSelectedAreaIds = [];
-            
-            // 按卡片对选中的模块进行分组，保证在各自的卡片内进行操作
             const areasByCard = {};
             state.selectedAreaIds.forEach(areaId => {
                 const card = state.cards.find(c => c.areas?.some(a => a.id === areaId));
@@ -410,18 +406,14 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                 }
             });
 
-            // 遍历每个受影响的卡片
             for (const cardId in areasByCard) {
                 const card = state.cards.find(c => c.id === cardId);
                 if (!card || !card.areas) continue;
                 
-                // 将该卡片内选中的模块按当前顺序排序
                 const sortedAreaIdsToClone = areasByCard[cardId].sort((idA, idB) => {
                     return card.areas.findIndex(a => a.id === idA) - card.areas.findIndex(a => a.id === idB);
                 });
                 
-                // 倒序遍历插入，确保多模块连续克隆时的相对顺序正确 (例如连选 1,2, 克隆后变为 1, 2, 1_copy, 2_copy)
-                // 先找到这批模块中最后一个的位置作为插入锚点
                 const lastSrcIndex = card.areas.findIndex(a => a.id === sortedAreaIdsToClone[sortedAreaIdsToClone.length - 1]);
                 let insertBaseIndex = lastSrcIndex + 1;
 
@@ -431,7 +423,6 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                     if (srcArea) {
                         const newArea = JSON.parse(JSON.stringify(srcArea));
                         newArea.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-                        // 如果有历史记录也应清空，作为全新克隆体
                         if(newArea.type === 'preview') {
                             newArea.resultUrl = '';
                             newArea.history = [];
@@ -443,27 +434,30 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                     }
                 });
                 
-                // 批量插入克隆体
                 card.areas.splice(insertBaseIndex, 0, ...clonedAreas);
+
+                const lastEl = document.querySelector(`.sl-area[data-area-id="${sortedAreaIdsToClone[sortedAreaIdsToClone.length - 1]}"]`);
+                if (lastEl && window._slGenerateAreaHTML && window._slAttachAreaEvents) {
+                    const temp = document.createElement('div');
+                    temp.innerHTML = clonedAreas.map(a => window._slGenerateAreaHTML(a, card)).join('');
+                    const frag = document.createDocumentFragment();
+                    while(temp.firstChild) frag.appendChild(temp.firstChild);
+                    lastEl.parentNode.insertBefore(frag, lastEl.nextSibling);
+                    window._slAttachAreaEvents(lastEl.parentNode);
+                }
             }
             
-            // 更新选中状态为所有新克隆的模块
             state.selectedAreaIds = newSelectedAreaIds;
-            saveAndRender();
+            if (window._slJustSave) window._slJustSave(); else saveAndRender();
             
-            // 滚动定位
-            setTimeout(() => {
-                if(newSelectedAreaIds.length > 0) {
-                     document.querySelector(`.sl-area[data-area-id="${newSelectedAreaIds[newSelectedAreaIds.length - 1]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
-            }, 50);
+            // 重新刷新工具栏，显示新选中项的参数
+            renderDynamicToolbar(toolbarHandleContainer);
+            attachDynamicToolbarEvents(toolbarHandleContainer);
+            if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
 
-        } 
-        // 2. 批量克隆任务卡片 (Cards)
-        else if (state.selectedCardIds && state.selectedCardIds.length > 0) {
+        } else if (state.selectedCardIds && state.selectedCardIds.length > 0) {
+            // 卡片克隆逻辑 (省略了 DOM 直接插入，暂用 saveAndRender 保底，因为它比较宏观)
             let newSelectedCardIds = [];
-            
-            // 按当前卡片顺序排序
             const sortedCardIdsToClone = [...state.selectedCardIds].sort((idA, idB) => {
                 return state.cards.findIndex(c => c.id === idA) - state.cards.findIndex(c => c.id === idB);
             });
@@ -477,7 +471,6 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                 if (srcCard) {
                     const newCard = JSON.parse(JSON.stringify(srcCard));
                     newCard.id = 'card_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-                    // 为克隆卡片内的所有模块生成新ID
                     if (newCard.areas) {
                         newCard.areas.forEach(a => {
                             a.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
@@ -499,20 +492,16 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
             state.activeCardId = newSelectedCardIds[newSelectedCardIds.length - 1];
             
             saveAndRender();
-            
-            setTimeout(() => {
-                if(newSelectedCardIds.length > 0) {
-                     document.querySelector(`.sl-card[data-card-id="${newSelectedCardIds[newSelectedCardIds.length - 1]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                }
-            }, 50);
         }
     });
     
     tb.querySelector('#tb-format-painter')?.addEventListener('click', (e) => {
         e.stopPropagation();
+        const panelContainer = document.getElementById('shell-link-panel');
         if (state.painterMode) {
             state.painterMode = false;
             state.painterSource = null;
+            if (panelContainer) panelContainer.classList.remove('sl-painter-active');
         } else {
             state.painterMode = true;
             if (state.selectedAreaIds && state.selectedAreaIds.length > 0) {
@@ -523,7 +512,9 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                 const srcCard = state.cards.find(c => c.id === state.selectedCardIds[0]);
                 state.painterSource = { type: 'card', data: JSON.parse(JSON.stringify(srcCard)) };
             }
+            if (panelContainer) panelContainer.classList.add('sl-painter-active');
         }
-        saveAndRender();
+        renderDynamicToolbar(toolbarHandleContainer);
+        attachDynamicToolbarEvents(toolbarHandleContainer);
     });
 }

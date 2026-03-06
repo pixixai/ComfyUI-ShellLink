@@ -4,16 +4,15 @@
  */
 import { state, dragState, saveAndRender } from "../ui_state.js";
 import { getRatioCSS, showBindingToast, hideBindingToast } from "../ui_utils.js";
-// 引入全新的多媒体专员
+// 【完美保留】：继续使用你原本正确的媒体路由专员，绝不破坏底层架构！
 import { renderMedia, attachMediaEvents } from "./module_media.js";
 
-// 【新增防裂图引擎】：解析并强制刷新 ComfyUI 原生 /view URL 的访问时间戳
+// 【防裂图引擎】：解析并强制刷新 ComfyUI 原生 /view URL 的访问时间戳
 function getValidMediaUrl(urlStr) {
     if (!urlStr || typeof urlStr !== 'string') return urlStr;
     try {
         let urlObj = new URL(urlStr, window.location.origin);
         if (urlObj.pathname === '/view') {
-            // 通过附带最新的时间戳，强行打破浏览器旧有的可能破损的 temp 文件缓存
             urlObj.searchParams.set('t', Date.now());
             return urlObj.pathname + urlObj.search + urlObj.hash;
         }
@@ -39,16 +38,17 @@ export function generateOutputHTML(area, card) {
             if (isCurrent) border = '2px solid #4CAF50';
             else if (isSelected) border = '2px solid #2196F3';
 
-            const urlLower = hUrl.toLowerCase();
+            const urlLower = typeof hUrl === 'string' ? hUrl.toLowerCase() : '';
             const isVid = urlLower.match(/\.(mp4|webm|mov|avi|mkv)/);
             const isAud = urlLower.match(/\.(mp3|wav|ogg|flac|aac|m4a)/);
             
-            // 【核心修改】：调用动态 URL 引擎提取安全、新鲜的链接
+            // 【关键修复】：这里必须先解析出安全的 displayUrl，下面才能正常使用！
             const displayUrl = getValidMediaUrl(hUrl); 
 
             let media = '';
             if (isVid) {
-                media = `<video src="${displayUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" muted></video>`;
+                // 【性能优化】：加入 preload="metadata" 和 #t=0.1，只截取首帧！
+                media = `<video src="${displayUrl}#t=0.1" preload="metadata" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" muted></video>`;
             } else if (isAud) {
                 media = `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#222; color:#fff; font-size:24px;">🎵</div>`;
             } else {
@@ -130,6 +130,16 @@ export function attachOutputEvents(container) {
     // 🌟 接管媒体区域特有的交互！
     attachMediaEvents(container);
 
+    // 【微创手术引擎】：在此处拦截局部更新，不影响其他模块的视频播放！
+    const applySurgicalUpdate = (area) => {
+        if (window._slSurgicallyUpdateArea) {
+            window._slSurgicallyUpdateArea(area.id);
+            if (window._slJustSave) window._slJustSave();
+        } else {
+            saveAndRender();
+        }
+    };
+
     // 【功能1】：网格视图下“仅移除” (仅限当前模块，不删文件)
     container.querySelectorAll('.sl-manage-remove-btn').forEach(btn => {
         btn.onclick = (e) => {
@@ -166,7 +176,7 @@ export function attachOutputEvents(container) {
                         area.resultUrl = area.history[newActiveIdx];
                         area.selectedThumbIndices = []; 
                     }
-                    saveAndRender();
+                    applySurgicalUpdate(area);
                 }
             }
         };
@@ -179,7 +189,7 @@ export function attachOutputEvents(container) {
                 const area = card?.areas.find(a => a.id === grid.dataset.areaId);
                 if (area) {
                     area.selectedThumbIndices = []; 
-                    saveAndRender();
+                    applySurgicalUpdate(area);
                 }
             }
         };
@@ -214,7 +224,7 @@ export function attachOutputEvents(container) {
                     area.resultUrl = area.history[newActiveIdx];
                     area.selectedThumbIndices = [];
                 }
-                saveAndRender();
+                applySurgicalUpdate(area);
             }
         }
     });
@@ -257,7 +267,7 @@ export function attachOutputEvents(container) {
                     }
                     area.lastClickedThumbIdx = idx;
                 }
-                saveAndRender();
+                applySurgicalUpdate(area);
             }
         };
 
@@ -357,7 +367,7 @@ export function attachOutputEvents(container) {
                         area.selectedThumbIndices.push(newTargetIdx + i);
                     }
                     
-                    saveAndRender();
+                    applySurgicalUpdate(area);
                 }
             }
         });

@@ -300,9 +300,15 @@ export function bindComboSelectEvents(container, stateObj, saveAndRenderCallback
                     area.value = val;
                     stateObj.selectedAreaIds = [areaId];
                     stateObj.selectedCardIds = [];
-                    // 【补丁】：更新最后点击锚点，使得点击下拉菜单后也能发起 Shift 连选！
                     appState.lastClickedAreaId = areaId;
-                    saveAndRenderCallback(); 
+                    
+                    // 【核心修复】：优先使用局部更新，让视频绝对不闪烁
+                    if (window._slSurgicallyUpdateArea) {
+                        window._slSurgicallyUpdateArea(areaId);
+                        if (window._slJustSave) window._slJustSave();
+                    } else if (saveAndRenderCallback) {
+                        saveAndRenderCallback(); 
+                    }
                 }
             });
         });

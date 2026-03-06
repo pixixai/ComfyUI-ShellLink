@@ -1,24 +1,35 @@
 /**
  * 文件名: comp_taskcard.js
- * 职责: 【组件】负责“任务卡片”列表的 HTML 生成、中线判定拖拽排序与事件交互
+ * 职责: 【组件】负责“任务卡片”列表的 HTML 生成、局部物理拖拽与单点重绘
  */
-import { state, dragState, appState, saveAndRender } from "./ui_state.js";
-import { generateAreaHTML } from "./comp_modulearea.js";
+import { state, dragState, appState } from "./ui_state.js";
+import { generateAreaHTML, syncAreaDOMOrder, justSave } from "./comp_modulearea.js";
+import { updateSelectionUI } from "./ui_selection.js";
 
-// 底部兜底的全局添加任务
-function addNewCard() {
-    const newCard = { id: 'card_' + Date.now(), title: ``, areas: [] };
-    state.cards.push(newCard);
-    state.selectedCardIds = [newCard.id];
-    state.activeCardId = newCard.id;
-    state.selectedAreaIds = []; 
-    appState.lastClickedCardId = newCard.id;
-    saveAndRender();
-    
-    setTimeout(() => {
-        const container = document.querySelector("#sl-cards-container");
-        if (container) container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
-    }, 50);
+// 【新核武器】：提供单个卡片实体的纯净渲染，拒绝波及池鱼
+export function generateSingleCardHTML(card, index) {
+    const isCardSelected = state.selectedCardIds && state.selectedCardIds.includes(card.id);
+    const borderStyle = isCardSelected ? 'border-color: #4CAF50;' : '';
+    const activeClass = isCardSelected ? 'active selected' : '';
+    let areasHtml = (card.areas || []).map(area => generateAreaHTML(area, card)).join('');
+    const defaultTitle = `#${index + 1}`;
+    const displayTitle = card.title ? card.title : defaultTitle;
+
+    return `
+        <div class="sl-card ${activeClass}" style="${borderStyle}" data-card-id="${card.id}" draggable="true">
+            <div class="sl-card-title-bar" style="cursor: grab; position: relative;">
+                <input class="sl-card-title-input" type="text" data-id="${card.id}" data-default="${defaultTitle}" value="${displayTitle}" placeholder="${defaultTitle}" size="${Math.max(displayTitle.length, 2)}" style="width: unset; max-width: 240px; min-width: 30px;" />
+                
+                <div class="sl-card-progress-container" data-card-prog-id="${card.id}" style="position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; opacity: 0; transition: opacity 0.3s ease; z-index: 5;">
+                    <div class="sl-card-progress-bar" style="height: 100%; width: 0%; background: #4CAF50; transition: width 0.1s ease-out, background-color 0.2s; box-shadow: 0 0 5px rgba(76,175,80,0.5);"></div>
+                </div>
+            </div>
+            <button class="sl-del-card-btn" data-id="${card.id}" title="删除此任务(若多选则批量删除)">✖</button>
+            <div class="sl-card-body" data-card-id="${card.id}">
+                <div class="sl-area-list" data-card-id="${card.id}">${areasHtml}</div>
+            </div>
+        </div>
+    `;
 }
 
 export function renderCardsList(container) {
@@ -57,31 +68,9 @@ export function renderCardsList(container) {
 
     if (state.cards.length > 0) {
         state.cards.forEach((card, index) => {
-            const cardEl = document.createElement("div");
-            const isCardSelected = state.selectedCardIds && state.selectedCardIds.includes(card.id);
-            cardEl.className = `sl-card ${isCardSelected ? 'active selected' : ''}`;
-            if (isCardSelected) cardEl.style.borderColor = '#4CAF50';
-            cardEl.dataset.cardId = card.id;
-            cardEl.setAttribute('draggable', 'true');
-            
-            let areasHtml = (card.areas || []).map(area => generateAreaHTML(area, card)).join('');
-            const defaultTitle = `#${index + 1}`;
-            const displayTitle = card.title ? card.title : defaultTitle;
-
-            cardEl.innerHTML = `
-                <div class="sl-card-title-bar" style="cursor: grab; position: relative;">
-                    <input class="sl-card-title-input" type="text" data-id="${card.id}" data-default="${defaultTitle}" value="${displayTitle}" placeholder="${defaultTitle}" size="${Math.max(displayTitle.length, 2)}" style="width: unset; max-width: 240px; min-width: 30px;" />
-                    
-                    <div class="sl-card-progress-container" data-card-prog-id="${card.id}" style="position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; opacity: 0; transition: opacity 0.3s ease; z-index: 5;">
-                        <div class="sl-card-progress-bar" style="height: 100%; width: 0%; background: #4CAF50; transition: width 0.1s ease-out, background-color 0.2s; box-shadow: 0 0 5px rgba(76,175,80,0.5);"></div>
-                    </div>
-                </div>
-                <button class="sl-del-card-btn" data-id="${card.id}" title="删除此任务(若多选则批量删除)">✖</button>
-                <div class="sl-card-body" data-card-id="${card.id}">
-                    <div class="sl-area-list" data-card-id="${card.id}">${areasHtml}</div>
-                </div>
-            `;
-            wrapper.appendChild(cardEl);
+            const temp = document.createElement('div');
+            temp.innerHTML = generateSingleCardHTML(card, index);
+            wrapper.appendChild(temp.firstElementChild);
         });
     }
 
@@ -119,13 +108,39 @@ export function renderCardsList(container) {
         inlineAddBtn.style.background = 'rgba(255,255,255,0.02)';
         inlineAddBtn.style.borderColor = 'rgba(255,255,255,0.1)';
     };
-    inlineAddBtn.onclick = addNewCard;
+    
+    inlineAddBtn.onclick = () => {
+        const newCard = { id: 'card_' + Date.now(), title: ``, areas: [] };
+        state.cards.push(newCard);
+        state.selectedCardIds = [newCard.id];
+        state.activeCardId = newCard.id;
+        state.selectedAreaIds = []; 
+        appState.lastClickedCardId = newCard.id;
+        
+        const temp = document.createElement('div');
+        temp.innerHTML = generateSingleCardHTML(newCard, state.cards.length - 1);
+        wrapper.insertBefore(temp.firstElementChild, inlineAddBtn);
+        
+        attachCardEvents(wrapper);
+        justSave();
+        updateSelectionUI();
+        
+        if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles(); // 新建后纠正
+
+        setTimeout(() => {
+            const dContainer = document.querySelector("#sl-cards-container");
+            if (dContainer) dContainer.scrollTo({ left: dContainer.scrollWidth, behavior: 'smooth' });
+        }, 50);
+    };
     
     container.appendChild(wrapper);
 }
 
 export function attachCardEvents(container) {
     container.querySelectorAll('.sl-card-title-input').forEach(input => {
+        if (input.dataset.slEventsBound) return;
+        input.dataset.slEventsBound = "1";
+
         input.addEventListener('input', function() {
             this.size = Math.max(this.value.length, 2); 
         });
@@ -137,13 +152,15 @@ export function attachCardEvents(container) {
                 const currentVal = e.target.value.trim();
                 if (currentVal === defaultTitle || currentVal === '') card.title = '';
                 else card.title = currentVal; 
-                saveAndRender(); 
+                justSave(); 
             }
         };
     });
 
-    // 批量删除逻辑完全保留
     container.querySelectorAll('.sl-del-card-btn').forEach(btn => {
+        if (btn.dataset.slEventsBound) return;
+        btn.dataset.slEventsBound = "1";
+
         btn.onclick = (e) => {
             const id = e.target.dataset.id;
             let idsToDelete = [id];
@@ -153,16 +170,21 @@ export function attachCardEvents(container) {
             state.cards = state.cards.filter(c => !idsToDelete.includes(c.id));
             if (state.selectedCardIds) state.selectedCardIds = state.selectedCardIds.filter(selId => !idsToDelete.includes(selId));
             state.activeCardId = (state.selectedCardIds && state.selectedCardIds.length > 0) ? state.selectedCardIds[state.selectedCardIds.length - 1] : null;
-            saveAndRender();
+            
+            idsToDelete.forEach(delId => {
+                const el = document.querySelector(`.sl-card[data-card-id="${delId}"]`);
+                if (el) el.remove();
+            });
+            justSave();
+            updateSelectionUI();
+            if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles(); // 删除后纠正
         };
     });
 
-    container.querySelectorAll('.sl-card').forEach(cardEl => {
-        if (cardEl.classList.contains('sl-add-card-inline')) return;
+    container.querySelectorAll('.sl-card:not(.sl-add-card-inline)').forEach(cardEl => {
+        if (cardEl.dataset.slEventsBound) return;
+        cardEl.dataset.slEventsBound = "1";
 
-        // =========================================================================
-        // 卡片层级的批量拖拽与重组引擎 (利用全局护盾，无需拦截 click)
-        // =========================================================================
         cardEl.addEventListener('dragstart', (e) => {
             if (['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName) || e.target.closest('.sl-custom-select') || e.target.closest('.sl-edit-val-bool')) {
                 e.preventDefault(); return;
@@ -171,19 +193,17 @@ export function attachCardEvents(container) {
 
             const currentCardId = cardEl.dataset.cardId;
 
-            // 识别是否处于多选阵列中
             let draggedIds = [currentCardId];
             if (state.selectedCardIds && state.selectedCardIds.includes(currentCardId)) {
                 draggedIds = [...state.selectedCardIds];
             }
 
             dragState.type = 'card';
-            dragState.cardIds = draggedIds; // 核心：记录多选数组
+            dragState.cardIds = draggedIds; 
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', 'card');
             
             setTimeout(() => {
-                // 让被选中的所有卡片都变半透明进入拖拽状态
                 draggedIds.forEach(id => {
                     const el = document.querySelector(`.sl-card[data-card-id="${id}"]`);
                     if (el) el.classList.add('sl-dragging');
@@ -200,7 +220,6 @@ export function attachCardEvents(container) {
         });
 
         cardEl.addEventListener('dragover', (e) => {
-            // 禁止拖放到自己或自己多选的卡片上
             if (dragState.type === 'card' && dragState.cardIds && !dragState.cardIds.includes(cardEl.dataset.cardId)) {
                 e.preventDefault();
                 const rect = cardEl.getBoundingClientRect();
@@ -236,7 +255,6 @@ export function attachCardEvents(container) {
                 const targetCardId = cardEl.dataset.cardId;
                 if (targetCardId && !dragState.cardIds.includes(targetCardId)) {
                     
-                    // 1. 将被拖拽的所有卡片从原位置剥离
                     const movedCards = [];
                     const remainingCards = [];
                     state.cards.forEach(c => {
@@ -245,25 +263,33 @@ export function attachCardEvents(container) {
                     });
                     state.cards = remainingCards;
                     
-                    // 2. 找到目标卡片并整体插入
                     let targetIdx = state.cards.findIndex(c => c.id === targetCardId);
+                    const wrapper = cardEl.parentElement;
+
                     if (targetIdx !== -1) {
                         if (dropPos === 'right') targetIdx += 1; 
                         state.cards.splice(targetIdx, 0, ...movedCards);
-                        saveAndRender();
                     } else {
                         state.cards.push(...movedCards);
-                        saveAndRender();
                     }
+
+                    const inlineBtn = wrapper.querySelector('.sl-add-card-inline');
+                    state.cards.forEach(c => {
+                        const el = wrapper.querySelector(`.sl-card[data-card-id="${c.id}"]`);
+                        if (el) wrapper.insertBefore(el, inlineBtn);
+                    });
+                    
+                    justSave();
+                    if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles(); // 拖拽后纠正
                 }
             }
         });
     });
 
-    // =========================================================================
-    // 处理模块(Area) 被批量拖拽到卡片空白主体(Card Body) 内的跨界操作
-    // =========================================================================
     container.querySelectorAll('.sl-card-body').forEach(bodyEl => {
+        if (bodyEl.dataset.slEventsBound) return;
+        bodyEl.dataset.slEventsBound = "1";
+
         bodyEl.addEventListener('dragover', (e) => {
             if (dragState.type === 'area' && dragState.areaIds) {
                 e.preventDefault();
@@ -290,7 +316,6 @@ export function attachCardEvents(container) {
                     const targetCardId = bodyEl.dataset.cardId;
                     if (!targetCardId) return;
                     
-                    // 剥离所有拖动的模块
                     const movedAreas = [];
                     state.cards.forEach(c => {
                         if (!c.areas) return;
@@ -300,13 +325,16 @@ export function attachCardEvents(container) {
                             else remaining.push(a);
                         });
                         c.areas = remaining;
+                        syncAreaDOMOrder(c.id, c.areas);
                     });
                     
-                    // 插入到目标卡片最末尾
                     const targetCard = state.cards.find(c => c.id === targetCardId);
                     if (!targetCard.areas) targetCard.areas = [];
                     targetCard.areas.push(...movedAreas); 
-                    saveAndRender();
+                    syncAreaDOMOrder(targetCardId, targetCard.areas);
+
+                    justSave();
+                    if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles(); // 拖入空卡片后纠正
                 }
             }
         });

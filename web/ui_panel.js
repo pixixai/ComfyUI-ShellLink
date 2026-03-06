@@ -9,7 +9,6 @@ import { renderCardsList, attachCardEvents } from "./components/comp_taskcard.js
 import { attachAreaEvents } from "./components/comp_modulearea.js";
 import { updateSelectionUI } from "./components/ui_selection.js";
 
-// 引入抽离出的两大神经系统
 import { setupGlobalEvents } from "./components/events/event_global.js";
 import { setupExecutionEvents } from "./components/events/event_execution.js";
 
@@ -17,6 +16,68 @@ console.log("[ShellLink] UI 拆分重构版本已被成功导入 (极速响应�
 
 let panelContainer = null;
 let backdropContainer = null;
+
+// =========================================================================
+// 【全局物理截胡引擎】：彻底解决原生 Video 在重绘时的闪烁断连问题
+// =========================================================================
+window.ShellLink = window.ShellLink || {};
+
+window.ShellLink.stashMedia = () => {
+    window._slGlobalVaultMap = new Map();
+    if (!window._slMiniVault) {
+        window._slMiniVault = document.createElement('div');
+        window._slMiniVault.id = 'sl-mini-vault';
+        window._slMiniVault.style.cssText = 'position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -9999; overflow: hidden;';
+        document.body.appendChild(window._slMiniVault);
+    }
+    // 提前拔出所有媒体节点
+    document.querySelectorAll('.sl-video-player .sl-media-target, .sl-audio-player .sl-media-target').forEach(media => {
+        const areaEl = media.closest('.sl-area');
+        if (areaEl && areaEl.dataset.areaId) {
+            const info = {
+                el: media,
+                src: media.getAttribute('src') || '',
+                time: media.currentTime || 0,
+                paused: media.paused
+            };
+            window._slGlobalVaultMap.set(areaEl.dataset.areaId, info);
+            window._slMiniVault.appendChild(media);
+        }
+    });
+};
+
+window.ShellLink.restoreMedia = () => {
+    if (!window._slGlobalVaultMap) return;
+    document.querySelectorAll('.sl-area').forEach(areaEl => {
+        const areaId = areaEl.dataset.areaId;
+        if (window._slGlobalVaultMap.has(areaId)) {
+            const info = window._slGlobalVaultMap.get(areaId);
+            const newMedia = areaEl.querySelector('.sl-media-target');
+            if (newMedia) {
+                const newSrc = newMedia.getAttribute('src') || '';
+                const oldBase = info.src.split('&t=')[0].split('?t=')[0];
+                const newBase = newSrc.split('&t=')[0].split('?t=')[0];
+                
+                // 忽略时间戳差异，只要源文件一致，直接原装替换！
+                if (oldBase === newBase && oldBase !== '') {
+                    newMedia.replaceWith(info.el);
+                    if (Math.abs(info.el.currentTime - info.time) > 0.1) {
+                        info.el.currentTime = info.time;
+                    }
+                    if (!info.paused) info.el.play().catch(()=>{});
+                } else {
+                    info.el.remove();
+                }
+            } else {
+                info.el.remove();
+            }
+            window._slGlobalVaultMap.delete(areaId);
+        }
+    });
+    window._slGlobalVaultMap.forEach(info => info.el.remove());
+    window._slGlobalVaultMap.clear();
+};
+
 
 export function setupUI() {
     injectCSS(); 
@@ -202,6 +263,8 @@ function performRender() {
     attachDynamicToolbarEvents(toolbarHandle);
     attachCardEvents(cardsContainer);
     attachAreaEvents(cardsContainer);
+    
+    if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
 }
 
 function createPanelDOM() {
@@ -226,7 +289,6 @@ function createPanelDOM() {
             <div style="display:flex; gap:10px; align-items:center; margin-left:auto;">
                 
                 <div style="display:inline-flex; align-items:stretch; height: 34px;">
-                    <!-- 蓝色核心组 -->
                     <div id="sl-run-btn-wrapper" class="sl-run-wrapper" style="border-top-right-radius: 0; border-bottom-right-radius: 0; height: 100%;">
                         <button class="sl-btn run-btn-main" id="sl-btn-run" title="按规则运行选中任务 (局部)" style="height: 100%;">▶ 运行</button>
                         <div style="width:1px; height:16px; background:rgba(255,255,255,0.4); margin: 0 4px; align-self: center;"></div>
@@ -246,7 +308,6 @@ function createPanelDOM() {
                         </div>
                     </div>
                     
-                    <!-- 深色拼接口：裁剪了 viewBox 彻底放大并拉近箭头 -->
                     <div style="display:flex; align-items:center; background: rgba(0,0,0,0.5); border: 1px solid #555; border-left: none; border-top-right-radius: 6px; border-bottom-right-radius: 6px; padding-left: 6px; height: 100%; box-sizing: border-box;" title="循环运行次数 (排队执行)">
                         <input type="number" id="sl-run-batch-count" value="1" min="1" max="999" style="width: 24px; background: transparent; border: none; color: #eee; font-size: 14px; text-align: center; outline: none; font-family: sans-serif; -moz-appearance: textfield; padding: 0;">
                         <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height: 100%; margin-left: 2px; gap: 2px;">
@@ -277,7 +338,6 @@ function createPanelDOM() {
 
     setupStaticToolbarEvents(panelContainer);
     
-    // 绑定上下箭头的调节交互
     const countInput = panelContainer.querySelector('#sl-run-batch-count');
     const upBtn = panelContainer.querySelector('#sl-run-count-up');
     const downBtn = panelContainer.querySelector('#sl-run-count-down');
@@ -343,14 +403,12 @@ function createPanelDOM() {
         }
         if (state.selectedAreaIds && state.selectedAreaIds.length > 0) {
             state.selectedAreaIds = [];
-            // 【核心修复】：点击背景取消模块选择时，连同焦点卡片一并清除，杜绝误触运行
             state.activeCardId = null; 
             changed = true;
         }
         if(changed) updateSelectionUI(); 
     };
 
-    // 🌟 中央集权拦截引擎 (智能穿透版)
     cardsContainer.addEventListener("mousedown", (e) => {
         const isInteractive = e.target.closest('button, input, select, textarea, .sl-custom-select, .sl-edit-val-bool, .sl-del-area-btn, .sl-del-card-btn, .sl-history-thumb, .sl-upload-zone, .sl-video-controls-interactive');
         
@@ -429,7 +487,6 @@ function createPanelDOM() {
             } 
             else {
                 if (isInteractive && state.selectedAreaIds.includes(areaId) && state.selectedAreaIds.length > 1) {
-                    // 保持多选状态不变
                 } else {
                     state.selectedAreaIds = [areaId];
                 }
@@ -437,7 +494,6 @@ function createPanelDOM() {
             }
             
             state.selectedCardIds = [];
-            // 【核心修复】：如果选中模块数组为空，说明用户刚刚执行了取消选择，此时彻底清空卡片焦点！
             state.activeCardId = state.selectedAreaIds.length > 0 ? targetCardId : null;
             
             updateSelectionUI(); 
@@ -463,7 +519,6 @@ function createPanelDOM() {
                 state.selectedCardIds = Array.from(new Set([...state.selectedCardIds, ...rangeIds]));
             } else {
                 if (isInteractive && state.selectedCardIds.includes(targetId) && state.selectedCardIds.length > 1) {
-                    // 保持多选状态不变
                 } else {
                     state.selectedCardIds = [targetId];
                 }
@@ -542,7 +597,14 @@ function createPanelDOM() {
                             area.matchMedia = src.matchMedia;
                             area.fillMode = src.fillMode;
                             if (area.type !== src.type) area.value = ''; 
-                            saveAndRender();
+                            
+                            // 格式刷覆盖时使用点穴级更新
+                            if (window._slSurgicallyUpdateArea) {
+                                window._slSurgicallyUpdateArea(targetAreaId);
+                                if (window._slJustSave) window._slJustSave();
+                            } else {
+                                saveAndRender();
+                            }
                         }
                     }
                 } else if (cardEl && !areaEl) {
@@ -560,7 +622,27 @@ function createPanelDOM() {
                     newArea.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
                     if (!targetCard.areas) targetCard.areas = [];
                     targetCard.areas.splice(insertIndex, 0, newArea);
-                    saveAndRender();
+                    
+                    // 格式刷空白插入时，使用原生 DOM 追加，绝不全局重绘
+                    if (window._slGenerateAreaHTML && window._slAttachAreaEvents) {
+                        const temp = document.createElement('div');
+                        temp.innerHTML = window._slGenerateAreaHTML(newArea, targetCard);
+                        const newEl = temp.firstElementChild;
+                        const cardBody = cardEl.querySelector('.sl-area-list');
+                        if (cardBody) {
+                            if (insertIndex >= targetCard.areas.length - 1) cardBody.appendChild(newEl);
+                            else {
+                                const nextArea = targetCard.areas[insertIndex + 1];
+                                const nextEl = cardBody.querySelector(`.sl-area[data-area-id="${nextArea.id}"]`);
+                                cardBody.insertBefore(newEl, nextEl);
+                            }
+                            window._slAttachAreaEvents(cardBody);
+                        }
+                        if (window._slJustSave) window._slJustSave();
+                        if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
+                    } else {
+                        saveAndRender();
+                    }
                 }
                 e.stopPropagation(); return;
             }
@@ -666,7 +748,6 @@ function createPanelDOM() {
         }
     }
 
-    // 防碎图清理机制
     window.ShellLink.handleMediaError = (cardId, areaId, failedUrl) => {
         const card = state.cards.find(c => c.id === cardId);
         const area = card?.areas.find(a => a.id === areaId);
@@ -686,14 +767,14 @@ function createPanelDOM() {
                     area.historyIndex = Math.min(idx, area.history.length - 1);
                     area.resultUrl = area.history[area.historyIndex];
                 }
-                setTimeout(() => saveAndRender(), 10);
+                setTimeout(() => { if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(areaId); }, 10);
             } else if (area.resultUrl === failedUrl) {
                 area.resultUrl = '';
-                setTimeout(() => saveAndRender(), 10);
+                setTimeout(() => { if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(areaId); }, 10);
             }
         } else if (area && area.resultUrl === failedUrl) {
              area.resultUrl = '';
-             setTimeout(() => saveAndRender(), 10);
+             setTimeout(() => { if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(areaId); }, 10);
         }
     };
 }

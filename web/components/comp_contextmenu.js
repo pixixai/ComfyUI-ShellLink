@@ -6,6 +6,7 @@
 import { state, saveAndRender } from "./ui_state.js";
 import { showBindingToast, hideBindingToast } from "./ui_utils.js";
 import { execSelectSameModules, execDeleteSameModules, execMoveBackward, execMoveForward } from "./actions/action_batch_sync.js";
+import { updateSelectionUI } from "./ui_selection.js";
 
 // 辅助方法：触发定时消失的提示
 function showAutoToast(msg, isError = false) {
@@ -128,7 +129,7 @@ export function setupContextMenu(panelContainer) {
                 });
             };
 
-            // 【功能1】：仅移除当前记录（不影响本地文件，不波及其他模块）
+            // 【彻底抛弃重绘】：仅移除当前记录（局部更新）
             menuEl.querySelector('#sl-ctx-remove').onclick = () => {
                 menuEl.style.display = 'none';
                 selectedAreaObjs.forEach(o => {
@@ -144,11 +145,13 @@ export function setupContextMenu(panelContainer) {
                         o.area.resultUrl = null;
                     }
                     if (o.area.selectedThumbIndices) o.area.selectedThumbIndices = []; 
+                    
+                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(o.area.id);
                 });
-                saveAndRender(); 
+                if (window._slJustSave) window._slJustSave(); else saveAndRender();
             };
 
-            // 【功能2】：仅清除当前模块所有记录（不影响本地文件，不波及其他模块）
+            // 【彻底抛弃重绘】：仅清除当前模块所有记录（局部更新）
             menuEl.querySelector('#sl-ctx-clear').onclick = () => {
                 menuEl.style.display = 'none';
                 selectedAreaObjs.forEach(o => {
@@ -159,11 +162,13 @@ export function setupContextMenu(panelContainer) {
                     if (o.area.historyIndex !== undefined) o.area.historyIndex = 0;
                     if (o.area.currentRecordIndex !== undefined) o.area.currentRecordIndex = 0;
                     if (o.area.selectedThumbIndices) o.area.selectedThumbIndices = [];
+                    
+                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(o.area.id);
                 });
-                saveAndRender(); 
+                if (window._slJustSave) window._slJustSave(); else saveAndRender();
             };
 
-            // 【高级扩展功能】：清理失效记录 (纯前端试探，仅针对选中的模块)
+            // 【彻底抛弃重绘】：清理失效记录 (纯前端试探，仅针对选中的模块局部刷新)
             menuEl.querySelector('#sl-ctx-clean-dead').onclick = async () => {
                 menuEl.style.display = 'none';
                 showAutoToast("🔍 正在扫描失效记录，请稍候...", false);
@@ -214,12 +219,17 @@ export function setupContextMenu(panelContainer) {
                             }
                         }
                     });
-                    saveAndRender();
+                    
+                    selectedAreaObjs.forEach(o => {
+                        if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(o.area.id);
+                    });
+                    if (window._slJustSave) window._slJustSave(); else saveAndRender();
+                    
                     showAutoToast(`🧹 清理完成：已彻底剔除该模块 ${deadItems.length} 条丢失记录。`);
                 }
             };
 
-            // 【高级扩展功能】：重新同步记录 (局部时间戳破除缓存，PS 联动神技)
+            // 【彻底抛弃重绘】：重新同步记录
             menuEl.querySelector('#sl-ctx-resync').onclick = () => {
                 menuEl.style.display = 'none';
                 showAutoToast("🔄 正在强制重新拉取选中模块的本地资产...", false);
@@ -245,6 +255,8 @@ export function setupContextMenu(panelContainer) {
                             o.area.resultUrl = urlObj.pathname + urlObj.search;
                         } catch(e) {}
                     }
+                    
+                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(o.area.id);
                 });
 
                 if (syncCount === 0) {
@@ -252,7 +264,7 @@ export function setupContextMenu(panelContainer) {
                     return;
                 }
 
-                saveAndRender();
+                if (window._slJustSave) window._slJustSave(); else saveAndRender();
                 showAutoToast("✅ 缓存已清理，选中模块的图像已重新加载！");
             };
         }
@@ -280,13 +292,15 @@ export function setupContextMenu(panelContainer) {
         if (state.painterMode) {
             state.painterMode = false;
             state.painterSource = null;
-            saveAndRender();
+            document.getElementById('shell-link-panel')?.classList.remove('sl-painter-active');
+            updateSelectionUI();
+            if (window._slJustSave) window._slJustSave();
             return;
         }
 
         if (!state.selectedAreaIds.includes(areaId)) {
             state.selectedAreaIds = [areaId];
-            saveAndRender();
+            updateSelectionUI();
         }
         showMenu(x, y, areaId);
     };
@@ -297,7 +311,9 @@ export function setupContextMenu(panelContainer) {
             e.stopPropagation();
             state.painterMode = false;
             state.painterSource = null;
-            saveAndRender();
+            document.getElementById('shell-link-panel')?.classList.remove('sl-painter-active');
+            updateSelectionUI();
+            if (window._slJustSave) window._slJustSave();
             return;
         }
 
@@ -308,7 +324,7 @@ export function setupContextMenu(panelContainer) {
         
         if (!state.selectedAreaIds.includes(areaId)) {
             state.selectedAreaIds = [areaId];
-            saveAndRender();
+            updateSelectionUI();
         }
 
         e.preventDefault(); 

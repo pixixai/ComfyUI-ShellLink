@@ -23,11 +23,6 @@ export function setupAPIInjector(app) {
     window._slDoneTasks = window._slDoneTasks || new Set();
 
     // =========================================================================
-    // 🧹 历史包袱已清理：原先用于防止视频闪烁的“全局事件劫持”和“DOM拔插术”
-    // 已被完全删除，得益于局部刷新架构，代码变得纯净且高效。
-    // =========================================================================
-
-    // =========================================================================
     // 【神级修复】：全局媒体加载监听器，实现切换历史记录时动态适配尺寸
     // =========================================================================
     if (!window._slMediaLoadHijacked) {
@@ -41,7 +36,6 @@ export function setupAPIInjector(app) {
             const area = card?.areas.find(a => a.id === areaId);
             
             if (area && area.matchMedia) {
-                // 只有当尺寸确实发生了变化，才去触发重绘，避免无限循环死锁
                 if (area.width !== width || area.height !== height || area.ratio !== '自定义比例') {
                     area.ratio = '自定义比例';
                     area.width = width;
@@ -52,14 +46,12 @@ export function setupAPIInjector(app) {
             }
         };
 
-        // 捕获阶段监听所有的图片加载
         document.addEventListener('load', (e) => {
             if (e.target && e.target.tagName === 'IMG' && e.target.classList && e.target.classList.contains('sl-preview-img')) {
                 handleMediaLoad(e.target, e.target.naturalWidth, e.target.naturalHeight);
             }
         }, true);
 
-        // 捕获阶段监听所有的视频数据加载
         document.addEventListener('loadeddata', (e) => {
             if (e.target && e.target.tagName === 'VIDEO' && e.target.classList && e.target.classList.contains('sl-preview-img')) {
                 handleMediaLoad(e.target, e.target.videoWidth, e.target.videoHeight);
@@ -70,7 +62,7 @@ export function setupAPIInjector(app) {
     }
 
     // =========================================================================
-    // 【核弹级 UI 渲染器】：支持报错红灯模式，最高权限 (!important) 压制闪烁
+    // 【核弹级 UI 渲染器】：支持报错红灯模式
     // =========================================================================
     const setUIProgress = (cardId, percentage, isHide = false, isError = false, isRestore = false) => {
         if (window._slDoneTasks.has(cardId) && !isHide && !isRestore && percentage < 100) return; 
@@ -258,12 +250,9 @@ export function setupAPIInjector(app) {
         const result = await originalGraphToPrompt.apply(this, arguments);
         
         let execTask = window._slExecQueue.shift();
-
         if (!execTask) return result; 
 
         window._slLastGeneratedTask = execTask;
-        console.log(`[ShellLink] 🚀 插件运行模式：当前注入任务卡片: ${execTask.cardId}`);
-
         const activeCard = StateManager.state.cards.find(c => c.id === execTask.cardId);
         if (!activeCard) return result;
 
@@ -298,8 +287,6 @@ export function setupAPIInjector(app) {
             });
         }
 
-        // 🌟 删除危险的 A.5 篡改阶段，保持原生节点稳定，后续由截胡逻辑处理 🌟
-
         // --- 阶段 B: 动态剪枝 ---
         const targetPreviewAreas = activeCard.areas?.filter(a => a.type === 'preview' && a.targetNodeId && execTask.previewAreaIds.includes(a.id)) || [];
         
@@ -331,7 +318,6 @@ export function setupAPIInjector(app) {
     // =========================================================================
     // 3. 全局进度监听
     // =========================================================================
-    
     api.addEventListener("progress_state", (e) => {
         const pid = e.detail?.prompt_id;
         const nodes = e.detail?.nodes;
@@ -370,7 +356,7 @@ export function setupAPIInjector(app) {
     });
 
     // =========================================================================
-    // 4. 监听引擎执行完成事件 (增强版：截胡转存系统)
+    // 4. 监听引擎执行完成事件 (增强版：截胡转存与状态回写闭环)
     // =========================================================================
     api.addEventListener("executed", async (event) => {
         const detail = event.detail;
@@ -390,9 +376,9 @@ export function setupAPIInjector(app) {
             }
 
             if (String(area.targetNodeId) === String(executedNodeId)) {
-                let newUrl = null;
-                let isVideo = false;
-                let isAudio = false;
+                let newUrlFirst = null;
+                let isVideoFirst = false;
+                let isAudioFirst = false;
 
                 let targetItems = null;
                 if (outputData.videos && outputData.videos.length > 0) targetItems = outputData.videos;
@@ -401,86 +387,123 @@ export function setupAPIInjector(app) {
                 else if (outputData.images && outputData.images.length > 0) targetItems = outputData.images;
 
                 if (targetItems && targetItems.length > 0) {
-                    let media = targetItems[0];
                     
-                    const ext = media.filename.split('.').pop().toLowerCase();
-                    if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext) || (media.format && media.format.startsWith('video/'))) {
-                        isVideo = true;
-                    } else if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(ext) || (media.format && media.format.startsWith('audio/'))) {
-                        isAudio = true;
-                    }
-                    
-                    // 🛡️ 截胡归档系统：不管是 temp 预览缓存，还是 output 原始输出，统统拷贝到 ShellLink 的专属归档目录！
-                    if (media.type === "temp" || media.type === "output") {
-                        try {
-                            const asset_type = isVideo ? "video" : (isAudio ? "audio" : "image");
-                            const res = await fetch('/shell_link/copy_temp_asset', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    filename: media.filename,
-                                    subfolder: media.subfolder || "",
-                                    asset_type: asset_type,
-                                    source_type: media.type // 告诉后端这是临时文件还是输出文件
-                                })
-                            });
-                            
-                            const data = await res.json();
-                            if (data.status === "success") {
-                                // 替换为我们专属目录的永久资产信息
-                                media.filename = data.new_filename;
-                                media.subfolder = data.new_subfolder;
-                                media.type = data.new_type; 
-                            } else {
-                                console.error("[ShellLink] 截胡资产失败:", data.error);
+                    // 🔥【优化】：遍历所有的生成资产（处理多图批次出图），彻底消灭漏网之鱼
+                    for (let i = 0; i < targetItems.length; i++) {
+                        let media = targetItems[i];
+                        
+                        const ext = media.filename.split('.').pop().toLowerCase();
+                        let isVideo = false;
+                        let isAudio = false;
+                        if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext) || (media.format && media.format.startsWith('video/'))) {
+                            isVideo = true;
+                        } else if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(ext) || (media.format && media.format.startsWith('audio/'))) {
+                            isAudio = true;
+                        }
+
+                        // 记录原始的临时路径，等会要去 history 里面“抓人”
+                        const oldParams = new URLSearchParams({ filename: media.filename, type: media.type, subfolder: media.subfolder || "" });
+                        const oldUrlStr = `/view?${oldParams.toString()}`;
+                        const oldUrl = api.apiURL(oldUrlStr);
+
+                        // 🛡️ 截胡归档系统
+                        if (media.type === "temp" || media.type === "output") {
+                            try {
+                                const asset_type = isVideo ? "video" : (isAudio ? "audio" : "image");
+                                const res = await fetch('/shell_link/copy_temp_asset', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        filename: media.filename,
+                                        subfolder: media.subfolder || "",
+                                        asset_type: asset_type,
+                                        source_type: media.type
+                                    })
+                                });
+                                
+                                const data = await res.json();
+                                if (data.status === "success") {
+                                    media.filename = data.new_filename;
+                                    media.subfolder = data.new_subfolder;
+                                    media.type = data.new_type; 
+                                } else {
+                                    console.error("[ShellLink] 截胡资产失败:", data.error);
+                                }
+                            } catch (err) {
+                                console.error("[ShellLink] 截胡资产网络请求失败:", err);
                             }
-                        } catch (err) {
-                            console.error("[ShellLink] 截胡资产网络请求失败:", err);
+                        }
+
+                        // 构造后端复制完毕后的永久物理路径
+                        const newParams = new URLSearchParams({ filename: media.filename, type: media.type, subfolder: media.subfolder || "" });
+                        const newUrl = api.apiURL(`/view?${newParams.toString()}`);
+
+                        // 🔥 【核心状态回写】：强制纠正由于异步时间差被提前写进去的 temp 路径！
+                        if (newUrl) {
+                            if (!area.history) area.history = [];
+                            
+                            // 查找是否已经存在于 history 中（匹配完整路径或包含参数）
+                            const foundIdx = area.history.findIndex(h => h === oldUrl || h.includes(oldUrlStr));
+                            if (foundIdx !== -1) {
+                                // 替换为永久资产路径
+                                area.history[foundIdx] = newUrl;
+                            } else {
+                                // 如果没被别处拦截写入，那么我们主动帮它存入历史记录里，防止丢失
+                                if (!area.history.includes(newUrl)) {
+                                    area.history.push(newUrl);
+                                }
+                            }
+                        }
+
+                        // 记录第一项结果用于设置封面和触发排版
+                        if (i === 0 && newUrl) {
+                            newUrlFirst = newUrl;
+                            isVideoFirst = isVideo;
+                            isAudioFirst = isAudio;
                         }
                     }
 
-                    const params = new URLSearchParams({ filename: media.filename, type: media.type, subfolder: media.subfolder || "" });
-                    newUrl = api.apiURL(`/view?${params.toString()}`);
-                }
+                    if (newUrlFirst) {
+                        area.resultUrl = newUrlFirst;
 
-                if (newUrl) {
-                    area.resultUrl = newUrl;
-
-                    if (area.matchMedia) {
-                        if (isVideo) {
-                            const tempVid = document.createElement('video');
-                            tempVid.muted = true;
-                            tempVid.playsInline = true;
-                            tempVid.onloadeddata = () => {
-                                area.ratio = '自定义比例';
-                                area.width = tempVid.videoWidth;
-                                area.height = tempVid.videoHeight;
-                                StateManager.syncToNode(app.graph);
-                                document.dispatchEvent(new CustomEvent("sl_render_ui"));
-                            };
-                            tempVid.onerror = (e) => console.error("[ShellLink] 读取视频尺寸失败", e);
-                            tempVid.src = newUrl;
-                            tempVid.load();
-                        } else if (isAudio) {
-                            area.ratio = 'auto';
-                            StateManager.syncToNode(app.graph);
-                            document.dispatchEvent(new CustomEvent("sl_render_ui"));
-                        } else {
-                            const tempImg = new Image();
-                            tempImg.onload = () => {
-                                area.ratio = '自定义比例';
-                                area.width = tempImg.naturalWidth;
-                                area.height = tempImg.naturalHeight;
-                                StateManager.syncToNode(app.graph);
-                                document.dispatchEvent(new CustomEvent("sl_render_ui"));
-                            };
-                            tempImg.src = newUrl; 
-                        }
-                    } else {
+                        // 🔥 状态变更后，立即序列化同步到 ComfyUI 图谱内保存配置！
                         StateManager.syncToNode(app.graph);
-                        document.dispatchEvent(new CustomEvent("shell_link_update_preview", {
-                            detail: { cardId: card.id, areaId: area.id, url: newUrl }
-                        }));
+
+                        if (area.matchMedia) {
+                            if (isVideoFirst) {
+                                const tempVid = document.createElement('video');
+                                tempVid.muted = true;
+                                tempVid.playsInline = true;
+                                tempVid.onloadeddata = () => {
+                                    area.ratio = '自定义比例';
+                                    area.width = tempVid.videoWidth;
+                                    area.height = tempVid.videoHeight;
+                                    StateManager.syncToNode(app.graph);
+                                    document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                                };
+                                tempVid.onerror = (e) => console.error("[ShellLink] 读取视频尺寸失败", e);
+                                tempVid.src = newUrlFirst;
+                                tempVid.load();
+                            } else if (isAudioFirst) {
+                                area.ratio = 'auto';
+                                StateManager.syncToNode(app.graph);
+                                document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                            } else {
+                                const tempImg = new Image();
+                                tempImg.onload = () => {
+                                    area.ratio = '自定义比例';
+                                    area.width = tempImg.naturalWidth;
+                                    area.height = tempImg.naturalHeight;
+                                    StateManager.syncToNode(app.graph);
+                                    document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                                };
+                                tempImg.src = newUrlFirst; 
+                            }
+                        } else {
+                            document.dispatchEvent(new CustomEvent("shell_link_update_preview", {
+                                detail: { cardId: card.id, areaId: area.id, url: newUrlFirst }
+                            }));
+                        }
                     }
                 }
             }
@@ -645,8 +668,9 @@ export const StateManager = {
 
     /**
      * 【取】从画布节点读取 JSON，并恢复或清空内存状态
+     * 【核心修改】：标记为 async 异步，并在加载完毕后执行硬盘扫盘
      */
-    loadFromNode(graph) {
+    async loadFromNode(graph) {
         const node = this.getConfigNode(graph);
         if (node) {
             const widget = node.widgets?.find(w => w.name === "scenes_data");
@@ -664,6 +688,10 @@ export const StateManager = {
                         // 有效数据，执行恢复
                         this.state = parsedData;
                         console.log("[ShellLink] 成功从节点恢复卡片数据");
+                        
+                        // 【新增】：扫描硬盘，强行补齐缺失的历史图片记录
+                        await this.syncLocalHistoryToOutputAreas();
+                        
                         document.dispatchEvent(new CustomEvent("shell_link_state_loaded", { detail: this.state }));
                     }
                 } catch (e) {
@@ -678,6 +706,48 @@ export const StateManager = {
             document.dispatchEvent(new CustomEvent("shell_link_state_cleared"));
         }
         this.startWatchdog(graph); // 确保看门狗在运行
+    },
+
+    /**
+     * 【新增功能】：让前端拥有自动补全本地硬盘缺失记录的能力
+     */
+    async syncLocalHistoryToOutputAreas() {
+        try {
+            const resp = await fetch('/shell_link/get_local_history');
+            const data = await resp.json();
+            
+            if (data.status === 'success' && data.history && data.history.length > 0) {
+                const localUrls = data.history.map(item => item.url);
+                
+                if (!this.state.cards) return;
+                
+                this.state.cards.forEach(card => {
+                    card.areas.forEach(area => {
+                        // 兼容你数据结构里的 'output' 和 'preview' 模块
+                        if (area.type === 'output' || area.type === 'preview') {
+                            if (!area.history) area.history = [];
+                            
+                            // 过滤出那些在硬盘里存在，但当前模块记录里却没有的 URL (忽略时间戳后缀)
+                            const newUrls = localUrls.filter(url => 
+                                !area.history.some(hUrl => hUrl.split('&t=')[0] === url.split('&t=')[0])
+                            );
+                            
+                            if (newUrls.length > 0) {
+                                area.history = [...area.history, ...newUrls];
+                                // 如果当前模块是空的，恢复后自动选中最后一张
+                                if (!area.resultUrl && area.history.length > 0) {
+                                    area.historyIndex = area.history.length - 1;
+                                    area.resultUrl = area.history[area.historyIndex];
+                                }
+                            }
+                        }
+                    });
+                });
+                console.log("[ShellLink] 💽 已成功将本地硬盘记录同步回输出模块中！");
+            }
+        } catch (e) {
+            console.error("[ShellLink] 同步硬盘历史记录请求失败:", e);
+        }
     },
 
     /**
@@ -783,11 +853,14 @@ export function setupUI() {
             transition: width 0.1s ease, min-width 0.1s ease, max-width 0.1s ease;
         }
         #sl-card-width-input::-webkit-outer-spin-button,
-        #sl-card-width-input::-webkit-inner-spin-button {
+        #sl-card-width-input::-webkit-inner-spin-button,
+        #sl-run-batch-count::-webkit-outer-spin-button,
+        #sl-run-batch-count::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
         }
-        #sl-card-width-input[type=number] {
+        #sl-card-width-input[type=number],
+        #sl-run-batch-count[type=number] {
             -moz-appearance: textfield;
         }
         
@@ -912,20 +985,36 @@ document.addEventListener("sl_render_ui", () => {
 function performRender() {
     if (!panelContainer) return;
 
-    // 🌟 1. 渲染前：唤醒媒体保险库，拔下正在播放的所有视频和音频
-    if (window.ShellLink && window.ShellLink.stashMedia) window.ShellLink.stashMedia();
-
     const toolbarHandle = panelContainer.querySelector('#sl-toolbar-handle');
     const cardsContainer = panelContainer.querySelector('#sl-cards-container');
+
+    let savedScrollLeft = 0;
+    const savedCardScrolls = new Map();
+    if (cardsContainer) {
+        savedScrollLeft = cardsContainer.scrollLeft; 
+        cardsContainer.querySelectorAll('.sl-card-body').forEach(body => {
+            if (body.dataset.cardId) {
+                savedCardScrolls.set(body.dataset.cardId, body.scrollTop); 
+            }
+        });
+    }
+
+    if (window.ShellLink && window.ShellLink.stashMedia) window.ShellLink.stashMedia();
     
-    // 💥 核弹级重绘：清空旧 HTML 并生成全新 HTML
     renderDynamicToolbar(toolbarHandle);
     renderCardsList(cardsContainer);
     
-    // 🌟 2. 渲染后：在全新 HTML 里找到占位符，把正在播放的视频原样插回去
+    if (cardsContainer) {
+        cardsContainer.scrollLeft = savedScrollLeft;
+        cardsContainer.querySelectorAll('.sl-card-body').forEach(body => {
+            if (body.dataset.cardId && savedCardScrolls.has(body.dataset.cardId)) {
+                body.scrollTop = savedCardScrolls.get(body.dataset.cardId);
+            }
+        });
+    }
+
     if (window.ShellLink && window.ShellLink.restoreMedia) window.ShellLink.restoreMedia();
 
-    // 3. 重新绑定交互事件（新生成的控制按钮会完美绑定到插回去的老视频上）
     attachDynamicToolbarEvents(toolbarHandle);
     attachCardEvents(cardsContainer);
     attachAreaEvents(cardsContainer);
@@ -951,24 +1040,42 @@ function createPanelDOM() {
             </div>
 
             <div style="display:flex; gap:10px; align-items:center; margin-left:auto;">
-                <div id="sl-run-btn-wrapper" class="sl-run-wrapper">
-                    <button class="sl-btn run-btn-main" id="sl-btn-run" title="按规则运行选中任务 (局部)">▶ 运行</button>
-                    <div style="width:1px; height:16px; background:rgba(255,255,255,0.4); margin: 0 4px; align-self: center;"></div>
-                    <button class="sl-btn run-btn-toggle" id="sl-run-dropdown-toggle" title="展开更多运行选项">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </button>
-                    <div id="sl-run-dropdown-menu" class="sl-custom-select-dropdown" style="display:none; top: calc(100% + 4px); right: 0; left: auto; min-width: 140px; z-index: 10002;">
-                        <div class="sl-custom-select-item" id="sl-btn-run-all" style="display:flex; align-items:center; gap:8px;">
-                            <svg width="15" height="15" viewBox="0 0 17.08 15.01" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6.63,6.6L1.95,2.64c-.77-.65-1.95-.11-1.95.91v7.93c0,1.01,1.18,1.56,1.95.91l4.68-3.96c.56-.47.56-1.34,0-1.81Z"/>
-                                <path d="M16.74,6.77L9.02.23c-.63-.53-1.59-.09-1.59.74v13.07c0,.82.96,1.27,1.59.74l7.72-6.54c.46-.39.46-1.09,0-1.48Z"/>
+                
+                <div style="display:inline-flex; align-items:stretch; height: 34px;">
+                    <!-- 蓝色核心组 -->
+                    <div id="sl-run-btn-wrapper" class="sl-run-wrapper" style="border-top-right-radius: 0; border-bottom-right-radius: 0; height: 100%;">
+                        <button class="sl-btn run-btn-main" id="sl-btn-run" title="按规则运行选中任务 (局部)" style="height: 100%;">▶ 运行</button>
+                        <div style="width:1px; height:16px; background:rgba(255,255,255,0.4); margin: 0 4px; align-self: center;"></div>
+                        <button class="sl-btn run-btn-toggle" id="sl-run-dropdown-toggle" title="展开更多运行选项" style="height: 100%;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
-                            运行全部
+                        </button>
+                        <div id="sl-run-dropdown-menu" class="sl-custom-select-dropdown" style="display:none; top: calc(100% + 4px); right: 0; left: auto; min-width: 140px; z-index: 10002;">
+                            <div class="sl-custom-select-item" id="sl-btn-run-all" style="display:flex; align-items:center; gap:8px;">
+                                <svg width="15" height="15" viewBox="0 0 19.6 15.01" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M19.26,6.77L11.55.23c-.63-.53-1.59-.09-1.59.74v13.07c0,.82.96,1.27,1.59.74l7.72-6.54c.46-.39.46-1.09,0-1.48Z"/>
+                                    <path d="M9.31,6.77L1.59.23C.96-.3,0,.15,0,.97v13.07c0,.82.96,1.27,1.59.74l7.72-6.54c.46-.39.46-1.09,0-1.48Z"/>
+                                </svg>
+                                运行全部
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 深色拼接口：裁剪了 viewBox 彻底放大并拉近箭头 -->
+                    <div style="display:flex; align-items:center; background: rgba(0,0,0,0.5); border: 1px solid #555; border-left: none; border-top-right-radius: 6px; border-bottom-right-radius: 6px; padding-left: 6px; height: 100%; box-sizing: border-box;" title="循环运行次数 (排队执行)">
+                        <input type="number" id="sl-run-batch-count" value="1" min="1" max="999" style="width: 24px; background: transparent; border: none; color: #eee; font-size: 14px; text-align: center; outline: none; font-family: sans-serif; -moz-appearance: textfield; padding: 0;">
+                        <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height: 100%; margin-left: 2px; gap: 2px;">
+                            <div id="sl-run-count-up" style="cursor:pointer; display:flex; align-items:center; justify-content:center; padding: 2px 6px;" onmouseover="this.querySelector('svg').style.stroke='#fff'" onmouseout="this.querySelector('svg').style.stroke='#aaa'">
+                                <svg width="14" height="8" viewBox="0 7 24 10" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; transition: stroke 0.2s;"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                            </div>
+                            <div id="sl-run-count-down" style="cursor:pointer; display:flex; align-items:center; justify-content:center; padding: 2px 6px;" onmouseover="this.querySelector('svg').style.stroke='#fff'" onmouseout="this.querySelector('svg').style.stroke='#aaa'">
+                                <svg width="14" height="8" viewBox="0 7 24 10" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; transition: stroke 0.2s;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
                         </div>
                     </div>
                 </div>
+
                 <button class="sl-btn" id="sl-btn-config" title="在画布创建配置节点">⚓ 创建配置锚点</button>
             </div>
         </div>
@@ -985,6 +1092,27 @@ function createPanelDOM() {
     `;
 
     setupStaticToolbarEvents(panelContainer);
+    
+    // 绑定上下箭头的调节交互
+    const countInput = panelContainer.querySelector('#sl-run-batch-count');
+    const upBtn = panelContainer.querySelector('#sl-run-count-up');
+    const downBtn = panelContainer.querySelector('#sl-run-count-down');
+    if (countInput && upBtn && downBtn) {
+        upBtn.onclick = (e) => {
+            e.stopPropagation();
+            countInput.value = Math.min(999, parseInt(countInput.value || 1) + 1);
+        };
+        downBtn.onclick = (e) => {
+            e.stopPropagation();
+            countInput.value = Math.max(1, parseInt(countInput.value || 1) - 1);
+        };
+        countInput.onchange = () => {
+            let v = parseInt(countInput.value);
+            if (isNaN(v) || v < 1) v = 1;
+            if (v > 999) v = 999;
+            countInput.value = v;
+        };
+    }
 
     panelContainer.addEventListener("click", (e) => {
         if (!state.painterMode) return;
@@ -996,6 +1124,7 @@ function createPanelDOM() {
             state.painterMode = false;
             state.painterSource = null;
             panelContainer.classList.remove('sl-painter-active');
+            updateSelectionUI();
         }
     }, true);
 
@@ -1030,6 +1159,8 @@ function createPanelDOM() {
         }
         if (state.selectedAreaIds && state.selectedAreaIds.length > 0) {
             state.selectedAreaIds = [];
+            // 【核心修复】：点击背景取消模块选择时，连同焦点卡片一并清除，杜绝误触运行
+            state.activeCardId = null; 
             changed = true;
         }
         if(changed) updateSelectionUI(); 
@@ -1037,19 +1168,28 @@ function createPanelDOM() {
 
     // 🌟 中央集权拦截引擎 (智能穿透版)
     cardsContainer.addEventListener("mousedown", (e) => {
-        if (state.painterMode) return;
+        const isInteractive = e.target.closest('button, input, select, textarea, .sl-custom-select, .sl-edit-val-bool, .sl-del-area-btn, .sl-del-card-btn, .sl-history-thumb, .sl-upload-zone, .sl-video-controls-interactive');
+        
+        if (state.painterMode) {
+            if (isInteractive && e.button === 0) {
+                state.painterMode = false;
+                state.painterSource = null;
+                panelContainer.classList.remove('sl-painter-active');
+                updateSelectionUI();
+            }
+            return; 
+        }
+
         if (e.button !== 0) return; 
 
-        // 【核心修复】：白名单加入 .sl-video-controls-interactive
-        const isInteractive = e.target.closest('button, input, select, textarea, .sl-custom-select, .sl-edit-val-bool, .sl-del-area-btn, .sl-del-card-btn, .sl-history-thumb, .sl-upload-zone, .sl-video-controls-interactive');
-        // 【核心新增】：建立专属的媒体区域白名单，防止停止冒泡导致视频不响应点击！
         const isMedia = e.target.closest('.sl-video-player, .sl-audio-player, .sl-preview-bg, video, audio');
-        
         const areaEl = e.target.closest('.sl-area');
         const cardEl = e.target.closest('.sl-card:not(.sl-add-card-inline)');
 
         if (areaEl) {
             const areaId = areaEl.dataset.areaId;
+            const targetCardId = cardEl ? cardEl.dataset.cardId : null;
+
             if (e.ctrlKey || e.metaKey) {
                 if (isInteractive) {
                     if (!state.selectedAreaIds.includes(areaId)) state.selectedAreaIds.push(areaId);
@@ -1057,19 +1197,67 @@ function createPanelDOM() {
                     if (state.selectedAreaIds.includes(areaId)) state.selectedAreaIds = state.selectedAreaIds.filter(id => id !== areaId);
                     else state.selectedAreaIds.push(areaId);
                 }
-            } else {
+                appState.lastClickedAreaId = areaId; 
+            } 
+            else if (e.shiftKey && appState.lastClickedAreaId) {
+                let startCardIdx = -1, endCardIdx = -1;
+                let startAreaIdx = -1, endAreaIdx = -1;
+                let anchorType = null;
+                
+                state.cards.forEach((c, cIdx) => {
+                    if (c.id === targetCardId) {
+                        endCardIdx = cIdx;
+                        if (c.areas) endAreaIdx = c.areas.findIndex(a => a.id === areaId);
+                    }
+                    if (c.areas) {
+                        const aIdx = c.areas.findIndex(a => a.id === appState.lastClickedAreaId);
+                        if (aIdx !== -1) {
+                            startCardIdx = cIdx;
+                            startAreaIdx = aIdx;
+                            anchorType = c.areas[aIdx].type; 
+                        }
+                    }
+                });
+
+                if (startCardIdx !== -1 && endCardIdx !== -1 && startAreaIdx !== -1 && endAreaIdx !== -1) {
+                    const minC = Math.min(startCardIdx, endCardIdx);
+                    const maxC = Math.max(startCardIdx, endCardIdx);
+                    const minA = Math.min(startAreaIdx, endAreaIdx);
+                    const maxA = Math.max(startAreaIdx, endAreaIdx);
+
+                    const rangeIds = [];
+                    for (let c = minC; c <= maxC; c++) {
+                        const curCard = state.cards[c];
+                        if (curCard && curCard.areas) {
+                            for (let a = minA; a <= maxA; a++) {
+                                const candidate = curCard.areas[a];
+                                if (candidate && candidate.type === anchorType) {
+                                    rangeIds.push(candidate.id);
+                                }
+                            }
+                        }
+                    }
+                    state.selectedAreaIds = Array.from(new Set([...state.selectedAreaIds, ...rangeIds]));
+                } else {
+                    state.selectedAreaIds = [areaId];
+                    appState.lastClickedAreaId = areaId; 
+                }
+            } 
+            else {
                 if (isInteractive && state.selectedAreaIds.includes(areaId) && state.selectedAreaIds.length > 1) {
                     // 保持多选状态不变
                 } else {
                     state.selectedAreaIds = [areaId];
                 }
+                appState.lastClickedAreaId = areaId; 
             }
+            
             state.selectedCardIds = [];
-            state.activeCardId = cardEl ? cardEl.dataset.cardId : null;
+            // 【核心修复】：如果选中模块数组为空，说明用户刚刚执行了取消选择，此时彻底清空卡片焦点！
+            state.activeCardId = state.selectedAreaIds.length > 0 ? targetCardId : null;
             
             updateSelectionUI(); 
             
-            // 【核心穿透】：如果点击的既不是输入框按钮，也不是音视频媒体，才阻止冒泡！
             if (!isInteractive && !isMedia) e.stopPropagation();
             
         } else if (cardEl) {
@@ -1081,7 +1269,7 @@ function createPanelDOM() {
                     if (state.selectedCardIds.includes(targetId)) state.selectedCardIds = state.selectedCardIds.filter(id => id !== targetId);
                     else state.selectedCardIds.push(targetId);
                 }
-                appState.lastClickedCardId = targetId;
+                appState.lastClickedCardId = targetId; 
             } else if (e.shiftKey && appState.lastClickedCardId) {
                 const currentIndex = state.cards.findIndex(c => c.id === targetId);
                 const lastIndex = state.cards.findIndex(c => c.id === appState.lastClickedCardId);
@@ -1089,14 +1277,13 @@ function createPanelDOM() {
                 const maxIdx = Math.max(currentIndex, lastIndex);
                 const rangeIds = state.cards.slice(minIdx, maxIdx + 1).map(c => c.id);
                 state.selectedCardIds = Array.from(new Set([...state.selectedCardIds, ...rangeIds]));
-                appState.lastClickedCardId = targetId;
             } else {
                 if (isInteractive && state.selectedCardIds.includes(targetId) && state.selectedCardIds.length > 1) {
                     // 保持多选状态不变
                 } else {
                     state.selectedCardIds = [targetId];
                 }
-                appState.lastClickedCardId = targetId;
+                appState.lastClickedCardId = targetId; 
             }
             
             state.activeCardId = state.selectedCardIds.length > 0 ? state.selectedCardIds[state.selectedCardIds.length - 1] : null;
@@ -1111,14 +1298,20 @@ function createPanelDOM() {
 
     cardsContainer.addEventListener("click", (e) => {
         const isInteractive = e.target.closest('button, input, select, textarea, .sl-custom-select, .sl-edit-val-bool, .sl-del-area-btn, .sl-del-card-btn, .sl-history-thumb, .sl-upload-zone, .sl-video-controls-interactive');
-        // 【核心新增】：媒体元素同样纳入白名单
         const isMedia = e.target.closest('.sl-video-player, .sl-audio-player, .sl-preview-bg, video, audio');
         
         const areaEl = e.target.closest('.sl-area');
         const cardEl = e.target.closest('.sl-card:not(.sl-add-card-inline)');
 
         if (state.painterMode) {
-            if (isInteractive) return;
+            if (isInteractive) {
+                state.painterMode = false;
+                state.painterSource = null;
+                panelContainer.classList.remove('sl-painter-active');
+                updateSelectionUI();
+                return;
+            }
+
             if (state.painterSource?.type === 'card') {
                 if (cardEl && !areaEl) {
                     const targetId = cardEl.dataset.cardId;
@@ -1190,7 +1383,6 @@ function createPanelDOM() {
             return;
         }
 
-        // 【核心穿透】：如果在视频组件上触发了点击，同样不阻止冒泡
         if ((areaEl || cardEl) && !isInteractive && !isMedia) {
             e.stopPropagation();
             return;
@@ -1355,7 +1547,7 @@ function makePanelDraggable() {
 /**
  * 文件名: comp_contextmenu.js
  * 路径: web/components/comp_contextmenu.js
- * 职责: 拦截模块（输入/输出）的右键事件，生成动态菜单，并支持多选批量操作与全局资产清理
+ * 职责: 拦截模块（输入/输出）的右键事件，生成动态菜单，并支持多选批量操作与局部资产清理
  */
 import { state, saveAndRender } from "./ui_state.js";
 import { showBindingToast, hideBindingToast } from "./ui_utils.js";
@@ -1430,6 +1622,9 @@ export function setupContextMenu(panelContainer) {
                 <div class="sl-context-menu-divider"></div>
                 <div class="sl-context-menu-item" id="sl-ctx-remove">移除</div>
                 <div class="sl-context-menu-item" id="sl-ctx-clear">清除所有生成记录</div>
+                <div class="sl-context-menu-divider"></div>
+                <div class="sl-context-menu-item" id="sl-ctx-clean-dead">清理失效记录 (404)</div>
+                <div class="sl-context-menu-item" id="sl-ctx-resync">重新同步记录 (强制刷新)</div>
             `;
         }
 
@@ -1512,6 +1707,99 @@ export function setupContextMenu(panelContainer) {
                     if (o.area.selectedThumbIndices) o.area.selectedThumbIndices = [];
                 });
                 saveAndRender(); 
+            };
+
+            // 【高级扩展功能】：清理失效记录 (纯前端试探，仅针对选中的模块)
+            menuEl.querySelector('#sl-ctx-clean-dead').onclick = async () => {
+                menuEl.style.display = 'none';
+                showAutoToast("🔍 正在扫描失效记录，请稍候...", false);
+
+                let totalChecked = 0;
+                const checkPromises = [];
+
+                selectedAreaObjs.forEach(o => {
+                    const arr = getHistoryArr(o.area);
+                    if (arr && arr.length > 0) {
+                        arr.forEach((url) => {
+                            if (!url) return;
+                            totalChecked++;
+                            const p = fetch(url, { method: 'HEAD', cache: 'no-store' }).then(res => {
+                                if (!res.ok && res.status === 404) {
+                                    return { area: o.area, url: url };
+                                }
+                                return null;
+                            }).catch(err => null); // 忽略网络波动错误
+                            checkPromises.push(p);
+                        });
+                    }
+                });
+
+                if (totalChecked === 0) {
+                    showAutoToast("选中模块没有任何有效的生成记录需要清理。");
+                    return;
+                }
+
+                const results = await Promise.all(checkPromises);
+                const deadItems = results.filter(item => item !== null);
+
+                if (deadItems.length === 0) {
+                    showAutoToast("✨ 扫描完毕：选中模块的本地资产均完好无损！");
+                } else {
+                    deadItems.forEach(item => {
+                        const area = item.area;
+                        const arr = getHistoryArr(area);
+                        if (arr) {
+                            const idx = arr.indexOf(item.url);
+                            if (idx !== -1) {
+                                arr.splice(idx, 1);
+                                if (area.resultUrl === item.url) {
+                                    area.resultUrl = arr.length > 0 ? arr[0] : "";
+                                    if (area.historyIndex !== undefined) area.historyIndex = 0;
+                                    if (area.currentRecordIndex !== undefined) area.currentRecordIndex = 0;
+                                }
+                            }
+                        }
+                    });
+                    saveAndRender();
+                    showAutoToast(`🧹 清理完成：已彻底剔除该模块 ${deadItems.length} 条丢失记录。`);
+                }
+            };
+
+            // 【高级扩展功能】：重新同步记录 (局部时间戳破除缓存，PS 联动神技)
+            menuEl.querySelector('#sl-ctx-resync').onclick = () => {
+                menuEl.style.display = 'none';
+                showAutoToast("🔄 正在强制重新拉取选中模块的本地资产...", false);
+                const now = Date.now();
+                let syncCount = 0;
+
+                selectedAreaObjs.forEach(o => {
+                    if (o.area.history && o.area.history.length > 0) {
+                        o.area.history = o.area.history.map(url => {
+                            if (!url) return url;
+                            try {
+                                const urlObj = new URL(url, window.location.origin);
+                                urlObj.searchParams.set('t', now);
+                                syncCount++;
+                                return urlObj.pathname + urlObj.search;
+                            } catch(e) { return url; }
+                        });
+                    }
+                    if (o.area.resultUrl) {
+                        try {
+                            const urlObj = new URL(o.area.resultUrl, window.location.origin);
+                            urlObj.searchParams.set('t', now);
+                            o.area.resultUrl = urlObj.pathname + urlObj.search;
+                        } catch(e) {}
+                    }
+                });
+
+                if (syncCount === 0) {
+                    showAutoToast("选中模块没有任何图像记录需要同步。");
+                    return;
+                }
+
+                saveAndRender();
+                showAutoToast("✅ 缓存已清理，选中模块的图像已重新加载！");
             };
         }
 
@@ -1599,16 +1887,34 @@ export function attachAreaEvents(container) {
     attachOutputEvents(container);
     bindComboSelectEvents(container, state, saveAndRender);
 
+    // =========================================================================
+    // 支持模块多选后的批量删除
+    // =========================================================================
     container.querySelectorAll('.sl-del-area-btn').forEach(btn => {
         btn.onclick = (e) => {
             e.stopPropagation();
             const { card: cardId, area: areaId } = e.target.dataset;
-            const card = state.cards.find(c => c.id === cardId);
-            if(card) {
-                card.areas = card.areas.filter(a => a.id !== areaId);
-                state.selectedAreaIds = state.selectedAreaIds.filter(id => id !== areaId);
-                saveAndRender();
+            const isSelected = state.selectedAreaIds && state.selectedAreaIds.includes(areaId);
+
+            if (isSelected && state.selectedAreaIds.length > 1) {
+                // 批量删除所有选中的模块
+                state.cards.forEach(c => {
+                    if (c.areas) {
+                        c.areas = c.areas.filter(a => !state.selectedAreaIds.includes(a.id));
+                    }
+                });
+                state.selectedAreaIds = [];
+            } else {
+                // 单独删除这一个模块
+                const card = state.cards.find(c => c.id === cardId);
+                if(card) {
+                    card.areas = card.areas.filter(a => a.id !== areaId);
+                    if (state.selectedAreaIds) {
+                        state.selectedAreaIds = state.selectedAreaIds.filter(id => id !== areaId);
+                    }
+                }
             }
+            saveAndRender();
         };
     });
 
@@ -1629,7 +1935,6 @@ export function attachAreaEvents(container) {
         };
     });
 
-    // 🚨 所有的 click/mousedown 全盘铲除，彻绝冲突
     container.querySelectorAll('.sl-area').forEach(areaEl => {
         areaEl.addEventListener('contextmenu', (e) => {
             const areaId = areaEl.dataset.areaId;
@@ -1653,31 +1958,61 @@ export function attachAreaEvents(container) {
             }
         });
 
+        // =========================================================================
+        // 【高级升级】：起飞阶段 - 记录锚点身份与各模块的原始坐标
+        // =========================================================================
         areaEl.addEventListener('dragstart', (e) => {
-            if (['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName) || e.target.closest('.sl-custom-select') || e.target.closest('.sl-bool-label') || e.target.closest('.sl-upload-zone') || e.target.closest('.sl-history-thumb')) return;
+            if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) || e.target.closest('.sl-custom-select') || e.target.closest('.sl-bool-label') || e.target.closest('.sl-upload-zone') || e.target.closest('.sl-history-thumb')) return;
             
             e.stopPropagation(); 
+            const currentAreaId = areaEl.dataset.areaId;
+
+            let draggedIds = [currentAreaId];
+            if (state.selectedAreaIds && state.selectedAreaIds.includes(currentAreaId)) {
+                draggedIds = [...state.selectedAreaIds];
+            }
+
             dragState.type = 'area';
-            dragState.cardId = areaEl.dataset.cardId;
-            dragState.areaId = areaEl.dataset.areaId;
+            dragState.cardId = areaEl.dataset.cardId;   // 拖拽的主力(锚点)所在的卡片
+            dragState.anchorAreaId = currentAreaId;     // 记录是哪个模块被抓起
+            dragState.areaIds = draggedIds; 
+
+            // 引擎预热：扫描全场，记录所有被选中模块的初始卡片归属和坐标
+            dragState.sourceInfo = {};
+            state.cards.forEach(c => {
+                if (c.areas) {
+                    c.areas.forEach((a, idx) => {
+                        if (draggedIds.includes(a.id)) {
+                            dragState.sourceInfo[a.id] = { cardId: c.id, index: idx };
+                        }
+                    });
+                }
+            });
+            
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', 'area');
-            setTimeout(() => areaEl.classList.add('sl-dragging'), 0);
+            
+            setTimeout(() => {
+                draggedIds.forEach(id => {
+                    const el = document.querySelector(`.sl-area[data-area-id="${id}"]`);
+                    if (el) el.classList.add('sl-dragging');
+                });
+            }, 0);
         });
 
         areaEl.addEventListener('dragend', (e) => {
             e.stopPropagation();
-            areaEl.classList.remove('sl-dragging');
+            document.querySelectorAll('.sl-dragging').forEach(el => el.classList.remove('sl-dragging'));
             document.querySelectorAll('.sl-drag-over-area-top, .sl-drag-over-area-bottom').forEach(el => {
                 el.classList.remove('sl-drag-over-area-top', 'sl-drag-over-area-bottom');
             });
             document.querySelectorAll('.sl-drag-over-list').forEach(el => el.classList.remove('sl-drag-over-list'));
-            dragState.type = null; dragState.cardId = null; dragState.areaId = null;
+            dragState.type = null; dragState.cardId = null; dragState.anchorAreaId = null; dragState.areaIds = null; dragState.sourceInfo = null;
         });
 
         areaEl.addEventListener('dragover', (e) => {
             if (e.dataTransfer.types.includes('Files')) return;
-            if (dragState.type === 'area' && dragState.areaId !== areaEl.dataset.areaId) {
+            if (dragState.type === 'area' && dragState.areaIds && !dragState.areaIds.includes(areaEl.dataset.areaId)) {
                 e.preventDefault(); e.stopPropagation();
                 const rect = areaEl.getBoundingClientRect();
                 const midY = rect.top + rect.height / 2;
@@ -1702,9 +2037,12 @@ export function attachAreaEvents(container) {
             }
         });
 
+        // =========================================================================
+        // 【高级升级】：降落阶段 - 智能双模引擎 (平行同步位移 vs 跨卡片汇聚)
+        // =========================================================================
         areaEl.addEventListener('drop', (e) => {
             if (e.dataTransfer.types.includes('Files')) return;
-            if (dragState.type === 'area') {
+            if (dragState.type === 'area' && dragState.areaIds) {
                 e.preventDefault(); e.stopPropagation();
                 const dropPos = areaEl.dataset.dropPosition;
                 areaEl.classList.remove('sl-drag-over-area-top', 'sl-drag-over-area-bottom');
@@ -1712,24 +2050,72 @@ export function attachAreaEvents(container) {
                 
                 const targetCardId = areaEl.dataset.cardId;
                 const targetAreaId = areaEl.dataset.areaId;
-                if (dragState.areaId === targetAreaId) return;
-
-                const sourceCard = state.cards.find(c => c.id === dragState.cardId);
-                const targetCard = state.cards.find(c => c.id === targetCardId);
-                if (!targetCard.areas) targetCard.areas = [];
                 
-                const sourceIdx = sourceCard.areas.findIndex(a => a.id === dragState.areaId);
-                if (sourceIdx !== -1) {
-                    const [moved] = sourceCard.areas.splice(sourceIdx, 1);
+                // 禁止放置在被拖拽阵列自身上
+                if (dragState.areaIds.includes(targetAreaId)) return;
+
+                // 核心判断：鼠标松开的目标卡片，是不是锚点原本的家？
+                const isSameCard = (targetCardId === dragState.cardId);
+
+                // 1. 从各路卡片中将这批模块剥离出来，按卡片归属分好组
+                const movedAreasByCard = {};
+                const allMovedAreas = []; // 备用：供情况2跨卡片大一统时使用
+                
+                state.cards.forEach(c => {
+                    movedAreasByCard[c.id] = [];
+                    if (!c.areas) return;
+                    const remainingAreas = [];
+                    c.areas.forEach(a => {
+                        if (dragState.areaIds.includes(a.id)) {
+                            movedAreasByCard[c.id].push(a);
+                            allMovedAreas.push(a);
+                        } else {
+                            remainingAreas.push(a);
+                        }
+                    });
+                    c.areas = remainingAreas;
+                });
+
+                // 2. 找到鼠标实际所在的锚点并计算索引
+                const targetCard = state.cards.find(c => c.id === targetCardId);
+                if (targetCard) {
+                    if (!targetCard.areas) targetCard.areas = [];
                     let targetIdx = targetCard.areas.findIndex(a => a.id === targetAreaId);
+                    
                     if (targetIdx !== -1) {
                         if (dropPos === 'bottom') targetIdx += 1;
-                        targetCard.areas.splice(targetIdx, 0, moved);
-                        saveAndRender();
                     } else {
-                        targetCard.areas.push(moved);
-                        saveAndRender();
+                        targetIdx = targetCard.areas.length;
                     }
+
+                    if (isSameCard) {
+                        // 【情况 1：本卡片内拖动 -> 平行空间同步位移引擎】
+                        const anchorOrigIdx = dragState.sourceInfo[dragState.anchorAreaId].index;
+                        const delta = targetIdx - anchorOrigIdx; // 计算出位移差
+
+                        state.cards.forEach(c => {
+                            const moved = movedAreasByCard[c.id];
+                            if (moved && moved.length > 0) {
+                                if (c.id === targetCardId) {
+                                    // 鼠标所在的源卡片，精准插入指定位置
+                                    c.areas.splice(targetIdx, 0, ...moved);
+                                } else {
+                                    // 平行空间的其它卡片，应用 Delta 位移
+                                    const firstOrigIdx = dragState.sourceInfo[moved[0].id].index;
+                                    let newIdx = firstOrigIdx + delta;
+                                    // 绝对防越界系统：顶破天算0，坠到底算数组长度
+                                    newIdx = Math.max(0, Math.min(newIdx, c.areas.length));
+                                    c.areas.splice(newIdx, 0, ...moved);
+                                }
+                            }
+                        });
+                    } else {
+                        // 【情况 2：跨界拖动 -> 万物归一汇聚引擎】
+                        // 将全宇宙被选中的模块，全部插入到新卡片的指定缝隙中
+                        targetCard.areas.splice(targetIdx, 0, ...allMovedAreas);
+                    }
+                    
+                    saveAndRender();
                 }
             }
         });
@@ -1801,7 +2187,6 @@ export function renderCardsList(container) {
         state.cards.forEach((card, index) => {
             const cardEl = document.createElement("div");
             const isCardSelected = state.selectedCardIds && state.selectedCardIds.includes(card.id);
-            // 修复：生成 HTML 时赋予 active 类名，适配 CSS
             cardEl.className = `sl-card ${isCardSelected ? 'active selected' : ''}`;
             if (isCardSelected) cardEl.style.borderColor = '#4CAF50';
             cardEl.dataset.cardId = card.id;
@@ -1885,6 +2270,7 @@ export function attachCardEvents(container) {
         };
     });
 
+    // 批量删除逻辑完全保留
     container.querySelectorAll('.sl-del-card-btn').forEach(btn => {
         btn.onclick = (e) => {
             const id = e.target.dataset.id;
@@ -1899,33 +2285,51 @@ export function attachCardEvents(container) {
         };
     });
 
-    // 🚨 所有的 click/mousedown 全盘铲除，彻底绝后患
     container.querySelectorAll('.sl-card').forEach(cardEl => {
         if (cardEl.classList.contains('sl-add-card-inline')) return;
 
+        // =========================================================================
+        // 卡片层级的批量拖拽与重组引擎 (利用全局护盾，无需拦截 click)
+        // =========================================================================
         cardEl.addEventListener('dragstart', (e) => {
             if (['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName) || e.target.closest('.sl-custom-select') || e.target.closest('.sl-edit-val-bool')) {
                 e.preventDefault(); return;
             }
             if (e.target.closest('.sl-area')) return; 
 
+            const currentCardId = cardEl.dataset.cardId;
+
+            // 识别是否处于多选阵列中
+            let draggedIds = [currentCardId];
+            if (state.selectedCardIds && state.selectedCardIds.includes(currentCardId)) {
+                draggedIds = [...state.selectedCardIds];
+            }
+
             dragState.type = 'card';
-            dragState.cardId = cardEl.dataset.cardId;
+            dragState.cardIds = draggedIds; // 核心：记录多选数组
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', 'card');
-            setTimeout(() => cardEl.classList.add('sl-dragging'), 0);
+            
+            setTimeout(() => {
+                // 让被选中的所有卡片都变半透明进入拖拽状态
+                draggedIds.forEach(id => {
+                    const el = document.querySelector(`.sl-card[data-card-id="${id}"]`);
+                    if (el) el.classList.add('sl-dragging');
+                });
+            }, 0);
         });
 
         cardEl.addEventListener('dragend', () => {
-            cardEl.classList.remove('sl-dragging');
+            document.querySelectorAll('.sl-dragging').forEach(el => el.classList.remove('sl-dragging'));
             document.querySelectorAll('.sl-drag-over-card-left, .sl-drag-over-card-right').forEach(el => {
                 el.classList.remove('sl-drag-over-card-left', 'sl-drag-over-card-right');
             });
-            dragState.type = null; dragState.cardId = null; dragState.areaId = null;
+            dragState.type = null; dragState.cardIds = null; dragState.areaIds = null;
         });
 
         cardEl.addEventListener('dragover', (e) => {
-            if (dragState.type === 'card' && cardEl.dataset.cardId !== dragState.cardId) {
+            // 禁止拖放到自己或自己多选的卡片上
+            if (dragState.type === 'card' && dragState.cardIds && !dragState.cardIds.includes(cardEl.dataset.cardId)) {
                 e.preventDefault();
                 const rect = cardEl.getBoundingClientRect();
                 const midX = rect.left + rect.width / 2; 
@@ -1950,7 +2354,7 @@ export function attachCardEvents(container) {
         });
 
         cardEl.addEventListener('drop', (e) => {
-            if (dragState.type === 'card') {
+            if (dragState.type === 'card' && dragState.cardIds) {
                 e.preventDefault(); e.stopPropagation();
                 
                 const dropPos = cardEl.dataset.dropPosition;
@@ -1958,30 +2362,38 @@ export function attachCardEvents(container) {
                 delete cardEl.dataset.dropPosition;
                 
                 const targetCardId = cardEl.dataset.cardId;
-                if (targetCardId && targetCardId !== dragState.cardId) {
-                    const sourceIdx = state.cards.findIndex(c => c.id === dragState.cardId);
+                if (targetCardId && !dragState.cardIds.includes(targetCardId)) {
                     
-                    if (sourceIdx !== -1) {
-                        const [moved] = state.cards.splice(sourceIdx, 1);
-                        let targetIdx = state.cards.findIndex(c => c.id === targetCardId);
-                        
-                        if (targetIdx !== -1) {
-                            if (dropPos === 'right') targetIdx += 1; 
-                            state.cards.splice(targetIdx, 0, moved);
-                            saveAndRender();
-                        } else {
-                            state.cards.push(moved);
-                            saveAndRender();
-                        }
+                    // 1. 将被拖拽的所有卡片从原位置剥离
+                    const movedCards = [];
+                    const remainingCards = [];
+                    state.cards.forEach(c => {
+                        if (dragState.cardIds.includes(c.id)) movedCards.push(c);
+                        else remainingCards.push(c);
+                    });
+                    state.cards = remainingCards;
+                    
+                    // 2. 找到目标卡片并整体插入
+                    let targetIdx = state.cards.findIndex(c => c.id === targetCardId);
+                    if (targetIdx !== -1) {
+                        if (dropPos === 'right') targetIdx += 1; 
+                        state.cards.splice(targetIdx, 0, ...movedCards);
+                        saveAndRender();
+                    } else {
+                        state.cards.push(...movedCards);
+                        saveAndRender();
                     }
                 }
             }
         });
     });
 
+    // =========================================================================
+    // 处理模块(Area) 被批量拖拽到卡片空白主体(Card Body) 内的跨界操作
+    // =========================================================================
     container.querySelectorAll('.sl-card-body').forEach(bodyEl => {
         bodyEl.addEventListener('dragover', (e) => {
-            if (dragState.type === 'area') {
+            if (dragState.type === 'area' && dragState.areaIds) {
                 e.preventDefault();
                 if (!e.target.closest('.sl-area')) {
                     bodyEl.classList.add('sl-drag-over-list');
@@ -1998,7 +2410,7 @@ export function attachCardEvents(container) {
         });
 
         bodyEl.addEventListener('drop', (e) => {
-            if (dragState.type === 'area') {
+            if (dragState.type === 'area' && dragState.areaIds) {
                 e.preventDefault(); e.stopPropagation();
                 bodyEl.classList.remove('sl-drag-over-list');
                 
@@ -2006,16 +2418,23 @@ export function attachCardEvents(container) {
                     const targetCardId = bodyEl.dataset.cardId;
                     if (!targetCardId) return;
                     
-                    const sourceCard = state.cards.find(c => c.id === dragState.cardId);
+                    // 剥离所有拖动的模块
+                    const movedAreas = [];
+                    state.cards.forEach(c => {
+                        if (!c.areas) return;
+                        const remaining = [];
+                        c.areas.forEach(a => {
+                            if (dragState.areaIds.includes(a.id)) movedAreas.push(a);
+                            else remaining.push(a);
+                        });
+                        c.areas = remaining;
+                    });
+                    
+                    // 插入到目标卡片最末尾
                     const targetCard = state.cards.find(c => c.id === targetCardId);
                     if (!targetCard.areas) targetCard.areas = [];
-                    
-                    const sourceIdx = sourceCard.areas.findIndex(a => a.id === dragState.areaId);
-                    if (sourceIdx !== -1) {
-                        const [moved] = sourceCard.areas.splice(sourceIdx, 1);
-                        targetCard.areas.push(moved); 
-                        saveAndRender();
-                    }
+                    targetCard.areas.push(...movedAreas); 
+                    saveAndRender();
                 }
             }
         });
@@ -2035,6 +2454,8 @@ import { state, appState, saveAndRender } from "./ui_state.js";
 import { attachDataIOEvents } from "./actions/action_data_io.js";
 import { attachRunEvents } from "./actions/action_run_executor.js";
 import { renderDynamicToolbar as renderDynamic, attachDynamicToolbarEvents as attachDynamic } from "./actions/action_module_config.js";
+import { showBindingToast, hideBindingToast } from "./ui_utils.js";
+import { StateManager } from "../state_manager.js";
 
 // --- 初始化静态工具栏事件 (仅调用一次) ---
 export function setupStaticToolbarEvents(panelContainer) {
@@ -2128,26 +2549,179 @@ export function setupStaticToolbarEvents(panelContainer) {
         }, 50);
     };
 
-    // 挂载数据导入导出功能组件
+    // =========================================================================
+    // 【关键修复 1】：加载顺序调整！
+    // 必须先挂载“导入导出”和“运行”组件，再重构“配置锚点”按钮。
+    // 这样能确保所有的按钮都平级插入到了 flex 容器中，彻底恢复正确的 gap 间距！
+    // =========================================================================
     attachDataIOEvents(panelContainer);
-
-    // 挂载执行运行组件
     attachRunEvents(panelContainer);
 
-    // 创建配置节点
-    panelContainer.querySelector("#sl-btn-config").onclick = () => {
-        if(window.ShellLink) window.ShellLink.createNode();
-    };
+
+    // =========================================================================
+    // 【关键修复 2】：配置锚点 UI 重构与纯前端验证引擎
+    // =========================================================================
+    const configBtn = panelContainer.querySelector("#sl-btn-config");
+    if (configBtn && !panelContainer.querySelector("#sl-config-btn-wrapper")) {
+        // 去掉了手动写的 margin-left，原生外层的 flex gap 现在会完美生效
+        configBtn.outerHTML = `
+            <div id="sl-config-btn-wrapper" class="sl-btn-group" style="position:relative; display:inline-flex; align-items:stretch; height: 34px;">
+                <button class="sl-btn" id="sl-btn-config" title="创建配置锚点 (将数据保存至工作流)" style="border-top-right-radius:0; border-bottom-right-radius:0; padding:0 10px; border-right:1px solid rgba(255,255,255,0.1); height: 100%; display: flex; align-items: center;">
+                    ⚓ 创建配置锚点
+                </button>
+                <button class="sl-btn" id="sl-config-dropdown-trigger" style="border-top-left-radius:0; border-bottom-left-radius:0; width:24px; padding:0; display:flex; align-items:center; justify-content:center; height: 100%;">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+                <div id="sl-config-dropdown" class="sl-custom-select-dropdown" style="display:none; top:calc(100% + 4px); right:0; min-width:180px; z-index:10002;">
+                    <div class="sl-custom-select-group-title" style="padding:6px 12px; font-size:11px; font-weight:bold; color:#888; background:rgba(255,255,255,0.03);">数据维护中心</div>
+                    <div class="sl-custom-select-item" id="sl-maint-clean-dead">清理失效记录 (404)</div>
+                    <div class="sl-custom-select-item" id="sl-maint-resync">重新同步记录 (强制刷新)</div>
+                </div>
+            </div>
+        `;
+
+        if (!window._slConfigDropdownCatcher) {
+            document.addEventListener('mousedown', (e) => {
+                const wrapper = document.getElementById('sl-config-btn-wrapper');
+                if (wrapper && !wrapper.contains(e.target)) {
+                    const dp = document.getElementById('sl-config-dropdown');
+                    if (dp) dp.style.display = 'none';
+                }
+            }, true);
+            window._slConfigDropdownCatcher = true;
+        }
+
+        const wrapper = panelContainer.querySelector("#sl-config-btn-wrapper");
+        
+        // 创建节点
+        wrapper.querySelector("#sl-btn-config").onclick = () => {
+            if(window.ShellLink) window.ShellLink.createNode();
+        };
+
+        // 展开菜单
+        wrapper.querySelector("#sl-config-dropdown-trigger").onclick = (e) => {
+            e.stopPropagation();
+            const dropdown = wrapper.querySelector("#sl-config-dropdown");
+            const isVisible = dropdown.style.display === 'block';
+            document.querySelectorAll('.sl-custom-select-dropdown').forEach(d => d.style.display = 'none');
+            dropdown.style.display = isVisible ? 'none' : 'block';
+        };
+
+        // 【超级功能升级】：重新同步记录 (使用时间戳破除缓存，强制浏览器重新下载本地磁盘文件)
+        wrapper.querySelector("#sl-maint-resync").onclick = () => {
+            wrapper.querySelector("#sl-config-dropdown").style.display = 'none';
+            showBindingToast("🔄 正在强制重新拉取本地资产...", false);
+
+            const now = Date.now();
+            let syncCount = 0;
+
+            state.cards.forEach(card => {
+                card.areas?.filter(a => a.type === 'preview').forEach(area => {
+                    // 更新 history 中的所有 URL，强行追加或替换时间戳 &t=...
+                    if (area.history && area.history.length > 0) {
+                        area.history = area.history.map(url => {
+                            if (!url) return url;
+                            try {
+                                const urlObj = new URL(url, window.location.origin);
+                                urlObj.searchParams.set('t', now); 
+                                syncCount++;
+                                return urlObj.pathname + urlObj.search;
+                            } catch(e) { return url; }
+                        });
+                    }
+                    // 更新当前显示的封面 URL
+                    if (area.resultUrl) {
+                        try {
+                            const urlObj = new URL(area.resultUrl, window.location.origin);
+                            urlObj.searchParams.set('t', now);
+                            area.resultUrl = urlObj.pathname + urlObj.search;
+                        } catch(e) {}
+                    }
+                });
+            });
+
+            if (syncCount === 0) {
+                hideBindingToast();
+                return alert("当前面板没有任何图像记录需要同步。");
+            }
+
+            saveAndRender();
+            showBindingToast("✅ 缓存已清理，本地图像已重新加载！");
+            setTimeout(hideBindingToast, 2000);
+        };
+
+        // 【超级重构】：清理失效记录 (使用纯前端 HEAD 试探验证，彻底告别 405 报错)
+        wrapper.querySelector("#sl-maint-clean-dead").onclick = async () => {
+            wrapper.querySelector("#sl-config-dropdown").style.display = 'none';
+            showBindingToast("🔍 正在扫描失效记录，请稍候...", false);
+
+            const areaMap = []; 
+
+            // 1. 收集所有输出模块的历史记录链接
+            state.cards.forEach(card => {
+                card.areas?.filter(a => a.type === 'preview').forEach(area => {
+                    if (area.history && area.history.length > 0) {
+                        area.history.forEach((url) => {
+                            if (url) areaMap.push({ areaId: area.id, url: url });
+                        });
+                    }
+                });
+            });
+
+            if (areaMap.length === 0) {
+                hideBindingToast();
+                return alert("当前面板没有任何有效的生成记录需要清理。");
+            }
+
+            const deadItems = [];
+
+            // 2. 纯前端的轻量级探针：使用无缓存的 HEAD 请求试探图片死活
+            const checkPromises = areaMap.map(async (item) => {
+                try {
+                    // cache: 'no-store' 确保浏览器不使用残影缓存，真实去服务器问问文件还在不在
+                    const res = await fetch(item.url, { method: 'HEAD', cache: 'no-store' });
+                    // 只要服务器明确告诉我们 404，它就是彻底被删了
+                    if (!res.ok && res.status === 404) {
+                        deadItems.push(item);
+                    }
+                } catch (e) {
+                    // 如果网络波动抛出异常，为了防止误杀心血，暂时不计入死链
+                    console.warn("[ShellLink] 链接试探异常 (忽略该文件):", item.url);
+                }
+            });
+
+            // 等待所有的探针检查完毕
+            await Promise.all(checkPromises);
+
+            // 3. 执行内存剔除与 UI 刷新
+            if (deadItems.length === 0) {
+                showBindingToast("✨ 扫描完毕：所有本地资产均完好无损！");
+            } else {
+                deadItems.forEach(item => {
+                    state.cards.forEach(c => {
+                        const area = c.areas?.find(a => a.id === item.areaId);
+                        if (area && area.history) {
+                            const idx = area.history.indexOf(item.url);
+                            if (idx !== -1) {
+                                area.history.splice(idx, 1);
+                                // 如果这刚好是封面，顺带把封面也清掉
+                                if (area.resultUrl === item.url) {
+                                    area.resultUrl = area.history.length > 0 ? area.history[0] : "";
+                                }
+                            }
+                        }
+                    });
+                });
+                saveAndRender();
+                showBindingToast(`🧹 清理完成：已彻底剔除 ${deadItems.length} 条丢失记录。`);
+            }
+            setTimeout(hideBindingToast, 3000);
+        };
+    }
 }
 
-// --- 暴露渲染与事件接口供上层调用 ---
-export function renderDynamicToolbar(container) {
-    renderDynamic(container);
-}
-
-export function attachDynamicToolbarEvents(container) {
-    attachDynamic(container);
-} 
+export function renderDynamicToolbar(container) { renderDynamic(container); }
+export function attachDynamicToolbarEvents(container) { attachDynamic(container); } 
  
 /************************************************ 
  * 文件名: ui_selection.js 
@@ -2312,6 +2886,7 @@ export const removeUrlsGlobally = (urlsToRemove) => {
  * 职责: UI 渲染辅助工具、ComfyUI 图谱解析、CSS 样式库
  */
 import { app } from "../../../scripts/app.js";
+import { appState } from "./ui_state.js"; // 【补丁】：引入 appState 记录点击锚点
 
 // =========================================================================
 // --- DOM 辅助构建方法 ---
@@ -2608,6 +3183,8 @@ export function bindComboSelectEvents(container, stateObj, saveAndRenderCallback
                     area.value = val;
                     stateObj.selectedAreaIds = [areaId];
                     stateObj.selectedCardIds = [];
+                    // 【补丁】：更新最后点击锚点，使得点击下拉菜单后也能发起 Shift 连选！
+                    appState.lastClickedAreaId = areaId;
                     saveAndRenderCallback(); 
                 }
             });
@@ -3440,6 +4017,8 @@ export function attachDataIOEvents(panelContainer) {
                     <div class="sl-custom-select-item" id="sl-export-json-input">输入模块</div>
                     <div class="sl-custom-select-item" id="sl-export-json-output">输出模块</div>
                     <div class="sl-custom-select-item" id="sl-export-json-all">全部模块</div>
+                    <div class="sl-custom-select-item" id="sl-export-json-output-history">输出模块 (含所有生成记录)</div>
+                    <div class="sl-custom-select-item" id="sl-export-json-all-history">全部模块 (含所有生成记录)</div>
                 </div>
             </div>
         `);
@@ -3578,28 +4157,46 @@ export function attachDataIOEvents(panelContainer) {
             const cardsToExport = (state.selectedCardIds && state.selectedCardIds.length > 0) 
                 ? state.cards.filter(c => state.selectedCardIds.includes(c.id)) : state.cards;
 
+            // 提取辅助函数：格式化单个URL为相对路径
+            const formatUrl = (val) => {
+                if (!val) return "";
+                try {
+                    const urlObj = new URL(val, window.location.origin);
+                    const filename = urlObj.searchParams.get('filename');
+                    let subfolder = urlObj.searchParams.get('subfolder');
+                    if (filename) return subfolder ? `${subfolder.replace(/\\/g, '/')}/${filename}` : filename;
+                } catch (e) {}
+                return val;
+            };
+
             cardsToExport.forEach((card) => {
                 const cardObj = {};
                 let unnamedInputCount = 1, unnamedOutputCount = 1;
                 
-                if (mode === 'input' || mode === 'all') {
+                // 1. 判断是否需要导出 Input
+                if (mode === 'input' || mode === 'all' || mode === 'all_history') {
                     card.areas?.filter(a => a.type === 'edit').forEach((a) => {
                         cardObj[a.title || `##${unnamedInputCount++}`] = a.value || "";
                     });
                 }
                 
-                if (mode === 'output' || mode === 'all') {
+                // 2. 判断是否需要导出 Output
+                if (mode === 'output' || mode === 'all' || mode === 'output_history' || mode === 'all_history') {
+                    const includeHistory = mode.includes('_history');
+                    
                     card.areas?.filter(a => a.type === 'preview').forEach((a) => {
-                        let val = a.resultUrl || "";
-                        if (val) {
-                            try {
-                                const urlObj = new URL(val, window.location.origin);
-                                const filename = urlObj.searchParams.get('filename');
-                                let subfolder = urlObj.searchParams.get('subfolder');
-                                if (filename) val = subfolder ? `${subfolder.replace(/\\/g, '/')}/${filename}` : filename;
-                            } catch (e) {}
+                        let exportValue;
+                        
+                        // 包含生成历史且历史记录存在
+                        if (includeHistory && a.history && a.history.length > 0) {
+                            exportValue = a.history.map(h => formatUrl(h)).filter(h => h !== "");
+                            // 如果数组只有一个元素，且恰好与封面图相同，是否保持数组？这里为了统一格式，既然选了带history，就全部输出数组结构
+                        } else {
+                            // 否则仅导出当前封面的单条记录（字符串格式）
+                            exportValue = formatUrl(a.resultUrl || "");
                         }
-                        cardObj[a.title || `##${unnamedOutputCount++}`] = val;
+                        
+                        cardObj[a.title || `##${unnamedOutputCount++}`] = exportValue;
                     });
                 }
                 result.push(cardObj);
@@ -3612,7 +4209,6 @@ export function attachDataIOEvents(panelContainer) {
             const jsonStr = generateExportJSON(mode);
             if (currentJsonAction === 'copy') {
                 try {
-                    // 【修复】：补全 navigator.clipboard 前缀
                     await navigator.clipboard.writeText(jsonStr);
                     alert("✅ JSON 数据已成功复制到剪切板！");
                 } catch (err) { alert("❌ 复制失败。\n" + err.message); }
@@ -3625,9 +4221,12 @@ export function attachDataIOEvents(panelContainer) {
             }
         };
 
+        // 绑定所有的导出按钮点击事件
         exportWrapper.querySelector("#sl-export-json-input").onclick = (e) => { e.stopPropagation(); handleJsonExport('input'); };
         exportWrapper.querySelector("#sl-export-json-output").onclick = (e) => { e.stopPropagation(); handleJsonExport('output'); };
         exportWrapper.querySelector("#sl-export-json-all").onclick = (e) => { e.stopPropagation(); handleJsonExport('all'); };
+        exportWrapper.querySelector("#sl-export-json-output-history").onclick = (e) => { e.stopPropagation(); handleJsonExport('output_history'); };
+        exportWrapper.querySelector("#sl-export-json-all-history").onclick = (e) => { e.stopPropagation(); handleJsonExport('all_history'); };
 
         const organizeOutputFiles = async (action) => {
             exportDropdown.style.display = 'none';
@@ -4109,43 +4708,121 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
         }
     }
 
+    // =========================================================================
+    // 【核心升级】：多选批量矩阵克隆引擎
+    // =========================================================================
     tb.querySelector('#tb-clone-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
+        
+        // 1. 批量克隆模块 (Areas)
         if (state.selectedAreaIds && state.selectedAreaIds.length > 0) {
-            const areaId = state.selectedAreaIds[0];
             let newSelectedAreaIds = [];
-            for (let card of state.cards) {
-                const srcIndex = card.areas?.findIndex(a => a.id === areaId);
-                if (srcIndex !== undefined && srcIndex !== -1) {
-                    const newArea = JSON.parse(JSON.stringify(card.areas[srcIndex]));
-                    newArea.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-                    card.areas.splice(srcIndex + 1, 0, newArea);
-                    newSelectedAreaIds.push(newArea.id);
-                    break;
+            
+            // 按卡片对选中的模块进行分组，保证在各自的卡片内进行操作
+            const areasByCard = {};
+            state.selectedAreaIds.forEach(areaId => {
+                const card = state.cards.find(c => c.areas?.some(a => a.id === areaId));
+                if (card) {
+                    if (!areasByCard[card.id]) areasByCard[card.id] = [];
+                    areasByCard[card.id].push(areaId);
                 }
+            });
+
+            // 遍历每个受影响的卡片
+            for (const cardId in areasByCard) {
+                const card = state.cards.find(c => c.id === cardId);
+                if (!card || !card.areas) continue;
+                
+                // 将该卡片内选中的模块按当前顺序排序
+                const sortedAreaIdsToClone = areasByCard[cardId].sort((idA, idB) => {
+                    return card.areas.findIndex(a => a.id === idA) - card.areas.findIndex(a => a.id === idB);
+                });
+                
+                // 倒序遍历插入，确保多模块连续克隆时的相对顺序正确 (例如连选 1,2, 克隆后变为 1, 2, 1_copy, 2_copy)
+                // 先找到这批模块中最后一个的位置作为插入锚点
+                const lastSrcIndex = card.areas.findIndex(a => a.id === sortedAreaIdsToClone[sortedAreaIdsToClone.length - 1]);
+                let insertBaseIndex = lastSrcIndex + 1;
+
+                const clonedAreas = [];
+                sortedAreaIdsToClone.forEach(areaId => {
+                    const srcArea = card.areas.find(a => a.id === areaId);
+                    if (srcArea) {
+                        const newArea = JSON.parse(JSON.stringify(srcArea));
+                        newArea.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+                        // 如果有历史记录也应清空，作为全新克隆体
+                        if(newArea.type === 'preview') {
+                            newArea.resultUrl = '';
+                            newArea.history = [];
+                            newArea.historyIndex = 0;
+                            newArea.selectedThumbIndices = [];
+                        }
+                        clonedAreas.push(newArea);
+                        newSelectedAreaIds.push(newArea.id);
+                    }
+                });
+                
+                // 批量插入克隆体
+                card.areas.splice(insertBaseIndex, 0, ...clonedAreas);
             }
+            
+            // 更新选中状态为所有新克隆的模块
             state.selectedAreaIds = newSelectedAreaIds;
             saveAndRender();
+            
+            // 滚动定位
             setTimeout(() => {
-                newSelectedAreaIds.forEach(id => {
-                    document.querySelector(`.sl-area[data-area-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                });
+                if(newSelectedAreaIds.length > 0) {
+                     document.querySelector(`.sl-area[data-area-id="${newSelectedAreaIds[newSelectedAreaIds.length - 1]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
             }, 50);
-        } else if (state.selectedCardIds && state.selectedCardIds.length > 0) {
-            const cardId = state.selectedCardIds[0];
-            const srcIndex = state.cards.findIndex(c => c.id === cardId);
-            if (srcIndex !== -1) {
-                const newCard = JSON.parse(JSON.stringify(state.cards[srcIndex]));
-                newCard.id = 'card_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-                if (newCard.areas) newCard.areas.forEach(a => a.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000));
-                state.cards.splice(srcIndex + 1, 0, newCard);
-                state.selectedCardIds = [newCard.id];
-                state.activeCardId = newCard.id;
-                saveAndRender();
-                setTimeout(() => {
-                    document.querySelector(`.sl-card[data-card-id="${newCard.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                }, 50);
-            }
+
+        } 
+        // 2. 批量克隆任务卡片 (Cards)
+        else if (state.selectedCardIds && state.selectedCardIds.length > 0) {
+            let newSelectedCardIds = [];
+            
+            // 按当前卡片顺序排序
+            const sortedCardIdsToClone = [...state.selectedCardIds].sort((idA, idB) => {
+                return state.cards.findIndex(c => c.id === idA) - state.cards.findIndex(c => c.id === idB);
+            });
+            
+            const lastSrcIndex = state.cards.findIndex(c => c.id === sortedCardIdsToClone[sortedCardIdsToClone.length - 1]);
+            let insertBaseIndex = lastSrcIndex + 1;
+            
+            const clonedCards = [];
+            sortedCardIdsToClone.forEach(cardId => {
+                const srcCard = state.cards.find(c => c.id === cardId);
+                if (srcCard) {
+                    const newCard = JSON.parse(JSON.stringify(srcCard));
+                    newCard.id = 'card_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+                    // 为克隆卡片内的所有模块生成新ID
+                    if (newCard.areas) {
+                        newCard.areas.forEach(a => {
+                            a.id = 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+                            if(a.type === 'preview') {
+                                a.resultUrl = '';
+                                a.history = [];
+                                a.historyIndex = 0;
+                                a.selectedThumbIndices = [];
+                            }
+                        });
+                    }
+                    clonedCards.push(newCard);
+                    newSelectedCardIds.push(newCard.id);
+                }
+            });
+            
+            state.cards.splice(insertBaseIndex, 0, ...clonedCards);
+            state.selectedCardIds = newSelectedCardIds;
+            state.activeCardId = newSelectedCardIds[newSelectedCardIds.length - 1];
+            
+            saveAndRender();
+            
+            setTimeout(() => {
+                if(newSelectedCardIds.length > 0) {
+                     document.querySelector(`.sl-card[data-card-id="${newSelectedCardIds[newSelectedCardIds.length - 1]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }, 50);
         }
     });
     
@@ -4176,12 +4853,12 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
 /**
  * 文件名: action_run_executor.js
  * 路径: web/components/actions/action_run_executor.js
- * 职责: 负责任务队列编译算法、运行按钮交互分发
+ * 职责: 负责任务队列编译算法、运行按钮交互分发、以及批量循环执行逻辑
  */
 import { state } from "../ui_state.js";
 import { app } from "../../../../scripts/app.js";
 
-// 【核心任务编译器】：根据用户的严格规则，将任意选中状态编译为单卡片执行队列
+// 【核心任务编译器】：根据用户的严格规则，将任意选中状态编译为单卡片执行的基础队列
 export function buildTasksQueue(isRunAll = false) {
     const tasks = [];
 
@@ -4251,20 +4928,39 @@ export function attachRunEvents(panelContainer) {
         };
     }
 
-    panelContainer.querySelector("#sl-btn-run").onclick = () => {
-        const tasksToRunQueue = buildTasksQueue(false);
+    // 辅助函数：实时获取输入框里的循环次数
+    const getBatchCount = () => {
+        const countInput = panelContainer.querySelector('#sl-run-batch-count');
+        if (countInput) {
+            let v = parseInt(countInput.value, 10);
+            return (!isNaN(v) && v > 0) ? v : 1;
+        }
+        return 1;
+    };
 
-        if (tasksToRunQueue.length === 0) {
+    panelContainer.querySelector("#sl-btn-run").onclick = () => {
+        const baseQueue = buildTasksQueue(false);
+
+        if (baseQueue.length === 0) {
             return alert("当前选中项没有可执行的输出模块！请检查是否添加了输出模块。");
         }
         
-        console.log("[ShellLink] 局部运行 - 已成功编译执行队列:", tasksToRunQueue);
-        document.dispatchEvent(new CustomEvent('sl_execution_start', { detail: { tasks: tasksToRunQueue } }));
+        // 【核心升级】：应用循环次数，将 1,2,3 复制拼接为 1,2,3, 1,2,3...
+        const batchCount = getBatchCount();
+        let finalQueue = [];
+        for (let i = 0; i < batchCount; i++) {
+            // 使用展开运算符断开对象的引用，防止底层的修改相互污染
+            finalQueue = finalQueue.concat(baseQueue.map(task => ({ ...task })));
+        }
+        
+        console.log(`[ShellLink] 局部运行 - 循环 ${batchCount} 遍，共派发 ${finalQueue.length} 个任务:`, finalQueue);
+        document.dispatchEvent(new CustomEvent('sl_execution_start', { detail: { tasks: finalQueue } }));
 
         if (window.ShellLink && window.ShellLink.executeTasks) {
-            window.ShellLink.executeTasks(tasksToRunQueue);
+            window.ShellLink.executeTasks(finalQueue);
         } else if (app.queuePrompt) {
-            app.queuePrompt(0, 1);
+            // 降级兼容：如果 api_injector 出了问题，用原生接口连发
+            for(let i=0; i<finalQueue.length; i++) app.queuePrompt(0, 1);
         }
     };
 
@@ -4275,14 +4971,21 @@ export function attachRunEvents(panelContainer) {
 
         if (!state.cards || state.cards.length === 0) return alert("面板中没有任何任务卡片！");
 
-        const tasksToRunQueue = buildTasksQueue(true);
-        if (tasksToRunQueue.length === 0) return alert("所有卡片均无输出模块，无法执行。");
+        const baseQueue = buildTasksQueue(true);
+        if (baseQueue.length === 0) return alert("所有卡片均无输出模块，无法执行。");
         
-        console.log("[ShellLink] 运行全部 - 已成功编译执行队列:", tasksToRunQueue);
-        document.dispatchEvent(new CustomEvent('sl_execution_start', { detail: { tasks: tasksToRunQueue } }));
+        // 【核心升级】：同样对“运行全部”生效
+        const batchCount = getBatchCount();
+        let finalQueue = [];
+        for (let i = 0; i < batchCount; i++) {
+            finalQueue = finalQueue.concat(baseQueue.map(task => ({ ...task })));
+        }
+        
+        console.log(`[ShellLink] 运行全部 - 循环 ${batchCount} 遍，共派发 ${finalQueue.length} 个任务:`, finalQueue);
+        document.dispatchEvent(new CustomEvent('sl_execution_start', { detail: { tasks: finalQueue } }));
 
         if (window.ShellLink && window.ShellLink.executeTasks) {
-            window.ShellLink.executeTasks(tasksToRunQueue);
+            window.ShellLink.executeTasks(finalQueue);
         } else {
             alert("API 拦截器尚未加载完毕，请稍后再试！");
         }
@@ -4595,7 +5298,7 @@ export function setupExecutionEvents() {
  ************************************************/ 
 /**
  * 文件名: event_global.js
- * 职责: 处理全局级别的生命周期事件、快捷键、以及组件间自定义事件的广播
+ * 职责: 处理全局级别的生命周期事件、快捷键、以及系统级点击防误触护盾
  */
 import { state, appState, saveAndRender } from "../ui_state.js";
 import { updateSelectionUI } from "../ui_selection.js";
@@ -4603,6 +5306,91 @@ import { enterBindingModeForSelected } from "../actions/action_binding.js";
 
 export function setupGlobalEvents(panelContainer, backdropContainer, togglePanelFunc, performRenderFunc) {
     
+    // =========================================================================
+    // 【系统级终极护盾】：Window级拦截器，保护多选失效问题
+    // =========================================================================
+    if (!window._slGlobalSelectionShield) {
+        let isDragging = false;
+        
+        window.addEventListener('dragstart', () => { isDragging = true; }, true);
+        window.addEventListener('dragend', () => { 
+            setTimeout(() => { isDragging = false; }, 100); 
+        }, true);
+
+        const shieldEvent = (e) => {
+            // 绝对放行右键！让右键事件能干干净净地落到底层的视频控件里
+            if (e.button !== 0 && e.type !== 'contextmenu') return;
+
+            const isInteractive = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) ||
+                                  e.target.closest('.sl-custom-select') ||
+                                  e.target.closest('.sl-history-thumb') ||
+                                  e.target.closest('.sl-bool-label') ||
+                                  e.target.closest('.sl-upload-zone') ||
+                                  e.target.closest('.sl-del-card-btn') ||
+                                  e.target.closest('.sl-del-area-btn') ||
+                                  e.target.closest('.sl-video-controls-interactive');
+
+            if (isInteractive) return;
+
+            const areaEl = e.target.closest('.sl-area');
+            const cardEl = e.target.closest('.sl-card:not(.sl-add-card-inline)');
+
+            let isTargetSelected = false;
+            let targetId = null;
+            let targetType = null;
+
+            if (areaEl) {
+                targetId = areaEl.dataset.areaId;
+                isTargetSelected = state.selectedAreaIds && state.selectedAreaIds.includes(targetId);
+                targetType = 'area';
+            } else if (cardEl) {
+                targetId = cardEl.dataset.cardId;
+                isTargetSelected = state.selectedCardIds && state.selectedCardIds.includes(targetId);
+                targetType = 'card';
+            }
+
+            if (isTargetSelected && !e.ctrlKey && !e.shiftKey) {
+                // 如果是点击事件，且点在了视频区域上，放行冒泡！
+                if (e.type === 'click' && (e.target.tagName === 'VIDEO' || e.target.tagName === 'AUDIO')) {
+                    // 放行
+                } else {
+                    e.stopPropagation();
+                }
+
+                if (e.type === 'mousedown' || e.type === 'pointerdown') {
+                    isDragging = false; 
+                    
+                    // 【核心修复 A】：锚点挽救！即使被护盾拦截了事件，也要在底层静默更新锚点。
+                    // 这样当你点击一个已选中的模块后，再按 Shift 连选，系统就知道该从哪里开始了！
+                    if (targetType === 'area') appState.lastClickedAreaId = targetId;
+                    if (targetType === 'card') appState.lastClickedCardId = targetId;
+                }
+
+                if (e.type === 'mouseup') {
+                    if (!isDragging) {
+                        if (targetType === 'area') {
+                            state.selectedAreaIds = [targetId];
+                            state.selectedCardIds = [];
+                        } else {
+                            state.selectedCardIds = [targetId];
+                            state.selectedAreaIds = [];
+                            state.activeCardId = targetId;
+                        }
+                        updateSelectionUI();
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('pointerdown', shieldEvent, true);
+        window.addEventListener('mousedown', shieldEvent, true);
+        window.addEventListener('mouseup', shieldEvent, true);
+        window.addEventListener('click', shieldEvent, true);
+        window._slGlobalSelectionShield = true;
+    }
+
+    // =========================================================================
+
     window.addEventListener('contextmenu', (e) => {
         if (appState.isBindingMode) {
             e.preventDefault(); 
@@ -4626,7 +5414,6 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                 state.painterMode = false;
                 state.painterSource = null;
             }
-            // ESC 键清空所有选中，局部刷新！
             state.selectedCardIds = [];
             state.activeCardId = null;
             state.selectedAreaIds = [];
@@ -4634,21 +5421,19 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
             return;
         }
 
-        // 历史记录键盘导航逻辑 (左与右)
         if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && state.selectedAreaIds.length === 1) {
-            // 防误触：如果你正在输入框里打字，绝对不要切换图片！
             if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
             
             const areaId = state.selectedAreaIds[0];
             let targetArea = null;
+            let targetCardId = null;
             for (const c of state.cards) {
                 const a = c.areas?.find(x => x.id === areaId);
-                if (a) { targetArea = a; break; }
+                if (a) { targetArea = a; targetCardId = c.id; break; }
             }
             
-            // 执行丝滑切换
             if (targetArea && targetArea.type === 'preview' && targetArea.history && targetArea.history.length > 1) {
-                e.preventDefault(); // 阻止页面可能发生的滚动
+                e.preventDefault(); 
                 let idx = targetArea.historyIndex !== undefined ? targetArea.historyIndex : targetArea.history.length - 1;
                 
                 if (e.key === 'ArrowLeft') {
@@ -4660,7 +5445,33 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                 if (targetArea.historyIndex !== idx) {
                     targetArea.historyIndex = idx;
                     targetArea.resultUrl = targetArea.history[idx];
-                    saveAndRender();
+                    
+                    document.dispatchEvent(new CustomEvent("shell_link_update_preview", {
+                        detail: { cardId: targetCardId, areaId: targetArea.id, url: targetArea.resultUrl }
+                    }));
+
+                    const areaEl = document.querySelector(`.sl-area[data-area-id="${areaId}"]`);
+                    if (areaEl) {
+                        const badges = areaEl.querySelectorAll('div');
+                        badges.forEach(div => {
+                            if (div.style.position === 'absolute' && div.style.top === '8px') {
+                                div.textContent = `${idx + 1} / ${targetArea.history.length}`;
+                            }
+                        });
+                        
+                        const grid = areaEl.querySelector('.sl-history-grid');
+                        if (grid) {
+                            grid.querySelectorAll('.sl-history-thumb').forEach((thumb, tIdx) => {
+                                if (tIdx === idx) thumb.style.borderColor = '#4CAF50';
+                                else if (targetArea.selectedThumbIndices?.includes(tIdx)) thumb.style.borderColor = '#2196F3';
+                                else thumb.style.borderColor = 'rgba(255,255,255,0.1)';
+                            });
+                        }
+                    }
+
+                    if (window.StateManager && window.StateManager.syncToNode) {
+                        window.StateManager.syncToNode(window.app.graph);
+                    }
                 }
                 return;
             }
@@ -4698,8 +5509,20 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                 return;
             }
 
-            mediaEl.src = url;
+            let finalUrl = url;
+            try {
+                const u = new URL(url, window.location.origin);
+                if (u.pathname === '/view') {
+                    u.searchParams.set('t', Date.now());
+                    finalUrl = u.pathname + u.search + u.hash;
+                }
+            } catch(err){}
+
+            mediaEl.src = finalUrl;
             mediaEl.style.display = "block";
+            
+            if (isVideo) mediaEl.play().catch(()=>{});
+
             if (placeholder) placeholder.style.display = "none";
         }
     });
@@ -5247,6 +6070,22 @@ import { getRatioCSS, showBindingToast, hideBindingToast } from "../ui_utils.js"
 // 引入全新的多媒体专员
 import { renderMedia, attachMediaEvents } from "./module_media.js";
 
+// 【新增防裂图引擎】：解析并强制刷新 ComfyUI 原生 /view URL 的访问时间戳
+function getValidMediaUrl(urlStr) {
+    if (!urlStr || typeof urlStr !== 'string') return urlStr;
+    try {
+        let urlObj = new URL(urlStr, window.location.origin);
+        if (urlObj.pathname === '/view') {
+            // 通过附带最新的时间戳，强行打破浏览器旧有的可能破损的 temp 文件缓存
+            urlObj.searchParams.set('t', Date.now());
+            return urlObj.pathname + urlObj.search + urlObj.hash;
+        }
+        return urlStr;
+    } catch(e) {
+        return urlStr;
+    }
+}
+
 export function generateOutputHTML(area, card) {
     const isAreaSelected = state.selectedAreaIds.includes(area.id);
 
@@ -5267,13 +6106,16 @@ export function generateOutputHTML(area, card) {
             const isVid = urlLower.match(/\.(mp4|webm|mov|avi|mkv)/);
             const isAud = urlLower.match(/\.(mp3|wav|ogg|flac|aac|m4a)/);
             
+            // 【核心修改】：调用动态 URL 引擎提取安全、新鲜的链接
+            const displayUrl = getValidMediaUrl(hUrl); 
+
             let media = '';
             if (isVid) {
-                media = `<video src="${hUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" muted></video>`;
+                media = `<video src="${displayUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" muted></video>`;
             } else if (isAud) {
                 media = `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#222; color:#fff; font-size:24px;">🎵</div>`;
             } else {
-                media = `<img src="${hUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" />`;
+                media = `<img src="${displayUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" />`;
             }
 
             const overlay = isSelected ? `<div style="position:absolute;inset:0;background:rgba(33,150,243,0.3);pointer-events:none;"></div>` : '';
@@ -6017,9 +6859,84 @@ export function getMediaType(url) {
  ************************************************/ 
 /**
  * 文件名: media_video.js
- * 职责: 视频组件的专属渲染与事件处理 (纯净直出架构，告别拔插)
+ * 职责: 视频组件的专属渲染与事件处理 (高精度滚轮寻道 + 点击跳转模式 + 防闪烁 DOM 截胡引擎)
  */
 import { formatTime, formatTimeWithFrames } from "./media_utils.js";
+
+// =========================================================================
+// 【神级修复】：DOM 物理截胡与无缝重载引擎 (彻底解决修改参数后视频闪烁重置)
+// =========================================================================
+window.ShellLink = window.ShellLink || {};
+window.ShellLink._mediaVault = new Map();
+
+// 渲染前调用：物理拔出所有视频节点，放入保险库免受 HTML 重置的波及
+window.ShellLink.stashMedia = () => {
+    window.ShellLink._mediaVault.clear();
+    document.querySelectorAll('.sl-video-player video').forEach(media => {
+        const player = media.closest('.sl-video-player');
+        if (player && player.dataset.areaId) {
+            media.dataset.stashedPaused = media.paused ? "true" : "false";
+            // 物理拔出 DOM 树，这样 innerHTML 清空时就不会销毁它
+            if (media.parentNode) {
+                media.parentNode.removeChild(media);
+            }
+            window.ShellLink._mediaVault.set(player.dataset.areaId, media);
+        }
+    });
+};
+
+// 渲染后调用：将保险库的原装视频节点原样插回新生成的 UI 框架中
+window.ShellLink.restoreMedia = () => {
+    document.querySelectorAll('.sl-video-player').forEach(player => {
+        const areaId = player.dataset.areaId;
+        if (areaId && window.ShellLink._mediaVault.has(areaId)) {
+            const stashedMedia = window.ShellLink._mediaVault.get(areaId);
+            const newMedia = player.querySelector('video');
+            
+            if (newMedia) {
+                const srcOld = stashedMedia.getAttribute('src') || '';
+                const srcNew = newMedia.getAttribute('src') || '';
+                
+                // 【核心修复】：智能 URL 对比，剥离动态时间戳的干扰
+                let isSameSource = false;
+                if (srcOld === srcNew) {
+                    isSameSource = true;
+                } else {
+                    try {
+                        const urlOld = new URL(srcOld, window.location.origin);
+                        const urlNew = new URL(srcNew, window.location.origin);
+                        urlOld.searchParams.delete('t');
+                        urlNew.searchParams.delete('t');
+                        isSameSource = (urlOld.toString() === urlNew.toString());
+                    } catch(e) {
+                        // 降级正则比对
+                        const stripT = (str) => str.replace(/([?&])t=\d+/, '');
+                        isSameSource = (stripT(srcOld) === stripT(srcNew));
+                    }
+                }
+
+                if (isSameSource) {
+                    // 源文件一致（即使用户改了其他参数），用原装节点替换以实现绝对无缝
+                    newMedia.parentNode.replaceChild(stashedMedia, newMedia);
+                    if (stashedMedia.dataset.stashedPaused === "false") {
+                        stashedMedia.play().catch(()=>{});
+                    }
+                } else {
+                    // 如果源文件真变了（比如切换了历史记录），让新的视频播，但继承当前音量属性
+                    newMedia.muted = stashedMedia.muted;
+                    newMedia.volume = stashedMedia.volume;
+                }
+            } else {
+                // 兜底保护
+                player.insertBefore(stashedMedia, player.firstChild);
+                if (stashedMedia.dataset.stashedPaused === "false") {
+                    stashedMedia.play().catch(()=>{});
+                }
+            }
+        }
+    });
+    window.ShellLink._mediaVault.clear();
+};
 
 export function renderVideo(area, objectFit, url, errCall) {
     return `
@@ -6027,10 +6944,11 @@ export function renderVideo(area, objectFit, url, errCall) {
             <video id="sl-img-${area.id}" class="sl-preview-img sl-media-target" src="${url}" draggable="false" style="object-fit: ${objectFit}; width: 100%; height: 100%; display: block;" autoplay loop muted playsinline onerror="${errCall}"></video>
             <div class="sl-video-controls">
                 <div class="sl-video-toolbar">
-                    <span class="sl-timecode" style="font-family: sans-serif;">00:00 / 00:00</span>
+                    <!-- 【样式锁定】：强制无衬线体，彻底去除投影 -->
+                    <span class="sl-timecode" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; text-shadow: none !important; -webkit-font-smoothing: antialiased;">00:00 / 00:00</span>
                     <div class="sl-video-tools-right">
                         
-                        <!-- 极简音量滑杆 (同步音频组件的透明无背景风格) -->
+                        <!-- 极简音量滑杆 -->
                         <div class="sl-volume-wrap sl-video-controls-interactive" style="background: transparent !important;">
                             <div class="sl-volume-slider-container sl-vid-vol-slider" title="调节音量">
                                 <div class="sl-volume-slider-track">
@@ -6049,17 +6967,17 @@ export function renderVideo(area, objectFit, url, errCall) {
                             <button class="sl-media-opt-btn sl-more-toggle">⋮</button>
                             <div class="sl-media-dropdown sl-more-dropdown">
                                 <div style="padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                    <span style="font-size: 11px; color: #aaa; font-family: sans-serif;">播放速度</span>
+                                    <span style="font-size: 11px; color: #aaa; font-family: sans-serif !important;">播放速度</span>
                                     <div style="display: flex; align-items: center; background: rgba(0,0,0,0.5); border: 1px solid #555; border-radius: 4px; padding: 0 4px;">
                                         <input type="number" class="sl-media-speed-input" value="1.0" step="0.1" min="0.1" max="5.0" style="width: 28px; background: transparent; border: none; color: #eee; font-size: 11px; text-align: center; outline: none; -moz-appearance: textfield;">
                                         <span style="font-size: 10px; color: #aaa; pointer-events: none;">x</span>
                                     </div>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                    <span class="sl-vid-speed-opt" data-spd="0.5" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s; font-family: sans-serif;">0.5</span>
-                                    <span class="sl-vid-speed-opt" data-spd="1.0" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s; font-family: sans-serif;">1.0</span>
-                                    <span class="sl-vid-speed-opt" data-spd="1.5" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s; font-family: sans-serif;">1.5</span>
-                                    <span class="sl-vid-speed-opt" data-spd="2.0" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s; font-family: sans-serif;">2.0</span>
+                                    <span class="sl-vid-speed-opt" data-spd="0.5" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">0.5</span>
+                                    <span class="sl-vid-speed-opt" data-spd="1.0" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">1.0</span>
+                                    <span class="sl-vid-speed-opt" data-spd="1.5" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">1.5</span>
+                                    <span class="sl-vid-speed-opt" data-spd="2.0" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">2.0</span>
                                 </div>
                                 <div class="sl-media-dropdown-item sl-opt-pip" style="margin-top: 4px;">画中画</div>
                                 <div class="sl-media-dropdown-item sl-opt-fullscreen">全屏</div>
@@ -6080,9 +6998,8 @@ export function updateVideoProgress() {
         const vid = player.querySelector('video');
         if (!vid) return;
 
-        // 音量探测与图标控制
+        // 音量与静音状态更新
         const muteOpt = player.querySelector('.sl-opt-mute');
-        const volWrap = player.querySelector('.sl-volume-wrap');
         if (muteOpt) {
             let noAudio = false;
             if (vid.audioTracks && vid.audioTracks.length === 0) noAudio = true;
@@ -6095,43 +7012,33 @@ export function updateVideoProgress() {
             const slider = player.querySelector('.sl-vid-vol-slider');
 
             if (noAudio) {
-                if (volWrap) volWrap.classList.add('no-audio');
-                muteOpt.style.color = '#888';
-                muteOpt.style.pointerEvents = 'none';
-                muteOpt.style.cursor = 'default';
-                muteOpt.title = '无音频';
+                muteOpt.style.color = '#888'; muteOpt.style.pointerEvents = 'none';
                 if (iconHigh) iconHigh.style.display = 'none';
                 if (iconMuted) iconMuted.style.display = 'none';
                 if (iconNone) iconNone.style.display = 'block';
                 if (slider) slider.style.display = 'none';
             } else {
-                if (volWrap) volWrap.classList.remove('no-audio');
-                if (muteOpt.style.color === 'rgb(136, 136, 136)' || muteOpt.style.color === '#888') {
-                    muteOpt.style.color = '#aaa'; 
-                }
                 muteOpt.style.pointerEvents = 'auto';
-                muteOpt.style.cursor = 'pointer';
-                muteOpt.title = (vid.muted || vid.volume === 0) ? '取消静音' : '静音';
-                if (slider) slider.style.display = 'block';
-                
                 if (vid.muted || vid.volume === 0) {
                     if (iconHigh) iconHigh.style.display = 'none';
                     if (iconMuted) iconMuted.style.display = 'block';
-                    if (iconNone) iconNone.style.display = 'none';
                 } else {
                     if (iconHigh) iconHigh.style.display = 'block';
                     if (iconMuted) iconMuted.style.display = 'none';
-                    if (iconNone) iconNone.style.display = 'none';
                 }
+                if (iconNone) iconNone.style.display = 'none';
+                if (slider) slider.style.display = 'block';
             }
         }
-
+        
+        // 当因为滚轮或拖拽正在 scrubbing 时，不执行默认的时间码更新逻辑
         if (vid.dataset.isScrubbing === 'true') return; 
         
         const bar = player.querySelector('.sl-video-progress-bar');
         const tc = player.querySelector('.sl-timecode');
         if (bar && tc && vid.duration) {
             bar.style.width = `${(vid.currentTime / vid.duration) * 100}%`;
+            // 正常播放时显示标准格式
             tc.textContent = `${formatTime(vid.currentTime)} / ${formatTime(vid.duration)}`;
         }
     });
@@ -6141,209 +7048,118 @@ export function attachVideoEvents(container) {
     container.querySelectorAll('.sl-video-player').forEach(player => {
         if (player.dataset.binded) return;
         player.dataset.binded = "1";
-        
-        let hasRightDragged = false;
-        let blockContextMenu = false;
 
         const vid = player.querySelector('video');
         if (!vid) return;
 
-        const updateMuteButtonState = () => {
-            const muteOpt = player.querySelector('.sl-opt-mute');
-            const volWrap = player.querySelector('.sl-volume-wrap');
-            if (!muteOpt) return;
-            
-            let noAudio = false;
-            if (vid.audioTracks && vid.audioTracks.length === 0) noAudio = true;
-            else if (vid.mozHasAudio === false) noAudio = true;
-            else if (vid.currentTime > 0.1 && vid.webkitAudioDecodedByteCount === 0) noAudio = true;
+        // =========================================================================
+        // 高精度滚轮调节，彻底杜绝穿透冒泡，并加入防抖续播逻辑
+        // =========================================================================
+        player.addEventListener('wheel', (e) => {
+            // 只有当视频加载了时长且鼠标没在底部的交互控件上时才响应
+            if (!vid.duration || e.target.closest('.sl-video-controls-interactive')) return;
 
-            const iconHigh = muteOpt.querySelector('.sl-vol-icon-high');
-            const iconMuted = muteOpt.querySelector('.sl-vol-icon-muted');
-            const iconNone = muteOpt.querySelector('.sl-vol-icon-none');
-            const slider = player.querySelector('.sl-vid-vol-slider');
+            // 强力拦截：阻止面板滚动条和外层容器滚动条的默认行为，并切断冒泡！
+            e.preventDefault();
+            e.stopPropagation();
 
-            if (noAudio) {
-                if (volWrap) volWrap.classList.add('no-audio');
-                muteOpt.style.color = '#888';
-                muteOpt.style.pointerEvents = 'none';
-                muteOpt.style.cursor = 'default';
-                muteOpt.title = '无音频';
-                if (iconHigh) iconHigh.style.display = 'none';
-                if (iconMuted) iconMuted.style.display = 'none';
-                if (iconNone) iconNone.style.display = 'block';
-                if (slider) slider.style.display = 'none';
-            } else {
-                if (volWrap) volWrap.classList.remove('no-audio');
-                muteOpt.style.color = '#aaa'; 
-                muteOpt.style.pointerEvents = 'auto';
-                muteOpt.style.cursor = 'pointer';
-                muteOpt.title = (vid.muted || vid.volume === 0) ? '取消静音' : '静音';
-                if (slider) slider.style.display = 'block';
-                
-                if (vid.muted || vid.volume === 0) {
-                    if (iconHigh) iconHigh.style.display = 'none';
-                    if (iconMuted) iconMuted.style.display = 'block';
-                    if (iconNone) iconNone.style.display = 'none';
-                } else {
-                    if (iconHigh) iconHigh.style.display = 'block';
-                    if (iconMuted) iconMuted.style.display = 'none';
-                    if (iconNone) iconNone.style.display = 'none';
-                }
+            // 如果视频正在播放，先暂停它，并标记正在 scrubbing
+            if (!vid.paused) {
+                vid.dataset.wasPlayingBeforeScrub = 'true';
+                vid.pause();
             }
-        };
+            vid.dataset.isScrubbing = 'true';
 
-        vid.addEventListener('loadeddata', updateMuteButtonState);
-        vid.addEventListener('timeupdate', updateMuteButtonState); 
+            // 精度微调：大幅降低倍率 (滚轮卡顿1格通常等于100，100 * 0.002 = 0.2秒)
+            const delta = e.deltaY || e.deltaX;
+            const step = delta * 0.002;
+            
+            let newTime = vid.currentTime + step;
+            vid.currentTime = Math.max(0, Math.min(vid.duration, newTime));
 
-        // 1. 鼠标按下事件：左键播放/暂停，右键准备拖拽
-        player.addEventListener('mousedown', (e) => {
+            // 视觉反馈：即时更新时间码（显示帧格式，并变绿提示正在调节）
+            const tc = player.querySelector('.sl-timecode');
+            const bar = player.querySelector('.sl-video-progress-bar');
+            
+            if (bar) {
+                 bar.style.width = `${(vid.currentTime / vid.duration) * 100}%`;
+            }
+
+            if (tc) {
+                // 滚动时显示 分:秒:帧 格式
+                tc.textContent = formatTimeWithFrames(vid.currentTime, 30);
+                tc.style.color = '#4CAF50';
+            }
+
+            // 防抖逻辑：判断是否连续滚动。
+            // 每次滚动都清除上一次的定时器。
+            clearTimeout(vid._scrubTimer);
+            
+            // 设置新的定时器。如果超过 400ms 没有新的滚动事件，认为滚动结束
+            vid._scrubTimer = setTimeout(() => {
+                vid.dataset.isScrubbing = 'false';
+                if (tc) tc.style.color = ''; // 恢复颜色
+                
+                // 如果滚动前是在播放状态，则恢复播放
+                if (vid.dataset.wasPlayingBeforeScrub === 'true') {
+                    vid.play().catch(()=>{});
+                    vid.dataset.wasPlayingBeforeScrub = 'false';
+                }
+            }, 400); // 400ms 的防抖时间，可以根据手感微调
+
+        }, { passive: false });
+
+        // 【右键处理】：彻底移除进度调节，仅保留呼出菜单
+        player.addEventListener('contextmenu', (e) => {
             if (e.target.closest('.sl-video-controls-interactive')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (window.ShellLink && window.ShellLink.showPreviewContextMenu) {
+                const areaId = player.dataset.areaId;
+                const cardEl = player.closest('.sl-card');
+                const cardId = cardEl ? cardEl.dataset.cardId : null;
+                window.ShellLink.showPreviewContextMenu(e.clientX, e.clientY, cardId, areaId, vid.src);
+            }
+        }, true);
 
-            if (e.button === 0) { 
+        // 单击播放/暂停
+        player.addEventListener('click', (e) => {
+            if (e.target.closest('.sl-video-controls-interactive')) return;
+            if (e.button === 0 && e.target.tagName === 'VIDEO') {
                 if (vid.paused) vid.play().catch(()=>{});
                 else vid.pause();
-            } else if (e.button === 2) { 
-                if (!vid.duration) return;
-
-                const startX = e.clientX;
-                const startPlayTime = vid.currentTime;
-                const wasPlaying = !vid.paused;
-                
-                hasRightDragged = false;
-                blockContextMenu = false;
-                vid.dataset.isScrubbing = 'true';
-                vid.pause(); 
-
-                const onMove = (ev) => {
-                    const deltaX = ev.clientX - startX;
-                    if (!hasRightDragged && Math.abs(deltaX) > 3) hasRightDragged = true;
-
-                    if (hasRightDragged) {
-                        const width = player.offsetWidth || 300;
-                        let newTime = startPlayTime + (deltaX / width) * vid.duration;
-                        newTime = Math.max(0, Math.min(vid.duration, newTime));
-
-                        vid.currentTime = newTime;
-
-                        const bar = player.querySelector('.sl-video-progress-bar');
-                        if (bar) bar.style.width = `${(newTime / vid.duration) * 100}%`;
-                        const tc = player.querySelector('.sl-timecode');
-                        if (tc) {
-                            tc.textContent = formatTimeWithFrames(newTime, 30);
-                            tc.style.color = '#4CAF50'; 
-                            tc.style.fontFamily = 'sans-serif !important';
-                        }
-                    }
-                };
-
-                const onUp = (ev) => {
-                    if (ev.button === 2) {
-                        vid.dataset.isScrubbing = 'false';
-
-                        window.removeEventListener('mousemove', onMove);
-                        window.removeEventListener('mouseup', onUp);
-
-                        const tc = player.querySelector('.sl-timecode');
-                        if (tc) tc.style.color = '';
-
-                        if (hasRightDragged) {
-                            const globalCtxBlocker = (ctxEvent) => {
-                                ctxEvent.preventDefault();
-                                ctxEvent.stopPropagation();
-                            };
-                            window.addEventListener('contextmenu', globalCtxBlocker, true);
-                            setTimeout(() => {
-                                window.removeEventListener('contextmenu', globalCtxBlocker, true);
-                            }, 100);
-
-                            blockContextMenu = true; 
-                            if (wasPlaying) vid.play().catch(()=>{});
-                            setTimeout(() => { blockContextMenu = false; }, 100);
-                        } else {
-                            if (wasPlaying) vid.play().catch(()=>{});
-                        }
-                    }
-                };
-
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
             }
         });
 
-        // 2. 拦截右键菜单
-        player.addEventListener('contextmenu', (e) => {
-            if (blockContextMenu) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-
-        // 3. 底部进度条点击与拖拽快速定位
+        // =========================================================================
+        // 底部进度条改为纯净的“仅点击跳转”模式
+        // =========================================================================
         const progContainer = player.querySelector('.sl-video-progress-container');
         if (progContainer) {
             progContainer.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
                 e.preventDefault(); 
                 e.stopPropagation();
-                if (e.button !== 0) return; 
-
                 if (!vid.duration) return;
+
+                // 仅仅在按下的瞬间修改进度，不绑定任何后续拖拽事件
+                const rect = progContainer.getBoundingClientRect();
+                const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                vid.currentTime = pos * vid.duration;
                 
-                let isDraggingBar = true;
-                const wasPlaying = !vid.paused;
+                const bar = player.querySelector('.sl-video-progress-bar');
+                if (bar) bar.style.width = `${pos * 100}%`;
                 
-                vid.pause(); 
-                vid.dataset.isScrubbing = 'true';
-                
-                const updateProgress = (clientX) => {
-                    const rect = progContainer.getBoundingClientRect();
-                    const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                    const newTime = pos * vid.duration;
-                    vid.currentTime = newTime;
-                    
-                    const bar = player.querySelector('.sl-video-progress-bar');
-                    if (bar) bar.style.width = `${pos * 100}%`;
-                    
-                    const tc = player.querySelector('.sl-timecode');
-                    if (tc) {
-                        tc.textContent = formatTimeWithFrames(newTime, 30);
-                        tc.style.color = '#4CAF50';
-                        tc.style.fontFamily = 'sans-serif !important';
-                    }
-                };
-                
-                updateProgress(e.clientX);
-                
-                const onMove = (ev) => {
-                    if (!isDraggingBar) return;
-                    updateProgress(ev.clientX);
-                };
-                
-                const onUp = (ev) => {
-                    if (ev.button !== 0) return;
-                    isDraggingBar = false;
-                    vid.dataset.isScrubbing = 'false';
-                    
-                    const tc = player.querySelector('.sl-timecode');
-                    if (tc) tc.style.color = '';
-                    
-                    window.removeEventListener('mousemove', onMove);
-                    window.removeEventListener('mouseup', onUp);
-                    
-                    if (wasPlaying) {
-                        vid.play().catch(()=>{});
-                    }
-                };
-                
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
+                // 让时间码瞬间刷新，不用等下一次 timeupdate
+                const tc = player.querySelector('.sl-timecode');
+                if (tc) {
+                    tc.textContent = `${formatTime(vid.currentTime)} / ${formatTime(vid.duration)}`;
+                }
             });
         }
 
-        // 4. 音量防劫持滑杆逻辑
+        // 音量逻辑 (保持原样，因为音量通常需要拖拽调节)
         const volContainer = player.querySelector('.sl-vid-vol-slider');
-        const volWrap = player.querySelector('.sl-volume-wrap');
-        
         if (volContainer && vid) {
             const updateVolUI = (vol) => {
                 const fill = volContainer.querySelector('.sl-volume-slider-fill');
@@ -6351,45 +7167,21 @@ export function attachVideoEvents(container) {
                 if (fill) fill.style.width = `${vol * 100}%`;
                 if (thumb) thumb.style.right = `${vol * 100}%`;
             };
-
-            if (vid.muted || vid.volume === 0) updateVolUI(0);
-            else updateVolUI(vid.volume);
-
             volContainer.addEventListener('mousedown', (e) => {
-                e.preventDefault(); 
-                e.stopPropagation();
                 if (e.button !== 0) return;
-
-                volContainer.classList.add('is-dragging');
-                if (volWrap) volWrap.classList.add('is-active'); 
-                let isDraggingVol = true;
-
-                const updateVolume = (clientX) => {
+                e.preventDefault(); e.stopPropagation();
+                const update = (clientX) => {
                     const rect = volContainer.getBoundingClientRect();
-                    const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                    const newVol = 1.0 - pos; 
-                    
-                    vid.muted = false; 
-                    vid.volume = newVol;
-                    updateVolUI(newVol);
+                    let v = 1.0 - (clientX - rect.left) / rect.width;
+                    v = Math.max(0, Math.min(1, v));
+                    vid.muted = false; vid.volume = v; updateVolUI(v);
                 };
-
-                updateVolume(e.clientX);
-
-                const onMove = (ev) => {
-                    if (!isDraggingVol) return;
-                    updateVolume(ev.clientX);
-                };
-
-                const onUp = (ev) => {
-                    if (ev.button !== 0) return;
-                    isDraggingVol = false;
-                    volContainer.classList.remove('is-dragging');
-                    if (volWrap) volWrap.classList.remove('is-active');
+                update(e.clientX);
+                const onMove = (ev) => update(ev.clientX);
+                const onUp = () => {
                     window.removeEventListener('mousemove', onMove);
                     window.removeEventListener('mouseup', onUp);
                 };
-
                 window.addEventListener('mousemove', onMove);
                 window.addEventListener('mouseup', onUp);
             });
@@ -6397,48 +7189,40 @@ export function attachVideoEvents(container) {
 
         const muteOpt = player.querySelector('.sl-opt-mute');
         if (muteOpt) {
-            muteOpt.onclick = (e) => { 
-                e.stopPropagation(); 
+            muteOpt.onclick = (e) => {
+                e.stopPropagation();
+                
+                const fill = player.querySelector('.sl-volume-slider-fill');
+                const thumb = player.querySelector('.sl-volume-slider-thumb');
+                
                 if (vid.muted || vid.volume === 0) {
+                    // 关闭静音，音量设为 80%
                     vid.muted = false;
                     vid.volume = 0.8;
-                    const fill = player.querySelector('.sl-volume-slider-fill');
-                    const thumb = player.querySelector('.sl-volume-slider-thumb');
                     if (fill) fill.style.width = `80%`;
-                    if (thumb) thumb.style.right = `80%`;
+                    if (thumb) thumb.style.right = `80%`; // 保持与拖拽时使用的 css 属性一致
                 } else {
+                    // 开启静音，音量设为 0
                     vid.muted = true;
                     vid.volume = 0;
-                    const fill = player.querySelector('.sl-volume-slider-fill');
-                    const thumb = player.querySelector('.sl-volume-slider-thumb');
                     if (fill) fill.style.width = `0%`;
                     if (thumb) thumb.style.right = `0%`;
                 }
             };
         }
 
-        // 5. 更多选项菜单控制
+        // 更多菜单
         const moreToggle = player.querySelector('.sl-more-toggle');
         const moreDropdown = player.querySelector('.sl-more-dropdown');
-
-        if (moreToggle && moreDropdown) {
+        if (moreToggle) {
             moreToggle.onclick = (e) => {
                 e.stopPropagation();
-                const isShow = moreDropdown.classList.contains('show');
-                document.querySelectorAll('.sl-media-dropdown.show').forEach(m => m.classList.remove('show'));
-                if (!isShow) moreDropdown.classList.add('show');
+                moreDropdown.classList.toggle('show');
             };
         }
-        
-        const pipOpt = player.querySelector('.sl-opt-pip');
-        if (pipOpt) pipOpt.onclick = (e) => { e.stopPropagation(); if (document.pictureInPictureElement) document.exitPictureInPicture(); else vid.requestPictureInPicture().catch(()=>{}); moreDropdown.classList.remove('show'); };
-        
-        const fsOpt = player.querySelector('.sl-opt-fullscreen');
-        if (fsOpt) fsOpt.onclick = (e) => { e.stopPropagation(); if (vid.requestFullscreen) vid.requestFullscreen(); else if (vid.webkitRequestFullscreen) vid.webkitRequestFullscreen(); moreDropdown.classList.remove('show'); };
 
         const speedInput = player.querySelector('.sl-media-speed-input');
         if (speedInput) {
-            speedInput.onclick = (e) => { e.stopPropagation(); }; 
             speedInput.onchange = (e) => {
                 let v = parseFloat(e.target.value);
                 if (isNaN(v) || v < 0.1) v = 1.0;
@@ -6452,11 +7236,18 @@ export function attachVideoEvents(container) {
             item.onclick = (e) => {
                 e.stopPropagation();
                 const spd = parseFloat(item.dataset.spd);
-                if (speedInput) speedInput.value = spd.toFixed(1);
                 vid.playbackRate = spd;
-                if(moreDropdown) moreDropdown.classList.remove('show');
+                if (speedInput) speedInput.value = spd.toFixed(1);
+                moreDropdown.classList.remove('show');
             };
         });
+
+        const fsOpt = player.querySelector('.sl-opt-fullscreen');
+        if (fsOpt) fsOpt.onclick = (e) => { 
+            e.stopPropagation(); 
+            if (vid.requestFullscreen) vid.requestFullscreen(); 
+            moreDropdown.classList.remove('show'); 
+        };
     });
 } 
  

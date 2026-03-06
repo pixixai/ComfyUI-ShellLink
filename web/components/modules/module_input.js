@@ -199,6 +199,15 @@ export function generateInputHTML(area, card) {
 }
 
 export function attachInputEvents(container) {
+    const applySurgicalUpdate = (areaId) => {
+        if (window._slSurgicallyUpdateArea) {
+            window._slSurgicallyUpdateArea(areaId);
+            if (window._slJustSave) window._slJustSave();
+        } else {
+            saveAndRender();
+        }
+    };
+
     container.querySelectorAll('.sl-upload-zone').forEach(zone => {
         const fileInput = zone.querySelector('.sl-file-input');
         if (!fileInput) return;
@@ -237,12 +246,12 @@ export function attachInputEvents(container) {
                         area.value = data.name;
                         state.selectedAreaIds = [areaId];
                         state.selectedCardIds = [];
-                        saveAndRender();
+                        applySurgicalUpdate(areaId);
                     }
                 }
             } catch(err) {
                 alert('本地文件上传失败: ' + err.message);
-                saveAndRender(); 
+                applySurgicalUpdate(areaId);
             }
         };
 
@@ -286,7 +295,7 @@ export function attachInputEvents(container) {
                 area.value = e.target.checked;
                 state.selectedAreaIds = [areaId];
                 state.selectedCardIds = [];
-                saveAndRender(); 
+                applySurgicalUpdate(areaId);
             }
         };
     });
@@ -301,8 +310,11 @@ export function attachInputEvents(container) {
             const { card: cardId, area: areaId } = e.target.dataset;
             const card = state.cards.find(c => c.id === cardId);
             const area = card.areas.find(a => a.id === areaId);
-            if(area) area.value = e.target.value;
-            if (window.ShellLink) window.ShellLink.saveState(state);
+            if(area) {
+                area.value = e.target.value;
+                if (window._slJustSave) window._slJustSave();
+                else if (window.ShellLink) window.ShellLink.saveState(state);
+            }
         };
     });
 }

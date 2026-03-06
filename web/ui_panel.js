@@ -169,30 +169,22 @@ function performRender() {
     const toolbarHandle = panelContainer.querySelector('#sl-toolbar-handle');
     const cardsContainer = panelContainer.querySelector('#sl-cards-container');
 
-    // =========================================================================
-    // 【核心升级】：渲染前全局状态记忆引擎 (阻断滚动条归零坍塌)
-    // =========================================================================
     let savedScrollLeft = 0;
     const savedCardScrolls = new Map();
     if (cardsContainer) {
-        savedScrollLeft = cardsContainer.scrollLeft; // 记忆横向滚动条
+        savedScrollLeft = cardsContainer.scrollLeft; 
         cardsContainer.querySelectorAll('.sl-card-body').forEach(body => {
             if (body.dataset.cardId) {
-                savedCardScrolls.set(body.dataset.cardId, body.scrollTop); // 记忆每一个卡片的内部高度
+                savedCardScrolls.set(body.dataset.cardId, body.scrollTop); 
             }
         });
     }
 
-    // 🌟 1. 渲染前：唤醒媒体保险库，拔下正在播放的所有视频和音频
     if (window.ShellLink && window.ShellLink.stashMedia) window.ShellLink.stashMedia();
     
-    // 💥 核弹级重绘：清空旧 HTML 并生成全新 HTML
     renderDynamicToolbar(toolbarHandle);
     renderCardsList(cardsContainer);
     
-    // =========================================================================
-    // 【核心升级】：渲染后立即归位滚动条 (在浏览器重绘画面前瞬间完成无缝衔接)
-    // =========================================================================
     if (cardsContainer) {
         cardsContainer.scrollLeft = savedScrollLeft;
         cardsContainer.querySelectorAll('.sl-card-body').forEach(body => {
@@ -202,10 +194,8 @@ function performRender() {
         });
     }
 
-    // 🌟 2. 渲染后：在全新 HTML 里找到占位符，把正在播放的视频原样插回去
     if (window.ShellLink && window.ShellLink.restoreMedia) window.ShellLink.restoreMedia();
 
-    // 3. 重新绑定交互事件
     attachDynamicToolbarEvents(toolbarHandle);
     attachCardEvents(cardsContainer);
     attachAreaEvents(cardsContainer);
@@ -276,6 +266,7 @@ function createPanelDOM() {
             state.painterMode = false;
             state.painterSource = null;
             panelContainer.classList.remove('sl-painter-active');
+            updateSelectionUI();
         }
     }, true);
 
@@ -317,14 +308,25 @@ function createPanelDOM() {
 
     // 🌟 中央集权拦截引擎 (智能穿透版)
     cardsContainer.addEventListener("mousedown", (e) => {
-        if (state.painterMode) return;
+        const isInteractive = e.target.closest('button, input, select, textarea, .sl-custom-select, .sl-edit-val-bool, .sl-del-area-btn, .sl-del-card-btn, .sl-history-thumb, .sl-upload-zone, .sl-video-controls-interactive');
+        
+        // 【核心修复 A】：如果是画笔模式，且按在了某个交互按钮上，彻底退出画笔模式，但**不阻断**原生事件冒泡
+        // 这样按钮就能正常执行它原来的逻辑了！
+        if (state.painterMode) {
+            if (isInteractive && e.button === 0) {
+                state.painterMode = false;
+                state.painterSource = null;
+                panelContainer.classList.remove('sl-painter-active');
+                updateSelectionUI();
+                // 去掉了 e.stopPropagation() 和 e.preventDefault()
+            }
+            // 无论如何，在画笔模式下都不应该继续走下面的选择和拖拽逻辑
+            return; 
+        }
+
         if (e.button !== 0) return; 
 
-        // 【核心修复】：白名单加入 .sl-video-controls-interactive
-        const isInteractive = e.target.closest('button, input, select, textarea, .sl-custom-select, .sl-edit-val-bool, .sl-del-area-btn, .sl-del-card-btn, .sl-history-thumb, .sl-upload-zone, .sl-video-controls-interactive');
-        // 【核心新增】：建立专属的媒体区域白名单，防止停止冒泡导致视频不响应点击！
         const isMedia = e.target.closest('.sl-video-player, .sl-audio-player, .sl-preview-bg, video, audio');
-        
         const areaEl = e.target.closest('.sl-area');
         const cardEl = e.target.closest('.sl-card:not(.sl-add-card-inline)');
 
@@ -339,7 +341,7 @@ function createPanelDOM() {
                     if (state.selectedAreaIds.includes(areaId)) state.selectedAreaIds = state.selectedAreaIds.filter(id => id !== areaId);
                     else state.selectedAreaIds.push(areaId);
                 }
-                appState.lastClickedAreaId = areaId; // 记录锚点
+                appState.lastClickedAreaId = areaId; 
             } 
             else if (e.shiftKey && appState.lastClickedAreaId) {
                 let startCardIdx = -1, endCardIdx = -1;
@@ -382,7 +384,7 @@ function createPanelDOM() {
                     state.selectedAreaIds = Array.from(new Set([...state.selectedAreaIds, ...rangeIds]));
                 } else {
                     state.selectedAreaIds = [areaId];
-                    appState.lastClickedAreaId = areaId; // 只有降级为单选时才重置锚点
+                    appState.lastClickedAreaId = areaId; 
                 }
             } 
             else {
@@ -391,7 +393,7 @@ function createPanelDOM() {
                 } else {
                     state.selectedAreaIds = [areaId];
                 }
-                appState.lastClickedAreaId = areaId; // 更新锚点
+                appState.lastClickedAreaId = areaId; 
             }
             
             state.selectedCardIds = [];
@@ -399,7 +401,6 @@ function createPanelDOM() {
             
             updateSelectionUI(); 
             
-            // 【核心穿透】：如果点击的既不是输入框按钮，也不是音视频媒体，才阻止冒泡！
             if (!isInteractive && !isMedia) e.stopPropagation();
             
         } else if (cardEl) {
@@ -411,7 +412,7 @@ function createPanelDOM() {
                     if (state.selectedCardIds.includes(targetId)) state.selectedCardIds = state.selectedCardIds.filter(id => id !== targetId);
                     else state.selectedCardIds.push(targetId);
                 }
-                appState.lastClickedCardId = targetId; // 记录锚点
+                appState.lastClickedCardId = targetId; 
             } else if (e.shiftKey && appState.lastClickedCardId) {
                 const currentIndex = state.cards.findIndex(c => c.id === targetId);
                 const lastIndex = state.cards.findIndex(c => c.id === appState.lastClickedCardId);
@@ -425,7 +426,7 @@ function createPanelDOM() {
                 } else {
                     state.selectedCardIds = [targetId];
                 }
-                appState.lastClickedCardId = targetId; // 更新锚点
+                appState.lastClickedCardId = targetId; 
             }
             
             state.activeCardId = state.selectedCardIds.length > 0 ? state.selectedCardIds[state.selectedCardIds.length - 1] : null;
@@ -440,14 +441,22 @@ function createPanelDOM() {
 
     cardsContainer.addEventListener("click", (e) => {
         const isInteractive = e.target.closest('button, input, select, textarea, .sl-custom-select, .sl-edit-val-bool, .sl-del-area-btn, .sl-del-card-btn, .sl-history-thumb, .sl-upload-zone, .sl-video-controls-interactive');
-        // 【核心新增】：媒体元素同样纳入白名单
         const isMedia = e.target.closest('.sl-video-player, .sl-audio-player, .sl-preview-bg, video, audio');
         
         const areaEl = e.target.closest('.sl-area');
         const cardEl = e.target.closest('.sl-card:not(.sl-add-card-inline)');
 
         if (state.painterMode) {
-            if (isInteractive) return;
+            // 【核心修复 B】：如果画笔模式下，点到了交互按钮，立刻退出画笔模式，但**不阻断**原生事件冒泡
+            if (isInteractive) {
+                state.painterMode = false;
+                state.painterSource = null;
+                panelContainer.classList.remove('sl-painter-active');
+                updateSelectionUI();
+                // 去掉了 e.stopPropagation() 和 e.preventDefault()
+                return;
+            }
+
             if (state.painterSource?.type === 'card') {
                 if (cardEl && !areaEl) {
                     const targetId = cardEl.dataset.cardId;
@@ -519,7 +528,6 @@ function createPanelDOM() {
             return;
         }
 
-        // 【核心穿透】：如果在视频组件上触发了点击，同样不阻止冒泡
         if ((areaEl || cardEl) && !isInteractive && !isMedia) {
             e.stopPropagation();
             return;

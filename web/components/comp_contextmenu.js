@@ -260,12 +260,12 @@ export function setupContextMenu(panelContainer) {
                 });
 
                 if (syncCount === 0) {
-                    showAutoToast("选中模块没有任何图像记录需要同步。");
+                    showAutoToast("选中模块没有任何媒体记录需要同步。");
                     return;
                 }
 
                 if (window._slJustSave) window._slJustSave(); else saveAndRender();
-                showAutoToast("✅ 缓存已清理，选中模块的图像已重新加载！");
+                showAutoToast("✅ 缓存已清理，选中输出模块已重新加载媒体！");
             };
         }
 

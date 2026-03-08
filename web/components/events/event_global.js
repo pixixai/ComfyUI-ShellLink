@@ -8,6 +8,55 @@ import { enterBindingModeForSelected } from "../actions/action_binding.js";
 
 export function setupGlobalEvents(panelContainer, backdropContainer, togglePanelFunc, performRenderFunc) {
     
+    // 【核心新增】：全局媒体加载与失效 (404) 拦截器！统一显示媒体丢失的 UI，且加载成功时自动清除
+    if (!window._slGlobalMediaErrorHijacked) {
+        const clearFallback = (target) => {
+            const parent = target.parentElement;
+            if (parent) {
+                const fb = parent.querySelector('.sl-media-dead-fallback');
+                if (fb) fb.remove();
+            }
+        };
+
+        window.addEventListener('error', (e) => {
+            const target = e.target;
+            // 拦截所有图片、视频、音频的加载报错
+            if (target && ['IMG', 'VIDEO', 'AUDIO'].includes(target.tagName)) {
+                const isPreview = target.classList && target.classList.contains('sl-preview-img');
+                const isThumb = target.closest && target.closest('.sl-history-thumb');
+                // 仅针对我们面板内的媒体生效
+                if (isPreview || isThumb) {
+                    // 【修复 1】：防止空 src 触发误判。只有当 src 看起来像是一个真实的请求路径时才处理
+                    const src = target.getAttribute('src');
+                    if (!src || !src.includes('filename=')) return;
+
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    // 在原地插入一个漂亮的统一丢失图标
+                    // 【修复 2】：将 background 改为不透明的深灰色 #1e1e1e，确保覆盖背后的蓝紫色渐变
+                    if (parent && !parent.querySelector('.sl-media-dead-fallback')) {
+                        parent.insertAdjacentHTML('beforeend', `
+                            <div class="sl-media-dead-fallback" style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#1e1e1e; color:#ff5555; z-index:10; pointer-events:none;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <span style="font-size:10px; margin-top:4px; color:#ccc;">媒体丢失</span>
+                            </div>
+                        `);
+                    }
+                }
+            }
+        }, true); // 必须设置为 true 进行捕获，因为 error 事件不会冒泡
+
+        // 如果用户执行了“同步”且文件回来了，自动清理这个报错 UI
+        window.addEventListener('load', (e) => {
+            if (e.target && ['IMG', 'VIDEO', 'AUDIO'].includes(e.target.tagName)) clearFallback(e.target);
+        }, true);
+        window.addEventListener('loadeddata', (e) => {
+            if (e.target && ['IMG', 'VIDEO', 'AUDIO'].includes(e.target.tagName)) clearFallback(e.target);
+        }, true);
+
+        window._slGlobalMediaErrorHijacked = true;
+    }
+
     if (!window._slGlobalSelectionShield) {
         let isDragging = false;
         window.addEventListener('dragstart', () => { isDragging = true; }, true);
@@ -15,18 +64,6 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
 
         const shieldEvent = (e) => {
             if (e.button !== 0 && e.type !== 'contextmenu') return;
-
-            // 【核心修复】：由于护盾拦截权重极高，必须在拦截前主动收起所有下拉菜单！
-            if (e.type === 'mousedown' || e.type === 'pointerdown') {
-                // 如果点到的不是下拉菜单本身，就关掉所有已展开的菜单
-                if (!e.target.closest('.sl-custom-select')) {
-                    document.querySelectorAll('.sl-custom-select.open').forEach(el => {
-                        el.classList.remove('open');
-                        const area = el.closest('.sl-area');
-                        if (area) area.style.zIndex = '';
-                    });
-                }
-            }
 
             const isInteractive = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) ||
                                   e.target.closest('.sl-custom-select') || e.target.closest('.sl-history-thumb') ||
@@ -138,6 +175,7 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                     targetArea.historyIndex = idx;
                     targetArea.resultUrl = targetArea.history[idx];
 
+                    // 【核心修复】：彻底接入局部更新引擎，键盘切换不再闪屏重绘！
                     if (window._slSurgicallyUpdateArea) {
                         window._slSurgicallyUpdateArea(targetArea.id);
                         if (window._slJustSave) window._slJustSave();

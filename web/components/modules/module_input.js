@@ -138,12 +138,32 @@ export function generateInputHTML(area, card) {
             let previewHtml = '';
             const fileUrl = `/view?filename=${encodeURIComponent(area.value)}&type=input`;
             
+            // 【核心修复】：增加失效状态的降级 UI 兜底。当旧参数值无法加载为有效媒体时，显示此提示而不是干瘪的黑块
+            const fallbackHtml = `
+                <div class="sl-upload-fallback" style="display: none; position: absolute; inset: 0; flex-direction: column; justify-content: center; align-items: center; z-index: 2; background: rgba(0,0,0,0.2);">
+                    <div style="margin-bottom: 8px; color: #ff5555;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    </div>
+                    <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px; color: #ccc;">文件已失效 / 格式不匹配</div>
+                    <div style="font-size: 10px; color: #888;">点击重新上传覆盖此参数</div>
+                </div>
+            `;
+
             if (uploadType === 'image') {
-                previewHtml = `<img src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" onerror="this.style.display='none';" />`;
+                previewHtml = `
+                    <img src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.sl-upload-fallback'); if(fb) fb.style.display='flex';" />
+                    ${fallbackHtml}
+                `;
             } else if (uploadType === 'video') {
-                previewHtml = `<video src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" autoplay loop muted onerror="this.style.display='none';"></video>`;
+                previewHtml = `
+                    <video src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" autoplay loop muted onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.sl-upload-fallback'); if(fb) fb.style.display='flex';"></video>
+                    ${fallbackHtml}
+                `;
             } else if (uploadType === 'audio') {
-                previewHtml = `<audio src="${fileUrl}" controls style="position: relative; z-index: 1; width: 90%; height: 40px; margin: 20px 5%;" onerror="this.style.display='none';"></audio>`;
+                previewHtml = `
+                    <audio src="${fileUrl}" controls style="position: relative; z-index: 1; width: 90%; height: 40px; margin: 20px 5%;" onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.sl-upload-fallback'); if(fb) fb.style.display='flex';"></audio>
+                    ${fallbackHtml}
+                `;
             } else {
                 previewHtml = `<div style="font-size: 24px; color: #666; padding: 30px 0; position: relative; z-index: 1;">📄</div>`;
             }

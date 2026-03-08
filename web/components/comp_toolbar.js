@@ -88,54 +88,84 @@ export function setupStaticToolbarEvents(panelContainer) {
         }, 50);
     };
 
-    // 【极速新建模块】：物理拼贴到对应的卡片容器中
+    // 【极速新建模块】：支持跨卡片多选模块并发插入、多选卡片并发插入！
     panelContainer.querySelector("#sl-global-add-module").onclick = () => {
-        let targetCard = null;
-        let insertIndex = -1;
+        let insertionTasks = [];
         
         if (state.selectedAreaIds && state.selectedAreaIds.length > 0) {
-            const areaId = state.selectedAreaIds[0];
-            targetCard = state.cards.find(c => c.areas?.some(a => a.id === areaId));
-            if (targetCard) insertIndex = targetCard.areas.findIndex(a => a.id === areaId) + 1;
+            // 【终极增强】：遍历所有卡片，找出所有被选中的模块。
+            // 采用“倒序(Descending)索引排序”！这样在同一个卡片内连续插入多个模块时，从下往上插，数组索引绝对不会错乱偏移！
+            state.cards.forEach(card => {
+                if (!card.areas) return;
+                let selectedIndices = [];
+                card.areas.forEach((a, idx) => {
+                    if (state.selectedAreaIds.includes(a.id)) selectedIndices.push(idx);
+                });
+                
+                selectedIndices.sort((a, b) => b - a); // 从大到小排列
+                
+                selectedIndices.forEach(idx => {
+                    insertionTasks.push({ card: card, insertIndex: idx + 1 });
+                });
+            });
         } else if (state.selectedCardIds && state.selectedCardIds.length > 0) {
-            targetCard = state.cards.find(c => c.id === state.selectedCardIds[0]);
-            if (targetCard) insertIndex = targetCard.areas ? targetCard.areas.length : 0;
+            // 遍历所有选中的卡片，支持矩阵式并发创建到末尾
+            state.selectedCardIds.forEach(cardId => {
+                const targetCard = state.cards.find(c => c.id === cardId);
+                if (targetCard) {
+                    insertionTasks.push({ card: targetCard, insertIndex: targetCard.areas ? targetCard.areas.length : 0 });
+                }
+            });
         }
 
-        if (!targetCard) return alert("请先选中一个任务或模块，以确定新建位置！");
+        if (insertionTasks.length === 0) return alert("请先选中一个或多个任务卡片/模块，以确定新建位置！");
 
-        if (!targetCard.areas) targetCard.areas = [];
-        const templateArea = { id: 'area_' + Date.now() + '_' + Math.floor(Math.random() * 1000), type: 'edit', targetNodeId: null, targetWidget: null, value: '', dataType: 'string', autoHeight: true };
-        targetCard.areas.splice(insertIndex, 0, templateArea);
-        
-        state.selectedAreaIds = [templateArea.id];
-        state.selectedCardIds = [];
-        
-        // 【核心修复】：为新创建的模块打上隐形锚点，让后续的 Shift 连选拥有正确的起点！
-        appState.lastClickedAreaId = templateArea.id;
+        const newlyCreatedAreaIds = [];
+        let lastCreatedAreaId = null;
 
-        const cardBody = document.querySelector(`.sl-card[data-card-id="${targetCard.id}"] .sl-area-list`);
-        if (cardBody) {
-            const temp = document.createElement('div');
-            temp.innerHTML = generateAreaHTML(templateArea, targetCard);
-            const newEl = temp.firstElementChild;
+        insertionTasks.forEach((task, idx) => {
+            const targetCard = task.card;
+            if (!targetCard.areas) targetCard.areas = [];
+            const insertIndex = task.insertIndex;
             
-            if (insertIndex >= targetCard.areas.length - 1) {
-                cardBody.appendChild(newEl);
-            } else {
-                const nextArea = targetCard.areas[insertIndex + 1];
-                const nextEl = cardBody.querySelector(`.sl-area[data-area-id="${nextArea.id}"]`);
-                cardBody.insertBefore(newEl, nextEl);
+            // 加入 idx 盐值，防止并发创建时出现完全相同的 ID
+            const templateArea = { id: 'area_' + Date.now() + '_' + Math.floor(Math.random() * 10000) + idx, type: 'edit', targetNodeId: null, targetWidget: null, value: '', dataType: 'string', autoHeight: true };
+            
+            targetCard.areas.splice(insertIndex, 0, templateArea);
+            newlyCreatedAreaIds.push(templateArea.id);
+            lastCreatedAreaId = templateArea.id;
+
+            const cardBody = document.querySelector(`.sl-card[data-card-id="${targetCard.id}"] .sl-area-list`);
+            if (cardBody) {
+                const temp = document.createElement('div');
+                temp.innerHTML = generateAreaHTML(templateArea, targetCard);
+                const newEl = temp.firstElementChild;
+                
+                if (insertIndex >= targetCard.areas.length - 1) {
+                    cardBody.appendChild(newEl);
+                } else {
+                    const nextArea = targetCard.areas[insertIndex + 1];
+                    const nextEl = cardBody.querySelector(`.sl-area[data-area-id="${nextArea.id}"]`);
+                    if (nextEl) cardBody.insertBefore(newEl, nextEl);
+                    else cardBody.appendChild(newEl);
+                }
+                attachAreaEvents(cardBody);
             }
-            attachAreaEvents(cardBody);
-        }
+        });
+
+        // 选中所有刚生成的空白模块
+        state.selectedAreaIds = newlyCreatedAreaIds;
+        state.selectedCardIds = [];
+        appState.lastClickedAreaId = lastCreatedAreaId;
 
         justSave();
         updateSelectionUI();
         
         setTimeout(() => {
-            const el = document.querySelector(`.sl-area[data-area-id="${templateArea.id}"]`);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            if (lastCreatedAreaId) {
+                const el = document.querySelector(`.sl-area[data-area-id="${lastCreatedAreaId}"]`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
         }, 50);
     };
 
@@ -215,10 +245,10 @@ export function setupStaticToolbarEvents(panelContainer) {
             });
             if (syncCount === 0) {
                 hideBindingToast();
-                return alert("当前面板没有任何图像记录需要同步。");
+                return alert("当前面板没有任何媒体记录需要同步。");
             }
             saveAndRender(); 
-            showBindingToast("✅ 缓存已清理，本地图像已重新加载！");
+            showBindingToast("✅ 缓存已清理，所有输出模块已重新加载媒体！");
             setTimeout(hideBindingToast, 2000);
         };
 
@@ -258,14 +288,33 @@ export function setupStaticToolbarEvents(panelContainer) {
                             const idx = area.history.indexOf(item.url);
                             if (idx !== -1) {
                                 area.history.splice(idx, 1);
-                                if (area.resultUrl === item.url) {
-                                    area.resultUrl = area.history.length > 0 ? area.history[0] : "";
-                                }
                             }
                         }
                     });
                 });
-                saveAndRender();
+
+                // 【核心修复】：安全重算所有受影响模块的 index 和封面，并默认回退到最后一张
+                const affectedAreaIds = [...new Set(deadItems.map(item => item.areaId))];
+                state.cards.forEach(c => {
+                    c.areas?.forEach(area => {
+                        if (affectedAreaIds.includes(area.id) && area.history) {
+                            let activeIdx = area.history.indexOf(area.resultUrl);
+                            // 如果它当前显示的 URL 被删了，或者干脆找不到了，直接回退到最新的一张（末尾）
+                            if (activeIdx === -1) {
+                                activeIdx = Math.max(0, area.history.length - 1);
+                                area.resultUrl = area.history.length > 0 ? area.history[activeIdx] : "";
+                            }
+                            area.historyIndex = activeIdx;
+                            if (area.currentRecordIndex !== undefined) area.currentRecordIndex = activeIdx;
+
+                            // 触发局部更新
+                            if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(area.id);
+                        }
+                    });
+                });
+                
+                // 进行状态保存
+                if (window._slJustSave) window._slJustSave(); else saveAndRender();
                 showBindingToast(`🧹 清理完成：已彻底剔除 ${deadItems.length} 条丢失记录。`);
             }
             setTimeout(hideBindingToast, 3000);

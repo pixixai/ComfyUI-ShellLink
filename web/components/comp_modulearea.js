@@ -52,10 +52,21 @@ export function surgicallyUpdateArea(areaId) {
             const newMediaEl = newAreaEl.querySelector('.sl-media-target');
             if (newMediaEl) {
                 const newSrc = newMediaEl.getAttribute('src') || '';
-                const oldBase = stashedSrc.split('&t=')[0].split('?t=')[0];
-                const newBase = newSrc.split('&t=')[0].split('?t=')[0];
                 
-                if (oldBase === newBase && oldBase !== '') {
+                // 【核心修复】：精确比对时间戳 t。如果用户点击了“重新同步”，t 参数会改变，
+                // 此时金库必须放弃拦截，让视频真正地重新加载渲染，实现真正的强制刷新！
+                let isSame = false;
+                try {
+                    const oU = new URL(stashedSrc, window.location.origin);
+                    const nU = new URL(newSrc, window.location.origin);
+                    isSame = (oU.pathname === nU.pathname && 
+                              oU.searchParams.get('filename') === nU.searchParams.get('filename') && 
+                              oU.searchParams.get('t') === nU.searchParams.get('t'));
+                } catch(e) {
+                    isSame = (stashedSrc === newSrc);
+                }
+                
+                if (isSame && stashedSrc !== '') {
                     newMediaEl.replaceWith(stashedMedia);
                     if (Math.abs(stashedMedia.currentTime - stashedTime) > 0.1) {
                         stashedMedia.currentTime = stashedTime;
@@ -69,8 +80,6 @@ export function surgicallyUpdateArea(areaId) {
             }
         }
         
-        // 【核心修复】：必须在旧媒体元素被移花接木、物归原主之后，再重新执行事件绑定！
-        // 否则会导致事件绑定在了那个被舍弃的新空壳视频上，导致所有控制组件全部失灵。
         attachAreaEvents(newAreaEl.parentElement); 
     }
 }

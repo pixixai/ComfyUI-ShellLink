@@ -46,9 +46,9 @@ export function execSyncParams(mainArea, mainCard) {
 
     if (updatedIds.length > 0) {
         updatedIds.forEach(id => {
-            if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(id);
+            if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(id);
         });
-        if (window._slJustSave) window._slJustSave(); else saveAndRender();
+        if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
     }
 }
 
@@ -73,7 +73,7 @@ export function execDeleteSameModules(mainArea, mainCard) {
     
     if (deletedIds.length > 0) {
         deletedIds.forEach(id => {
-            const el = document.querySelector(`.sl-area[data-area-id="${id}"]`);
+            const el = document.querySelector(`.clab-area[data-area-id="${id}"]`);
             if (el) el.remove();
         });
         
@@ -81,9 +81,9 @@ export function execDeleteSameModules(mainArea, mainCard) {
         updateSelectionUI();
         
         // 自动纠正被删后可能乱掉的序号
-        if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
+        if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
         
-        if (window._slJustSave) window._slJustSave(); else saveAndRender();
+        if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
     }
 }
 
@@ -135,18 +135,18 @@ export function execMoveBackward(selectedAreaIds) {
             targetCard = newCard;
 
             // 进行物理级 DOM 插入
-            const wrapper = document.querySelector('.sl-cards-wrapper');
+            const wrapper = document.querySelector('.clab-cards-wrapper');
             if (wrapper) {
                 const temp = document.createElement('div');
                 temp.innerHTML = generateSingleCardHTML(newCard, state.cards.length - 1);
                 const newEl = temp.firstElementChild;
-                const addBtn = wrapper.querySelector('.sl-add-card-inline');
+                const addBtn = wrapper.querySelector('.clab-add-card-inline');
                 
                 if (addBtn) wrapper.insertBefore(newEl, addBtn);
                 else wrapper.appendChild(newEl);
                 
                 attachCardEvents(wrapper);
-                if (window._slUpdateCardsLayout) window._slUpdateCardsLayout();
+                if (window._clabUpdateCardsLayout) window._clabUpdateCardsLayout();
             }
         } else {
             targetCard = state.cards[targetCardIndex];
@@ -162,21 +162,21 @@ export function execMoveBackward(selectedAreaIds) {
     
     // 利用 appendChild 的特性，将现存 DOM 直接拽入新顺序，物理级防闪烁
     state.cards.forEach(card => {
-        const list = document.querySelector(`.sl-card[data-card-id="${card.id}"] .sl-area-list`);
+        const list = document.querySelector(`.clab-card[data-card-id="${card.id}"] .clab-area-list`);
         if (list && card.areas) {
             card.areas.forEach(a => {
-                const el = document.querySelector(`.sl-area[data-area-id="${a.id}"]`);
+                const el = document.querySelector(`.clab-area[data-area-id="${a.id}"]`);
                 if (el) {
                     list.appendChild(el);
                     // 顺便把位移过后的模块的旧户口本换成新卡片
-                    if (window._slUpdateAreaDOMIdentity) window._slUpdateAreaDOMIdentity(a.id, card.id);
+                    if (window._clabUpdateAreaDOMIdentity) window._clabUpdateAreaDOMIdentity(a.id, card.id);
                 }
             });
         }
     });
     
-    if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
-    if (window._slJustSave) window._slJustSave(); else saveAndRender();
+    if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
+    if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
 }
 
 // =========================================================================
@@ -209,20 +209,20 @@ export function execMoveForward(selectedAreaIds) {
     
     // 利用 appendChild 的特性，将现存 DOM 直接拽入新顺序，物理级防闪烁
     state.cards.forEach(card => {
-        const list = document.querySelector(`.sl-card[data-card-id="${card.id}"] .sl-area-list`);
+        const list = document.querySelector(`.clab-card[data-card-id="${card.id}"] .clab-area-list`);
         if (list && card.areas) {
             card.areas.forEach(a => {
-                const el = document.querySelector(`.sl-area[data-area-id="${a.id}"]`);
+                const el = document.querySelector(`.clab-area[data-area-id="${a.id}"]`);
                 if (el) {
                     list.appendChild(el);
-                    if (window._slUpdateAreaDOMIdentity) window._slUpdateAreaDOMIdentity(a.id, card.id);
+                    if (window._clabUpdateAreaDOMIdentity) window._clabUpdateAreaDOMIdentity(a.id, card.id);
                 }
             });
         }
     });
     
-    if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
-    if (window._slJustSave) window._slJustSave(); else saveAndRender();
+    if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
+    if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
 }
 
 // =========================================================================
@@ -237,34 +237,34 @@ export function attachBatchSyncEvents(tb, selectedAreas) {
     batchBtn.onclick = (e) => {
         e.stopPropagation();
         const isVisible = batchDropdown.style.display === 'block';
-        document.querySelectorAll('.sl-custom-select.open').forEach(other => other.classList.remove('open'));
-        document.querySelectorAll('.sl-custom-select-dropdown').forEach(d => {
-            if (d !== batchDropdown && d.closest('#sl-module-toolbar')) d.style.display = 'none';
+        document.querySelectorAll('.clab-custom-select.open').forEach(other => other.classList.remove('open'));
+        document.querySelectorAll('.clab-custom-select-dropdown').forEach(d => {
+            if (d !== batchDropdown && d.closest('#clab-module-toolbar')) d.style.display = 'none';
         });
         batchDropdown.style.display = isVisible ? 'none' : 'block';
     };
 
-    tb.querySelector('#sl-batch-sync-params').onclick = (e) => {
+    tb.querySelector('#clab-batch-sync-params').onclick = (e) => {
         e.stopPropagation(); batchDropdown.style.display = 'none';
         if (selectedAreas.length) execSyncParams(selectedAreas[0].area, selectedAreas[0].card);
     };
 
-    tb.querySelector('#sl-batch-delete-modules').onclick = (e) => {
+    tb.querySelector('#clab-batch-delete-modules').onclick = (e) => {
         e.stopPropagation(); batchDropdown.style.display = 'none';
         if (selectedAreas.length) execDeleteSameModules(selectedAreas[0].area, selectedAreas[0].card);
     };
 
-    tb.querySelector('#sl-batch-select-same').onclick = (e) => {
+    tb.querySelector('#clab-batch-select-same').onclick = (e) => {
         e.stopPropagation(); batchDropdown.style.display = 'none';
         if (selectedAreas.length) execSelectSameModules(selectedAreas);
     };
 
-    tb.querySelector('#sl-batch-move-backward').onclick = (e) => {
+    tb.querySelector('#clab-batch-move-backward').onclick = (e) => {
         e.stopPropagation(); batchDropdown.style.display = 'none';
         if (state.selectedAreaIds.length) execMoveBackward(state.selectedAreaIds);
     };
 
-    tb.querySelector('#sl-batch-move-forward').onclick = (e) => {
+    tb.querySelector('#clab-batch-move-forward').onclick = (e) => {
         e.stopPropagation(); batchDropdown.style.display = 'none';
         if (state.selectedAreaIds.length) execMoveForward(state.selectedAreaIds);
     };

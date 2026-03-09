@@ -140,7 +140,7 @@ export function generateInputHTML(area, card) {
             
             // 【核心修复】：增加失效状态的降级 UI 兜底。当旧参数值无法加载为有效媒体时，显示此提示而不是干瘪的黑块
             const fallbackHtml = `
-                <div class="sl-upload-fallback" style="display: none; position: absolute; inset: 0; flex-direction: column; justify-content: center; align-items: center; z-index: 2; background: rgba(0,0,0,0.2);">
+                <div class="clab-upload-fallback" style="display: none; position: absolute; inset: 0; flex-direction: column; justify-content: center; align-items: center; z-index: 2; background: rgba(0,0,0,0.2);">
                     <div style="margin-bottom: 8px; color: #ff5555;">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                     </div>
@@ -151,17 +151,17 @@ export function generateInputHTML(area, card) {
 
             if (uploadType === 'image') {
                 previewHtml = `
-                    <img src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.sl-upload-fallback'); if(fb) fb.style.display='flex';" />
+                    <img src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.clab-upload-fallback'); if(fb) fb.style.display='flex';" />
                     ${fallbackHtml}
                 `;
             } else if (uploadType === 'video') {
                 previewHtml = `
-                    <video src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" autoplay loop muted onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.sl-upload-fallback'); if(fb) fb.style.display='flex';"></video>
+                    <video src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" autoplay loop muted onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.clab-upload-fallback'); if(fb) fb.style.display='flex';"></video>
                     ${fallbackHtml}
                 `;
             } else if (uploadType === 'audio') {
                 previewHtml = `
-                    <audio src="${fileUrl}" controls style="position: relative; z-index: 1; width: 90%; height: 40px; margin: 20px 5%;" onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.sl-upload-fallback'); if(fb) fb.style.display='flex';"></audio>
+                    <audio src="${fileUrl}" controls style="position: relative; z-index: 1; width: 90%; height: 40px; margin: 20px 5%;" onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.clab-upload-fallback'); if(fb) fb.style.display='flex';"></audio>
                     ${fallbackHtml}
                 `;
             } else {
@@ -171,9 +171,9 @@ export function generateInputHTML(area, card) {
             const minHeightStyle = isMedia ? '' : 'min-height: 80px;';
 
             inputHtml = `
-                <div class="sl-upload-zone has-file" data-card="${card.id}" data-area="${area.id}" 
+                <div class="clab-upload-zone has-file" data-card="${card.id}" data-area="${area.id}" 
                      style="border: 1px solid #444; border-radius: 6px; padding: 0; position: relative; text-align: center; cursor: pointer; background: rgba(0,0,0,0.3); transition: border-color 0.2s; ${minHeightStyle} ${ratioStyle} display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                    <input type="file" class="sl-file-input" accept="${acceptType}" style="display:none;" />
+                    <input type="file" class="clab-file-input" accept="${acceptType}" style="display:none;" />
                     ${previewHtml}
                 </div>
             `;
@@ -182,8 +182,8 @@ export function generateInputHTML(area, card) {
             const emptyFlex = isMedia ? 'display: flex; flex-direction: column; justify-content: center; align-items: center;' : '';
 
             inputHtml = `
-                <div class="sl-upload-zone" data-card="${card.id}" data-area="${area.id}" style="border: 1px dashed #666; border-radius: 6px; text-align: center; cursor: pointer; color: #999; background: rgba(0,0,0,0.1); transition: all 0.2s; box-sizing: border-box; ${emptyPadding} ${emptyFlex} ${ratioStyle}">
-                    <input type="file" class="sl-file-input" accept="${acceptType}" style="display:none;" />
+                <div class="clab-upload-zone" data-card="${card.id}" data-area="${area.id}" style="border: 1px dashed #666; border-radius: 6px; text-align: center; cursor: pointer; color: #999; background: rgba(0,0,0,0.1); transition: all 0.2s; box-sizing: border-box; ${emptyPadding} ${emptyFlex} ${ratioStyle}">
+                    <input type="file" class="clab-file-input" accept="${acceptType}" style="display:none;" />
                     <div style="margin-bottom: 8px; color: #666;">${iconSvg}</div>
                     <div style="font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #ccc;">上传${uploadType === 'image' ? '图片' : uploadType === 'video' ? '视频' : uploadType === 'audio' ? '音频' : '文件'}</div>
                     <div style="font-size: 10px; color: #666;">点击或拖拽至此处上传服务器</div>
@@ -192,34 +192,34 @@ export function generateInputHTML(area, card) {
         }
 
         if (comboValues.length > 0) {
-            let itemsHtml = comboValues.map(opt => `<div class="sl-custom-select-item ${area.value === opt ? 'selected' : ''}" data-value="${opt}">${opt}</div>`).join('');
+            let itemsHtml = comboValues.map(opt => `<div class="clab-custom-select-item ${area.value === opt ? 'selected' : ''}" data-value="${opt}">${opt}</div>`).join('');
             let currentVal = area.value || comboValues[0] || '或选择服务器已有文件...';
             const comboHtml = buildCustomSelect(`area-select-${area.id}`, '100%', currentVal, itemsHtml, false, `data-card-id="${card.id}" data-area-id="${area.id}" data-type="module-combo"`);
             inputHtml += `<div style="margin-top: 6px; position:relative;">${comboHtml}</div>`;
         }
 
     } else if (comboValues.length > 0) {
-        let itemsHtml = comboValues.map(opt => `<div class="sl-custom-select-item ${area.value === opt ? 'selected' : ''}" data-value="${opt}">${opt}</div>`).join('');
+        let itemsHtml = comboValues.map(opt => `<div class="clab-custom-select-item ${area.value === opt ? 'selected' : ''}" data-value="${opt}">${opt}</div>`).join('');
         let currentVal = area.value || comboValues[0] || '选择...';
         inputHtml = buildCustomSelect(`area-select-${area.id}`, '100%', currentVal, itemsHtml, false, `data-card-id="${card.id}" data-area-id="${area.id}" data-type="module-combo"`);
     } else if (widgetDef && (widgetDef.type === "toggle" || typeof widgetDef.value === "boolean")) {
         let isChecked = (area.value === true || area.value === 'true');
         inputHtml = `
-            <label class="sl-bool-label" style="display:flex; align-items:center; gap:8px; color:#fff; cursor:pointer; font-size:13px; background:rgba(0,0,0,0.5); padding:8px; border-radius:4px; border:1px solid #555; width: 100%; box-sizing: border-box; margin:0;">
-                <input type="checkbox" class="sl-edit-val-bool" data-card="${card.id}" data-area="${area.id}" ${isChecked ? 'checked' : ''} style="width:16px; height:16px; margin:0; cursor:pointer;"> 
+            <label class="clab-bool-label" style="display:flex; align-items:center; gap:8px; color:#fff; cursor:pointer; font-size:13px; background:rgba(0,0,0,0.5); padding:8px; border-radius:4px; border:1px solid #555; width: 100%; box-sizing: border-box; margin:0;">
+                <input type="checkbox" class="clab-edit-val-bool" data-card="${card.id}" data-area="${area.id}" ${isChecked ? 'checked' : ''} style="width:16px; height:16px; margin:0; cursor:pointer;"> 
                 <span>${isChecked ? 'True' : 'False'}</span>
             </label>
         `;
     } else {
-        inputHtml = `<textarea class="sl-input sl-edit-val" data-card="${card.id}" data-area="${area.id}" placeholder="输入参数值..." style="display:block; margin:0; box-sizing:border-box; ${area.autoHeight ? 'height: auto; resize: none; overflow: hidden;' : ''}">${area.value || ''}</textarea>`;
+        inputHtml = `<textarea class="clab-input clab-edit-val" data-card="${card.id}" data-area="${area.id}" placeholder="输入参数值..." style="display:block; margin:0; box-sizing:border-box; ${area.autoHeight ? 'height: auto; resize: none; overflow: hidden;' : ''}">${area.value || ''}</textarea>`;
     }
 
     return `
-        <div class="sl-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="overflow: visible;">
-            <button class="sl-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输入">✖</button>
+        <div class="clab-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="overflow: visible;">
+            <button class="clab-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输入">✖</button>
             
             <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:4px; padding: 8px 8px 0 8px;">
-                <input class="sl-area-title-input" data-card="${card.id}" data-area="${area.id}" type="text" value="${displayTitle}" placeholder="${defaultTitle}" size="${Math.max(displayTitle.length, 2)}" style="max-width:150px; min-width:15px; background:transparent; border:none; color:#ddd; font-weight:normal; font-size:12px; outline:none; font-family:sans-serif; padding:0; margin:0;" />
+                <input class="clab-area-title-input" data-card="${card.id}" data-area="${area.id}" type="text" value="${displayTitle}" placeholder="${defaultTitle}" size="${Math.max(displayTitle.length, 2)}" style="max-width:150px; min-width:15px; background:transparent; border:none; color:#ddd; font-weight:normal; font-size:12px; outline:none; font-family:sans-serif; padding:0; margin:0;" />
                 
                 <div style="font-size:10px; color:#888; font-weight:normal; text-align:right; white-space:nowrap; pointer-events:none;" title="${fullHintText}">
                     ${hintText}
@@ -235,20 +235,20 @@ export function generateInputHTML(area, card) {
 
 export function attachInputEvents(container) {
     const applySurgicalUpdate = (areaId) => {
-        if (window._slSurgicallyUpdateArea) {
-            window._slSurgicallyUpdateArea(areaId);
-            if (window._slJustSave) window._slJustSave();
+        if (window._clabSurgicallyUpdateArea) {
+            window._clabSurgicallyUpdateArea(areaId);
+            if (window._clabJustSave) window._clabJustSave();
         } else {
             saveAndRender();
         }
     };
 
-    container.querySelectorAll('.sl-upload-zone').forEach(zone => {
-        const fileInput = zone.querySelector('.sl-file-input');
+    container.querySelectorAll('.clab-upload-zone').forEach(zone => {
+        const fileInput = zone.querySelector('.clab-file-input');
         if (!fileInput) return;
 
         zone.onclick = (e) => {
-            if(e.target.closest('.sl-custom-select')) return; 
+            if(e.target.closest('.clab-custom-select')) return; 
             e.stopPropagation();
             fileInput.click();
         };
@@ -260,9 +260,9 @@ export function attachInputEvents(container) {
             
             zone.style.pointerEvents = 'none';
             zone.innerHTML = `
-                <style>@keyframes sl-spin { 100% { transform: rotate(360deg); } }</style>
+                <style>@keyframes clab-spin { 100% { transform: rotate(360deg); } }</style>
                 <div style="padding: 16px 10px; text-align: center; color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%;">
-                    <svg style="animation: sl-spin 1s linear infinite; margin-right: 6px; width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg style="animation: clab-spin 1s linear infinite; margin-right: 6px; width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line>
                         <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
                         <line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line>
@@ -321,7 +321,7 @@ export function attachInputEvents(container) {
         });
     });
 
-    container.querySelectorAll('.sl-edit-val-bool').forEach(cb => {
+    container.querySelectorAll('.clab-edit-val-bool').forEach(cb => {
         cb.onchange = (e) => {
             const { card: cardId, area: areaId } = e.target.dataset;
             const card = state.cards.find(c => c.id === cardId);
@@ -335,7 +335,7 @@ export function attachInputEvents(container) {
         };
     });
 
-    container.querySelectorAll('.sl-edit-val').forEach(ta => {
+    container.querySelectorAll('.clab-edit-val').forEach(ta => {
         if (ta.style.height === 'auto') ta.style.height = (ta.scrollHeight) + 'px';
         ta.oninput = (e) => {
             if (ta.style.height === 'auto' || ta.style.resize === 'none') {
@@ -347,8 +347,8 @@ export function attachInputEvents(container) {
             const area = card.areas.find(a => a.id === areaId);
             if(area) {
                 area.value = e.target.value;
-                if (window._slJustSave) window._slJustSave();
-                else if (window.ShellLink) window.ShellLink.saveState(state);
+                if (window._clabJustSave) window._clabJustSave();
+                else if (window.CLab) window.CLab.saveState(state);
             }
         };
     });

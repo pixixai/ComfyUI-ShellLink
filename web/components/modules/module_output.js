@@ -26,7 +26,7 @@ export function generateOutputHTML(area, card) {
     const isAreaSelected = state.selectedAreaIds.includes(area.id);
 
     if (area.isManageMode && area.history && area.history.length > 0) {
-        let gridHtml = `<div class="sl-history-grid" data-card-id="${card.id}" data-area-id="${area.id}" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px; width: 100%; box-sizing: border-box; max-height: 400px; overflow-y: auto;">`;
+        let gridHtml = `<div class="clab-history-grid" data-card-id="${card.id}" data-area-id="${area.id}" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px; width: 100%; box-sizing: border-box; max-height: 400px; overflow-y: auto;">`;
         
         const selectedThumbs = area.selectedThumbIndices || [];
 
@@ -57,10 +57,10 @@ export function generateOutputHTML(area, card) {
 
             const overlay = isSelected ? `<div style="position:absolute;inset:0;background:rgba(33,150,243,0.3);pointer-events:none;"></div>` : '';
             
-            const delBtn = `<div class="sl-thumb-delete" data-card="${card.id}" data-area="${area.id}" data-index="${idx}" style="position:absolute; top:3px; right:3px; width:18px; height:18px; background:rgba(255, 255, 255, 0.6); color:#333; font-weight:bold; border-radius:50%; font-size:10px; display:none; align-items:center; justify-content:center; cursor:pointer; z-index:10; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: all 0.2s;" title="删除此记录">✖</div>`;
+            const delBtn = `<div class="clab-thumb-delete" data-card="${card.id}" data-area="${area.id}" data-index="${idx}" style="position:absolute; top:3px; right:3px; width:18px; height:18px; background:rgba(255, 255, 255, 0.6); color:#333; font-weight:bold; border-radius:50%; font-size:10px; display:none; align-items:center; justify-content:center; cursor:pointer; z-index:10; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: all 0.2s;" title="删除此记录">✖</div>`;
 
             gridHtml += `
-                <div class="sl-history-thumb" draggable="true" data-card="${card.id}" data-area="${area.id}" data-index="${idx}" style="aspect-ratio: 1/1; border: ${border}; border-radius: 4px; cursor: grab; overflow: hidden; position: relative; background: #000; transition: border-color 0.2s;">
+                <div class="clab-history-thumb" draggable="true" data-card="${card.id}" data-area="${area.id}" data-index="${idx}" style="aspect-ratio: 1/1; border: ${border}; border-radius: 4px; cursor: grab; overflow: hidden; position: relative; background: #000; transition: border-color 0.2s;">
                     ${media}
                     ${overlay}
                     ${delBtn}
@@ -81,13 +81,13 @@ export function generateOutputHTML(area, card) {
         const btnRemoveStyle = hasSelection ? btnActiveStyle : btnDisabledStyle;
 
         return `
-            <div class="sl-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="padding:0; overflow:hidden; position:relative; background: rgba(0,0,0,0.4); min-height: 100px;">
-                <button class="sl-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输出模块" style="z-index: 30;">✖</button>
+            <div class="clab-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="padding:0; overflow:hidden; position:relative; background: rgba(0,0,0,0.4); min-height: 100px;">
+                <button class="clab-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输出模块" style="z-index: 30;">✖</button>
                 
                 <div style="padding: 8px 10px; font-size: 12px; font-weight: bold; color: #ccc; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3);">
                     <span>生成记录管理 (${area.history.length})</span>
                     <div style="display:flex; gap: 6px; align-items: center;">
-                        <button class="sl-manage-remove-btn" data-card="${card.id}" data-area="${area.id}" style="${btnBaseStyle} ${btnRemoveStyle}" ${hasSelection ? '' : 'disabled'} onmouseover="if(!this.disabled) { this.style.background='rgba(255,255,255,0.25)'; this.style.color='#fff'; }" onmouseout="if(!this.disabled) { this.style.background='rgba(255,255,255,0.15)'; this.style.color='#eee'; }">移除</button>
+                        <button class="clab-manage-remove-btn" data-card="${card.id}" data-area="${area.id}" style="${btnBaseStyle} ${btnRemoveStyle}" ${hasSelection ? '' : 'disabled'} onmouseover="if(!this.disabled) { this.style.background='rgba(255,255,255,0.25)'; this.style.color='#fff'; }" onmouseout="if(!this.disabled) { this.style.background='rgba(255,255,255,0.15)'; this.style.color='#eee'; }">移除</button>
                     </div>
                 </div>
                 
@@ -115,12 +115,12 @@ export function generateOutputHTML(area, card) {
     let mediaHtml = renderMedia(area, objectFit);
 
     return `
-        <div class="sl-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="padding:0; overflow:hidden; position:relative;">
-            <button class="sl-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输出模块" style="z-index: 30;">✖</button>
+        <div class="clab-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="padding:0; overflow:hidden; position:relative;">
+            <button class="clab-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输出模块" style="z-index: 30;">✖</button>
             ${historyHtml}
-            <div class="sl-preview-bg" style="${finalRatioCSS} position: relative;">
+            <div class="clab-preview-bg" style="${finalRatioCSS} position: relative;">
                 ${mediaHtml}
-                <span class="sl-preview-placeholder" style="display:${area.resultUrl ? 'none' : 'block'}; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; text-align: center;">${area.targetNodeId ? `等待节点 [${area.targetNodeId}] 输出...` : '未关联节点'}</span>
+                <span class="clab-preview-placeholder" style="display:${area.resultUrl ? 'none' : 'block'}; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; text-align: center;">${area.targetNodeId ? `等待节点 [${area.targetNodeId}] 输出...` : '未关联节点'}</span>
             </div>
         </div>
     `;
@@ -132,16 +132,16 @@ export function attachOutputEvents(container) {
 
     // 【微创手术引擎】：在此处拦截局部更新，不影响其他模块的视频播放！
     const applySurgicalUpdate = (area) => {
-        if (window._slSurgicallyUpdateArea) {
-            window._slSurgicallyUpdateArea(area.id);
-            if (window._slJustSave) window._slJustSave();
+        if (window._clabSurgicallyUpdateArea) {
+            window._clabSurgicallyUpdateArea(area.id);
+            if (window._clabJustSave) window._clabJustSave();
         } else {
             saveAndRender();
         }
     };
 
     // 【功能1】：网格视图下“仅移除” (仅限当前模块，不删文件)
-    container.querySelectorAll('.sl-manage-remove-btn').forEach(btn => {
+    container.querySelectorAll('.clab-manage-remove-btn').forEach(btn => {
         btn.onclick = (e) => {
             e.stopPropagation();
             if (btn.disabled) return;
@@ -182,7 +182,7 @@ export function attachOutputEvents(container) {
         };
     });
 
-    container.querySelectorAll('.sl-history-grid').forEach(grid => {
+    container.querySelectorAll('.clab-history-grid').forEach(grid => {
         grid.onclick = (e) => {
             if (e.target === grid) {
                 const card = state.cards.find(c => c.id === grid.dataset.cardId);
@@ -195,7 +195,7 @@ export function attachOutputEvents(container) {
         };
     });
 
-    container.querySelectorAll('.sl-thumb-delete').forEach(btn => {
+    container.querySelectorAll('.clab-thumb-delete').forEach(btn => {
         btn.onclick = (e) => {
             e.stopPropagation();
             const cardId = btn.dataset.card;
@@ -229,10 +229,10 @@ export function attachOutputEvents(container) {
         }
     });
 
-    container.querySelectorAll('.sl-history-thumb').forEach(thumb => {
+    container.querySelectorAll('.clab-history-thumb').forEach(thumb => {
         thumb.onclick = (e) => {
             e.stopPropagation();
-            if (e.target.closest('.sl-thumb-delete')) return;
+            if (e.target.closest('.clab-thumb-delete')) return;
             
             const cardId = thumb.dataset.card;
             const areaId = thumb.dataset.area;
@@ -273,7 +273,7 @@ export function attachOutputEvents(container) {
 
         thumb.addEventListener('dragstart', (e) => {
             e.stopPropagation(); 
-            if (e.target.closest('.sl-thumb-delete')) { e.preventDefault(); return; }
+            if (e.target.closest('.clab-thumb-delete')) { e.preventDefault(); return; }
 
             const idx = parseInt(thumb.dataset.index, 10);
             const card = state.cards.find(c => c.id === thumb.dataset.card);
@@ -297,8 +297,8 @@ export function attachOutputEvents(container) {
         thumb.addEventListener('dragend', (e) => {
             e.stopPropagation();
             thumb.style.opacity = '1';
-            document.querySelectorAll('.sl-drag-over-thumb-left, .sl-drag-over-thumb-right').forEach(el => {
-                el.classList.remove('sl-drag-over-thumb-left', 'sl-drag-over-thumb-right');
+            document.querySelectorAll('.clab-drag-over-thumb-left, .clab-drag-over-thumb-right').forEach(el => {
+                el.classList.remove('clab-drag-over-thumb-left', 'clab-drag-over-thumb-right');
             });
             dragState.type = null; dragState.cardId = null; dragState.areaId = null; dragState.thumbIndices = null;
         });
@@ -311,12 +311,12 @@ export function attachOutputEvents(container) {
                 const midX = rect.left + rect.width / 2;
                 
                 if (e.clientX < midX) {
-                    thumb.classList.add('sl-drag-over-thumb-left');
-                    thumb.classList.remove('sl-drag-over-thumb-right');
+                    thumb.classList.add('clab-drag-over-thumb-left');
+                    thumb.classList.remove('clab-drag-over-thumb-right');
                     thumb.dataset.dropPosition = 'left';
                 } else {
-                    thumb.classList.add('sl-drag-over-thumb-right');
-                    thumb.classList.remove('sl-drag-over-thumb-left');
+                    thumb.classList.add('clab-drag-over-thumb-right');
+                    thumb.classList.remove('clab-drag-over-thumb-left');
                     thumb.dataset.dropPosition = 'right';
                 }
             }
@@ -325,7 +325,7 @@ export function attachOutputEvents(container) {
         thumb.addEventListener('dragleave', (e) => {
             e.stopPropagation();
             if (!thumb.contains(e.relatedTarget)) {
-                thumb.classList.remove('sl-drag-over-thumb-left', 'sl-drag-over-thumb-right');
+                thumb.classList.remove('clab-drag-over-thumb-left', 'clab-drag-over-thumb-right');
                 delete thumb.dataset.dropPosition;
             }
         });
@@ -334,7 +334,7 @@ export function attachOutputEvents(container) {
             if (dragState.type === 'thumb') {
                 e.preventDefault(); e.stopPropagation();
                 const dropPos = thumb.dataset.dropPosition;
-                thumb.classList.remove('sl-drag-over-thumb-left', 'sl-drag-over-thumb-right');
+                thumb.classList.remove('clab-drag-over-thumb-left', 'clab-drag-over-thumb-right');
                 delete thumb.dataset.dropPosition;
 
                 const targetIdx = parseInt(thumb.dataset.index, 10);

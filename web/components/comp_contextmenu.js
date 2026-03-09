@@ -10,8 +10,8 @@ import { updateSelectionUI } from "./ui_selection.js";
 
 // 辅助方法：触发定时消失的提示
 function showAutoToast(msg, isError = false) {
-    if (window.ShellLink && window.ShellLink.showAutoToast) {
-        window.ShellLink.showAutoToast(msg, isError);
+    if (window.CLab && window.CLab.showAutoToast) {
+        window.CLab.showAutoToast(msg, isError);
     } else {
         showBindingToast(msg, isError);
         setTimeout(hideBindingToast, 3000); 
@@ -38,7 +38,7 @@ function downloadFile(url) {
 // =========================================================================
 export function setupContextMenu(panelContainer) {
     const menuEl = document.createElement('div');
-    menuEl.className = 'sl-context-menu';
+    menuEl.className = 'clab-context-menu';
     document.body.appendChild(menuEl);
 
     const closeMenuGlobally = (e) => {
@@ -71,25 +71,25 @@ export function setupContextMenu(panelContainer) {
 
         if (showContentGroup) {
             menuHTML += `
-                <div class="sl-context-menu-title">内容</div>
-                <div class="sl-context-menu-item" id="sl-ctx-download">下载</div>
-                <div class="sl-context-menu-item" id="sl-ctx-download-all">下载全部生成记录</div>
-                <div class="sl-context-menu-divider"></div>
-                <div class="sl-context-menu-item" id="sl-ctx-remove">移除</div>
-                <div class="sl-context-menu-item" id="sl-ctx-clear">清除所有生成记录</div>
-                <div class="sl-context-menu-divider"></div>
-                <div class="sl-context-menu-item" id="sl-ctx-clean-dead">清理失效记录 (404)</div>
-                <div class="sl-context-menu-item" id="sl-ctx-resync">重新同步记录 (强制刷新)</div>
+                <div class="clab-context-menu-title">内容</div>
+                <div class="clab-context-menu-item" id="clab-ctx-download">下载</div>
+                <div class="clab-context-menu-item" id="clab-ctx-download-all">下载全部生成记录</div>
+                <div class="clab-context-menu-divider"></div>
+                <div class="clab-context-menu-item" id="clab-ctx-remove">移除</div>
+                <div class="clab-context-menu-item" id="clab-ctx-clear">清除所有生成记录</div>
+                <div class="clab-context-menu-divider"></div>
+                <div class="clab-context-menu-item" id="clab-ctx-clean-dead">清理失效记录 (404)</div>
+                <div class="clab-context-menu-item" id="clab-ctx-resync">重新同步记录 (强制刷新)</div>
             `;
         }
 
         menuHTML += `
-            <div class="sl-context-menu-title">模块</div>
-            <div class="sl-context-menu-item" id="sl-ctx-select-same">选择相同模块</div>
-            <div class="sl-context-menu-item sl-danger" id="sl-ctx-del-same">删除相同模块</div>
-            <div class="sl-context-menu-divider"></div>
-            <div class="sl-context-menu-item" id="sl-ctx-move-back">批量向后移动</div>
-            <div class="sl-context-menu-item" id="sl-ctx-move-fwd">批量向前移动</div>
+            <div class="clab-context-menu-title">模块</div>
+            <div class="clab-context-menu-item" id="clab-ctx-select-same">选择相同模块</div>
+            <div class="clab-context-menu-item clab-danger" id="clab-ctx-del-same">删除相同模块</div>
+            <div class="clab-context-menu-divider"></div>
+            <div class="clab-context-menu-item" id="clab-ctx-move-back">批量向后移动</div>
+            <div class="clab-context-menu-item" id="clab-ctx-move-fwd">批量向前移动</div>
         `;
 
         menuEl.innerHTML = menuHTML;
@@ -112,7 +112,7 @@ export function setupContextMenu(panelContainer) {
         };
 
         if (showContentGroup) {
-            menuEl.querySelector('#sl-ctx-download').onclick = () => {
+            menuEl.querySelector('#clab-ctx-download').onclick = () => {
                 menuEl.style.display = 'none';
                 selectedAreaObjs.forEach(o => {
                     const url = getCurrentUrl(o.area);
@@ -120,7 +120,7 @@ export function setupContextMenu(panelContainer) {
                 });
             };
 
-            menuEl.querySelector('#sl-ctx-download-all').onclick = () => {
+            menuEl.querySelector('#clab-ctx-download-all').onclick = () => {
                 menuEl.style.display = 'none';
                 selectedAreaObjs.forEach(o => {
                     const arr = getHistoryArr(o.area);
@@ -130,7 +130,7 @@ export function setupContextMenu(panelContainer) {
             };
 
             // 【彻底抛弃重绘】：仅移除当前记录（局部更新）
-            menuEl.querySelector('#sl-ctx-remove').onclick = () => {
+            menuEl.querySelector('#clab-ctx-remove').onclick = () => {
                 menuEl.style.display = 'none';
                 selectedAreaObjs.forEach(o => {
                     const arr = getHistoryArr(o.area);
@@ -146,13 +146,13 @@ export function setupContextMenu(panelContainer) {
                     }
                     if (o.area.selectedThumbIndices) o.area.selectedThumbIndices = []; 
                     
-                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(o.area.id);
+                    if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(o.area.id);
                 });
-                if (window._slJustSave) window._slJustSave(); else saveAndRender();
+                if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
             };
 
             // 【彻底抛弃重绘】：仅清除当前模块所有记录（局部更新）
-            menuEl.querySelector('#sl-ctx-clear').onclick = () => {
+            menuEl.querySelector('#clab-ctx-clear').onclick = () => {
                 menuEl.style.display = 'none';
                 selectedAreaObjs.forEach(o => {
                     o.area.resultUrl = null;
@@ -163,13 +163,13 @@ export function setupContextMenu(panelContainer) {
                     if (o.area.currentRecordIndex !== undefined) o.area.currentRecordIndex = 0;
                     if (o.area.selectedThumbIndices) o.area.selectedThumbIndices = [];
                     
-                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(o.area.id);
+                    if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(o.area.id);
                 });
-                if (window._slJustSave) window._slJustSave(); else saveAndRender();
+                if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
             };
 
             // 【彻底抛弃重绘】：清理失效记录 (纯前端试探，仅针对选中的模块局部刷新)
-            menuEl.querySelector('#sl-ctx-clean-dead').onclick = async () => {
+            menuEl.querySelector('#clab-ctx-clean-dead').onclick = async () => {
                 menuEl.style.display = 'none';
                 showAutoToast("🔍 正在扫描失效记录，请稍候...", false);
 
@@ -221,16 +221,16 @@ export function setupContextMenu(panelContainer) {
                     });
                     
                     selectedAreaObjs.forEach(o => {
-                        if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(o.area.id);
+                        if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(o.area.id);
                     });
-                    if (window._slJustSave) window._slJustSave(); else saveAndRender();
+                    if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
                     
                     showAutoToast(`🧹 清理完成：已彻底剔除该模块 ${deadItems.length} 条丢失记录。`);
                 }
             };
 
             // 【彻底抛弃重绘】：重新同步记录
-            menuEl.querySelector('#sl-ctx-resync').onclick = () => {
+            menuEl.querySelector('#clab-ctx-resync').onclick = () => {
                 menuEl.style.display = 'none';
                 showAutoToast("🔄 正在强制重新拉取选中模块的本地资产...", false);
                 const now = Date.now();
@@ -256,7 +256,7 @@ export function setupContextMenu(panelContainer) {
                         } catch(e) {}
                     }
                     
-                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(o.area.id);
+                    if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(o.area.id);
                 });
 
                 if (syncCount === 0) {
@@ -264,37 +264,37 @@ export function setupContextMenu(panelContainer) {
                     return;
                 }
 
-                if (window._slJustSave) window._slJustSave(); else saveAndRender();
+                if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
                 showAutoToast("✅ 缓存已清理，选中输出模块已重新加载媒体！");
             };
         }
 
         // --- 模块区事件 ---
-        menuEl.querySelector('#sl-ctx-select-same').onclick = () => { 
+        menuEl.querySelector('#clab-ctx-select-same').onclick = () => { 
             menuEl.style.display = 'none'; 
             execSelectSameModules(selectedAreaObjs); 
         };
-        menuEl.querySelector('#sl-ctx-del-same').onclick = () => { 
+        menuEl.querySelector('#clab-ctx-del-same').onclick = () => { 
             menuEl.style.display = 'none'; 
             selectedAreaObjs.forEach(o => execDeleteSameModules(o.area, o.card));
         };
-        menuEl.querySelector('#sl-ctx-move-back').onclick = () => { 
+        menuEl.querySelector('#clab-ctx-move-back').onclick = () => { 
             menuEl.style.display = 'none'; 
             execMoveBackward(state.selectedAreaIds); 
         };
-        menuEl.querySelector('#sl-ctx-move-fwd').onclick = () => { 
+        menuEl.querySelector('#clab-ctx-move-fwd').onclick = () => { 
             menuEl.style.display = 'none'; 
             execMoveForward(state.selectedAreaIds); 
         };
     };
 
-    window.ShellLink.showPreviewContextMenu = (x, y, cardId, areaId, url) => {
+    window.CLab.showPreviewContextMenu = (x, y, cardId, areaId, url) => {
         if (state.painterMode) {
             state.painterMode = false;
             state.painterSource = null;
-            document.getElementById('shell-link-panel')?.classList.remove('sl-painter-active');
+            document.getElementById('clab-panel')?.classList.remove('clab-painter-active');
             updateSelectionUI();
-            if (window._slJustSave) window._slJustSave();
+            if (window._clabJustSave) window._clabJustSave();
             return;
         }
 
@@ -311,13 +311,13 @@ export function setupContextMenu(panelContainer) {
             e.stopPropagation();
             state.painterMode = false;
             state.painterSource = null;
-            document.getElementById('shell-link-panel')?.classList.remove('sl-painter-active');
+            document.getElementById('clab-panel')?.classList.remove('clab-painter-active');
             updateSelectionUI();
-            if (window._slJustSave) window._slJustSave();
+            if (window._clabJustSave) window._clabJustSave();
             return;
         }
 
-        const areaEl = e.target.closest('.sl-area');
+        const areaEl = e.target.closest('.clab-area');
         if (!areaEl) return;
 
         const areaId = areaEl.dataset.areaId;

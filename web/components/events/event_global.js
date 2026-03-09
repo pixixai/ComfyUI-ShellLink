@@ -9,11 +9,11 @@ import { enterBindingModeForSelected } from "../actions/action_binding.js";
 export function setupGlobalEvents(panelContainer, backdropContainer, togglePanelFunc, performRenderFunc) {
     
     // 【核心新增】：全局媒体加载与失效 (404) 拦截器！统一显示媒体丢失的 UI，且加载成功时自动清除
-    if (!window._slGlobalMediaErrorHijacked) {
+    if (!window._clabGlobalMediaErrorHijacked) {
         const clearFallback = (target) => {
             const parent = target.parentElement;
             if (parent) {
-                const fb = parent.querySelector('.sl-media-dead-fallback');
+                const fb = parent.querySelector('.clab-media-dead-fallback');
                 if (fb) fb.remove();
             }
         };
@@ -22,8 +22,8 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
             const target = e.target;
             // 拦截所有图片、视频、音频的加载报错
             if (target && ['IMG', 'VIDEO', 'AUDIO'].includes(target.tagName)) {
-                const isPreview = target.classList && target.classList.contains('sl-preview-img');
-                const isThumb = target.closest && target.closest('.sl-history-thumb');
+                const isPreview = target.classList && target.classList.contains('clab-preview-img');
+                const isThumb = target.closest && target.closest('.clab-history-thumb');
                 // 仅针对我们面板内的媒体生效
                 if (isPreview || isThumb) {
                     // 【修复 1】：防止空 src 触发误判。只有当 src 看起来像是一个真实的请求路径时才处理
@@ -34,9 +34,9 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                     const parent = target.parentElement;
                     // 在原地插入一个漂亮的统一丢失图标
                     // 【修复 2】：将 background 改为不透明的深灰色 #1e1e1e，确保覆盖背后的蓝紫色渐变
-                    if (parent && !parent.querySelector('.sl-media-dead-fallback')) {
+                    if (parent && !parent.querySelector('.clab-media-dead-fallback')) {
                         parent.insertAdjacentHTML('beforeend', `
-                            <div class="sl-media-dead-fallback" style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#1e1e1e; color:#ff5555; z-index:10; pointer-events:none;">
+                            <div class="clab-media-dead-fallback" style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#1e1e1e; color:#ff5555; z-index:10; pointer-events:none;">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                 <span style="font-size:10px; margin-top:4px; color:#ccc;">媒体丢失</span>
                             </div>
@@ -54,10 +54,10 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
             if (e.target && ['IMG', 'VIDEO', 'AUDIO'].includes(e.target.tagName)) clearFallback(e.target);
         }, true);
 
-        window._slGlobalMediaErrorHijacked = true;
+        window._clabGlobalMediaErrorHijacked = true;
     }
 
-    if (!window._slGlobalSelectionShield) {
+    if (!window._clabGlobalSelectionShield) {
         let isDragging = false;
         window.addEventListener('dragstart', () => { isDragging = true; }, true);
         window.addEventListener('dragend', () => { setTimeout(() => { isDragging = false; }, 100); }, true);
@@ -66,15 +66,15 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
             if (e.button !== 0 && e.type !== 'contextmenu') return;
 
             const isInteractive = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) ||
-                                  e.target.closest('.sl-custom-select') || e.target.closest('.sl-history-thumb') ||
-                                  e.target.closest('.sl-bool-label') || e.target.closest('.sl-upload-zone') ||
-                                  e.target.closest('.sl-del-card-btn') || e.target.closest('.sl-del-area-btn') ||
-                                  e.target.closest('.sl-video-controls-interactive');
+                                  e.target.closest('.clab-custom-select') || e.target.closest('.clab-history-thumb') ||
+                                  e.target.closest('.clab-bool-label') || e.target.closest('.clab-upload-zone') ||
+                                  e.target.closest('.clab-del-card-btn') || e.target.closest('.clab-del-area-btn') ||
+                                  e.target.closest('.clab-video-controls-interactive');
 
             if (isInteractive) return;
 
-            const areaEl = e.target.closest('.sl-area');
-            const cardEl = e.target.closest('.sl-card:not(.sl-add-card-inline)');
+            const areaEl = e.target.closest('.clab-area');
+            const cardEl = e.target.closest('.clab-card:not(.clab-add-card-inline)');
 
             let isTargetSelected = false;
             let targetId = null;
@@ -123,7 +123,7 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
         window.addEventListener('mousedown', shieldEvent, true);
         window.addEventListener('mouseup', shieldEvent, true);
         window.addEventListener('click', shieldEvent, true);
-        window._slGlobalSelectionShield = true;
+        window._clabGlobalSelectionShield = true;
     }
 
     window.addEventListener('contextmenu', (e) => {
@@ -176,9 +176,9 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                     targetArea.resultUrl = targetArea.history[idx];
 
                     // 【核心修复】：彻底接入局部更新引擎，键盘切换不再闪屏重绘！
-                    if (window._slSurgicallyUpdateArea) {
-                        window._slSurgicallyUpdateArea(targetArea.id);
-                        if (window._slJustSave) window._slJustSave();
+                    if (window._clabSurgicallyUpdateArea) {
+                        window._clabSurgicallyUpdateArea(targetArea.id);
+                        if (window._clabJustSave) window._clabJustSave();
                     } else {
                         saveAndRender();
                     }
@@ -196,16 +196,16 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
         }
     });
 
-    document.addEventListener("shell_link_update_preview", (e) => {
+    document.addEventListener("clab_update_preview", (e) => {
         const { cardId, areaId, url } = e.detail;
-        const areaEl = document.querySelector(`.sl-area[data-area-id="${areaId}"]`);
+        const areaEl = document.querySelector(`.clab-area[data-area-id="${areaId}"]`);
         if (areaEl) {
-            const mediaEl = areaEl.querySelector('.sl-preview-img');
+            const mediaEl = areaEl.querySelector('.clab-preview-img');
             if (!mediaEl) {
-                document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                document.dispatchEvent(new CustomEvent("clab_render_ui"));
                 return;
             }
-            const placeholder = areaEl.querySelector('.sl-preview-placeholder');
+            const placeholder = areaEl.querySelector('.clab-preview-placeholder');
             const isVideo = url.toLowerCase().match(/\.(mp4|webm|mov|avi|mkv)$/);
             const isAudio = url.toLowerCase().match(/\.(mp3|wav|ogg|flac|aac|m4a)$/);
             
@@ -215,7 +215,7 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
             const isAudTag = tagName === 'audio';
             
             if ((isVideo && !isVidTag) || (isAudio && !isAudTag) || (!isVideo && !isAudio && !isImgTag)) {
-                document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                document.dispatchEvent(new CustomEvent("clab_render_ui"));
                 return;
             }
 
@@ -237,7 +237,7 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
         }
     });
 
-    document.addEventListener("shell_link_state_loaded", (e) => {
+    document.addEventListener("clab_state_loaded", (e) => {
         const loadedState = e.detail || { cards: [], activeCardId: null, selectedCardIds: [], selectedAreaIds: [] };
         Object.assign(state, loadedState);
         if (!state.selectedCardIds) state.selectedCardIds = state.activeCardId ? [state.activeCardId] : [];
@@ -256,12 +256,12 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
         if (panelContainer && panelContainer.classList.contains('visible')) performRenderFunc();
     });
 
-    document.addEventListener("shell_link_state_cleared", () => {
+    document.addEventListener("clab_state_cleared", () => {
         Object.assign(state, { cards: [], activeCardId: null, selectedCardIds: [], selectedAreaIds: [], painterMode: false, painterSource: null });
         if (panelContainer && panelContainer.classList.contains('visible')) performRenderFunc();
     });
 
-    document.addEventListener('sl_enter_binding_mode', (e) => {
+    document.addEventListener('clab_enter_binding_mode', (e) => {
         enterBindingModeForSelected(e.detail, panelContainer, backdropContainer);
     });
 }

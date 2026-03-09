@@ -9,7 +9,7 @@ import { renderDynamicToolbar, attachDynamicToolbarEvents } from "./comp_toolbar
 export function updateSelectionUI() {
     try {
         // 1. 遍历卡片 DOM，修改高亮
-        document.querySelectorAll('.sl-card:not(.sl-add-card-inline)').forEach(card => {
+        document.querySelectorAll('.clab-card:not(.clab-add-card-inline)').forEach(card => {
             const cardId = card.dataset.cardId;
             if (state.selectedCardIds && state.selectedCardIds.includes(cardId)) {
                 // 【核心修复】：必须同时添加 active 和 selected，匹配 CSS
@@ -23,7 +23,7 @@ export function updateSelectionUI() {
         });
 
         // 2. 遍历模块 DOM，修改高亮
-        document.querySelectorAll('.sl-area').forEach(area => {
+        document.querySelectorAll('.clab-area').forEach(area => {
             const areaId = area.dataset.areaId;
             if (state.selectedAreaIds && state.selectedAreaIds.includes(areaId)) {
                 area.classList.add('active');
@@ -37,25 +37,25 @@ export function updateSelectionUI() {
         });
 
         // 3. 刷新动态工具栏
-        const toolbarHandle = document.querySelector('#sl-toolbar-handle');
+        const toolbarHandle = document.querySelector('#clab-toolbar-handle');
         if (toolbarHandle) {
             renderDynamicToolbar(toolbarHandle);
             attachDynamicToolbarEvents(toolbarHandle);
         }
 
         // 4. 静默保存数据到节点 (绝不触发全局渲染事件)
-        if (window.ShellLink && window.ShellLink.saveState) {
-            window.ShellLink.saveState(state);
+        if (window.CLab && window.CLab.saveState) {
+            window.CLab.saveState(state);
         } else if (window.StateManager && window.StateManager.syncToNode) {
             window.StateManager.syncToNode(app.graph);
         }
     } catch (err) {
-        console.error("[ShellLink] ⚠️ 局部刷新引擎遭遇异常，启动防崩溃回退，执行全量重绘:", err);
-        if (window.ShellLink && window.ShellLink.saveState) window.ShellLink.saveState(state);
-        document.dispatchEvent(new CustomEvent("sl_render_ui"));
+        console.error("[CLab] ⚠️ 局部刷新引擎遭遇异常，启动防崩溃回退，执行全量重绘:", err);
+        if (window.CLab && window.CLab.saveState) window.CLab.saveState(state);
+        document.dispatchEvent(new CustomEvent("clab_render_ui"));
     }
 }
 
 // 将更新 UI 引擎暴露给全局，方便其他组件调用
-window.ShellLink = window.ShellLink || {};
-window.ShellLink.updateSelectionUI = updateSelectionUI;
+window.CLab = window.CLab || {};
+window.CLab.updateSelectionUI = updateSelectionUI;

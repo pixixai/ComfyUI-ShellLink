@@ -12,7 +12,7 @@ import { updateSelectionUI } from "./components/ui_selection.js";
 import { setupGlobalEvents } from "./components/events/event_global.js";
 import { setupExecutionEvents } from "./components/events/event_execution.js";
 
-console.log("[ShellLink] UI 拆分重构版本已被成功导入 (极速响应安全版)");
+console.log("[CLab] UI 拆分重构版本已被成功导入 (极速响应安全版)");
 
 let panelContainer = null;
 let backdropContainer = null;
@@ -20,19 +20,19 @@ let backdropContainer = null;
 // =========================================================================
 // 【全局物理截胡引擎】：彻底解决原生 Video 在重绘时的闪烁断连问题
 // =========================================================================
-window.ShellLink = window.ShellLink || {};
+window.CLab = window.CLab || {};
 
-window.ShellLink.stashMedia = () => {
-    window._slGlobalVaultMap = new Map();
-    if (!window._slMiniVault) {
-        window._slMiniVault = document.createElement('div');
-        window._slMiniVault.id = 'sl-mini-vault';
-        window._slMiniVault.style.cssText = 'position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -9999; overflow: hidden;';
-        document.body.appendChild(window._slMiniVault);
+window.CLab.stashMedia = () => {
+    window._clabGlobalVaultMap = new Map();
+    if (!window._clabMiniVault) {
+        window._clabMiniVault = document.createElement('div');
+        window._clabMiniVault.id = 'clab-mini-vault';
+        window._clabMiniVault.style.cssText = 'position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -9999; overflow: hidden;';
+        document.body.appendChild(window._clabMiniVault);
     }
     // 提前拔出所有媒体节点
-    document.querySelectorAll('.sl-video-player .sl-media-target, .sl-audio-player .sl-media-target').forEach(media => {
-        const areaEl = media.closest('.sl-area');
+    document.querySelectorAll('.clab-video-player .clab-media-target, .clab-audio-player .clab-media-target').forEach(media => {
+        const areaEl = media.closest('.clab-area');
         if (areaEl && areaEl.dataset.areaId) {
             const info = {
                 el: media,
@@ -40,19 +40,19 @@ window.ShellLink.stashMedia = () => {
                 time: media.currentTime || 0,
                 paused: media.paused
             };
-            window._slGlobalVaultMap.set(areaEl.dataset.areaId, info);
-            window._slMiniVault.appendChild(media);
+            window._clabGlobalVaultMap.set(areaEl.dataset.areaId, info);
+            window._clabMiniVault.appendChild(media);
         }
     });
 };
 
-window.ShellLink.restoreMedia = () => {
-    if (!window._slGlobalVaultMap) return;
-    document.querySelectorAll('.sl-area').forEach(areaEl => {
+window.CLab.restoreMedia = () => {
+    if (!window._clabGlobalVaultMap) return;
+    document.querySelectorAll('.clab-area').forEach(areaEl => {
         const areaId = areaEl.dataset.areaId;
-        if (window._slGlobalVaultMap.has(areaId)) {
-            const info = window._slGlobalVaultMap.get(areaId);
-            const newMedia = areaEl.querySelector('.sl-media-target');
+        if (window._clabGlobalVaultMap.has(areaId)) {
+            const info = window._clabGlobalVaultMap.get(areaId);
+            const newMedia = areaEl.querySelector('.clab-media-target');
             if (newMedia) {
                 const newSrc = newMedia.getAttribute('src') || '';
                 const oldBase = info.src.split('&t=')[0].split('?t=')[0];
@@ -71,11 +71,11 @@ window.ShellLink.restoreMedia = () => {
             } else {
                 info.el.remove();
             }
-            window._slGlobalVaultMap.delete(areaId);
+            window._clabGlobalVaultMap.delete(areaId);
         }
     });
-    window._slGlobalVaultMap.forEach(info => info.el.remove());
-    window._slGlobalVaultMap.clear();
+    window._clabGlobalVaultMap.forEach(info => info.el.remove());
+    window._clabGlobalVaultMap.clear();
 };
 
 
@@ -84,32 +84,32 @@ export function setupUI() {
     
     const overrideStyle = document.createElement("style");
     overrideStyle.innerHTML = `
-        .sl-custom-select-item:hover {
+        .clab-custom-select-item:hover {
             background-color: rgba(255, 255, 255, 0.15) !important;
             color: #ffffff !important;
         }
-        #shell-link-panel {
-            --sl-card-width: 320px;
+        #clab-panel {
+            --clab-card-width: 320px;
         }
-        #shell-link-panel .sl-card {
-            width: var(--sl-card-width) !important;
-            min-width: var(--sl-card-width) !important;
-            max-width: var(--sl-card-width) !important;
+        #clab-panel .clab-card {
+            width: var(--clab-card-width) !important;
+            min-width: var(--clab-card-width) !important;
+            max-width: var(--clab-card-width) !important;
             transition: width 0.1s ease, min-width 0.1s ease, max-width 0.1s ease;
         }
-        #sl-card-width-input::-webkit-outer-spin-button,
-        #sl-card-width-input::-webkit-inner-spin-button,
-        #sl-run-batch-count::-webkit-outer-spin-button,
-        #sl-run-batch-count::-webkit-inner-spin-button {
+        #clab-card-width-input::-webkit-outer-spin-button,
+        #clab-card-width-input::-webkit-inner-spin-button,
+        #clab-run-batch-count::-webkit-outer-spin-button,
+        #clab-run-batch-count::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
         }
-        #sl-card-width-input[type=number],
-        #sl-run-batch-count[type=number] {
+        #clab-card-width-input[type=number],
+        #clab-run-batch-count[type=number] {
             -moz-appearance: textfield;
         }
         
-        .sl-context-menu {
+        .clab-context-menu {
             background: #2a2a2a !important;
             border: 1px solid #555 !important;
             border-radius: 6px !important;
@@ -118,7 +118,7 @@ export function setupUI() {
             font-family: sans-serif !important;
             backdrop-filter: none !important;
         }
-        .sl-context-menu-title {
+        .clab-context-menu-title {
             padding: 6px 12px !important; 
             font-size: 12px !important;  
             color: #aaa !important;
@@ -128,7 +128,7 @@ export function setupUI() {
             pointer-events: none !important;
             letter-spacing: normal !important;
         }
-        .sl-context-menu-item {
+        .clab-context-menu-item {
             padding: 6px 12px !important;
             font-size: 12px !important;
             color: #eee !important;
@@ -137,18 +137,18 @@ export function setupUI() {
             display: flex !important;
             align-items: center !important;
         }
-        .sl-context-menu-item:hover {
+        .clab-context-menu-item:hover {
             background-color: rgba(255, 255, 255, 0.15) !important;
             color: #ffffff !important;
         }
-        .sl-context-menu-item.sl-danger {
+        .clab-context-menu-item.clab-danger {
             color: #ff4d4f !important;
         }
-        .sl-context-menu-item.sl-danger:hover {
+        .clab-context-menu-item.clab-danger:hover {
             background-color: #ff4d4f !important;
             color: #ffffff !important;
         }
-        .sl-context-menu-divider {
+        .clab-context-menu-divider {
             height: 1px !important;
             background: rgba(255, 255, 255, 0.1) !important;
             margin: 4px 12px !important; 
@@ -168,16 +168,16 @@ export function setupUI() {
             import("./components/comp_contextmenu.js").then(module => {
                 module.setupContextMenu(panelContainer);
             }).catch(err => {
-                console.warn("[ShellLink] 提示：右键菜单模块未找到或内部存在错误，详情见下方报错：", err);
+                console.warn("[CLab] 提示：右键菜单模块未找到或内部存在错误，详情见下方报错：", err);
             });
         }
 
         if (app.extensionManager && app.extensionManager.registerSidebarTab) {
             app.extensionManager.registerSidebarTab({
-                id: "shellLinkSidebar",
-                icon: "pi pi-sliders-v shell-link-sidebar-icon", 
-                title: "ShellLink 控制台",
-                tooltip: "打开 ShellLink 主面板 (快捷键 S)",
+                id: "clabSidebar",
+                icon: "pi pi-sliders-v clab-sidebar-icon", 
+                title: "CLab",
+                tooltip: "打开 CLab 主面板 (快捷键 S)",
                 type: "custom",
                 render: (el) => {}
             });
@@ -185,9 +185,9 @@ export function setupUI() {
             const globalSidebarHijacker = (e) => {
                 let isOurTab = false;
                 const tabBtn = e.target.closest('.p-tabview-nav-link, [role="tab"], li');
-                const isOurIcon = e.target.classList && e.target.classList.contains('shell-link-sidebar-icon');
+                const isOurIcon = e.target.classList && e.target.classList.contains('clab-sidebar-icon');
                 
-                if (isOurIcon || (tabBtn && tabBtn.querySelector('.shell-link-sidebar-icon'))) {
+                if (isOurIcon || (tabBtn && tabBtn.querySelector('.clab-sidebar-icon'))) {
                     isOurTab = true;
                 }
 
@@ -204,7 +204,7 @@ export function setupUI() {
             window.addEventListener('click', globalSidebarHijacker, true);
         }
     } catch (error) {
-        console.error("[ShellLink] UI 面板初始化失败:", error);
+        console.error("[CLab] UI 面板初始化失败:", error);
     }
 }
 
@@ -223,82 +223,82 @@ export function togglePanel() {
     }
 }
 
-document.addEventListener("sl_render_ui", () => {
+document.addEventListener("clab_render_ui", () => {
     performRender();
 });
 
 function performRender() {
     if (!panelContainer) return;
 
-    const toolbarHandle = panelContainer.querySelector('#sl-toolbar-handle');
-    const cardsContainer = panelContainer.querySelector('#sl-cards-container');
+    const toolbarHandle = panelContainer.querySelector('#clab-toolbar-handle');
+    const cardsContainer = panelContainer.querySelector('#clab-cards-container');
 
     let savedScrollLeft = 0;
     const savedCardScrolls = new Map();
     if (cardsContainer) {
         savedScrollLeft = cardsContainer.scrollLeft; 
-        cardsContainer.querySelectorAll('.sl-card-body').forEach(body => {
+        cardsContainer.querySelectorAll('.clab-card-body').forEach(body => {
             if (body.dataset.cardId) {
                 savedCardScrolls.set(body.dataset.cardId, body.scrollTop); 
             }
         });
     }
 
-    if (window.ShellLink && window.ShellLink.stashMedia) window.ShellLink.stashMedia();
+    if (window.CLab && window.CLab.stashMedia) window.CLab.stashMedia();
     
     renderDynamicToolbar(toolbarHandle);
     renderCardsList(cardsContainer);
     
     if (cardsContainer) {
         cardsContainer.scrollLeft = savedScrollLeft;
-        cardsContainer.querySelectorAll('.sl-card-body').forEach(body => {
+        cardsContainer.querySelectorAll('.clab-card-body').forEach(body => {
             if (body.dataset.cardId && savedCardScrolls.has(body.dataset.cardId)) {
                 body.scrollTop = savedCardScrolls.get(body.dataset.cardId);
             }
         });
     }
 
-    if (window.ShellLink && window.ShellLink.restoreMedia) window.ShellLink.restoreMedia();
+    if (window.CLab && window.CLab.restoreMedia) window.CLab.restoreMedia();
 
     attachDynamicToolbarEvents(toolbarHandle);
     attachCardEvents(cardsContainer);
     attachAreaEvents(cardsContainer);
     
-    if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
+    if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
 }
 
 function createPanelDOM() {
     backdropContainer = document.createElement("div");
-    backdropContainer.id = "sl-backdrop";
+    backdropContainer.id = "clab-backdrop";
     backdropContainer.onclick = () => {
         if (!appState.isBindingMode) togglePanel();
     };
 
     panelContainer = document.createElement("div");
-    panelContainer.id = "shell-link-panel";
+    panelContainer.id = "clab-panel";
     
     panelContainer.innerHTML = `
-        <div class="sl-toolbar" id="sl-toolbar-handle">
+        <div class="clab-toolbar" id="clab-toolbar-handle">
             <div style="display:flex; gap:10px; align-items:center;">
-                <button class="sl-btn" id="sl-global-add-card" title="新建空白任务卡片">+ 新建任务</button>
-                <button class="sl-btn" id="sl-global-add-module" title="在当前任务内添加新模块">+ 新建模块</button>
-                <div id="sl-module-toolbar-separator" style="width:1px; height:20px; background:rgba(255,255,255,0.2); margin:0 5px; display:none;"></div>
-                <div id="sl-module-toolbar" style="display:none; align-items:center; gap:12px;"></div>
+                <button class="clab-btn" id="clab-global-add-card" title="新建空白任务卡片">+ 新建任务</button>
+                <button class="clab-btn" id="clab-global-add-module" title="在当前任务内添加新模块">+ 新建模块</button>
+                <div id="clab-module-toolbar-separator" style="width:1px; height:20px; background:rgba(255,255,255,0.2); margin:0 5px; display:none;"></div>
+                <div id="clab-module-toolbar" style="display:none; align-items:center; gap:12px;"></div>
             </div>
 
             <div style="display:flex; gap:10px; align-items:center; margin-left:auto;">
                 
                 <div style="display:inline-flex; align-items:stretch; height: 34px;">
-                    <div id="sl-run-btn-wrapper" class="sl-run-wrapper" style="border-top-right-radius: 0; border-bottom-right-radius: 0; height: 100%;">
-                        <button class="sl-btn run-btn-main" id="sl-btn-run" title="按规则运行选中任务 (局部)" style="height: 100%;">▶ 运行</button>
+                    <div id="clab-run-btn-wrapper" class="clab-run-wrapper" style="border-top-right-radius: 0; border-bottom-right-radius: 0; height: 100%;">
+                        <button class="clab-btn run-btn-main" id="clab-btn-run" title="按规则运行选中任务 (局部)" style="height: 100%;">▶ 运行</button>
                         <div style="width:1px; height:16px; background:rgba(255,255,255,0.4); margin: 0 4px; align-self: center;"></div>
-                        <button class="sl-btn run-btn-toggle" id="sl-run-dropdown-toggle" title="展开更多运行选项" style="height: 100%;">
+                        <button class="clab-btn run-btn-toggle" id="clab-run-dropdown-toggle" title="展开更多运行选项" style="height: 100%;">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
                         </button>
-                        <div id="sl-run-dropdown-menu" class="sl-custom-select-dropdown" style="display:none; top: calc(100% + 4px); right: 0; left: auto; min-width: 140px; z-index: 10002;">
-                            <div class="sl-custom-select-item" id="sl-btn-run-all" style="display:flex; align-items:center; gap:8px;">
+                        <div id="clab-run-dropdown-menu" class="clab-custom-select-dropdown" style="display:none; top: calc(100% + 4px); right: 0; left: auto; min-width: 140px; z-index: 10002;">
+                            <div class="clab-custom-select-item" id="clab-btn-run-all" style="display:flex; align-items:center; gap:8px;">
                                 <svg width="15" height="15" viewBox="0 0 19.6 15.01" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M19.26,6.77L11.55.23c-.63-.53-1.59-.09-1.59.74v13.07c0,.82.96,1.27,1.59.74l7.72-6.54c.46-.39.46-1.09,0-1.48Z"/>
                                     <path d="M9.31,6.77L1.59.23C.96-.3,0,.15,0,.97v13.07c0,.82.96,1.27,1.59.74l7.72-6.54c.46-.39.46-1.09,0-1.48Z"/>
@@ -309,38 +309,38 @@ function createPanelDOM() {
                     </div>
                     
                     <div style="display:flex; align-items:center; background: rgba(0,0,0,0.5); border: 1px solid #555; border-left: none; border-top-right-radius: 6px; border-bottom-right-radius: 6px; padding-left: 6px; height: 100%; box-sizing: border-box;" title="循环运行次数 (排队执行)">
-                        <input type="number" id="sl-run-batch-count" value="1" min="1" max="999" style="width: 24px; background: transparent; border: none; color: #eee; font-size: 14px; text-align: center; outline: none; font-family: sans-serif; -moz-appearance: textfield; padding: 0;">
+                        <input type="number" id="clab-run-batch-count" value="1" min="1" max="999" style="width: 24px; background: transparent; border: none; color: #eee; font-size: 14px; text-align: center; outline: none; font-family: sans-serif; -moz-appearance: textfield; padding: 0;">
                         <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height: 100%; margin-left: 2px; gap: 2px;">
-                            <div id="sl-run-count-up" style="cursor:pointer; display:flex; align-items:center; justify-content:center; padding: 2px 6px;" onmouseover="this.querySelector('svg').style.stroke='#fff'" onmouseout="this.querySelector('svg').style.stroke='#aaa'">
+                            <div id="clab-run-count-up" style="cursor:pointer; display:flex; align-items:center; justify-content:center; padding: 2px 6px;" onmouseover="this.querySelector('svg').style.stroke='#fff'" onmouseout="this.querySelector('svg').style.stroke='#aaa'">
                                 <svg width="14" height="8" viewBox="0 7 24 10" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; transition: stroke 0.2s;"><polyline points="18 15 12 9 6 15"></polyline></svg>
                             </div>
-                            <div id="sl-run-count-down" style="cursor:pointer; display:flex; align-items:center; justify-content:center; padding: 2px 6px;" onmouseover="this.querySelector('svg').style.stroke='#fff'" onmouseout="this.querySelector('svg').style.stroke='#aaa'">
+                            <div id="clab-run-count-down" style="cursor:pointer; display:flex; align-items:center; justify-content:center; padding: 2px 6px;" onmouseover="this.querySelector('svg').style.stroke='#fff'" onmouseout="this.querySelector('svg').style.stroke='#aaa'">
                                 <svg width="14" height="8" viewBox="0 7 24 10" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block; transition: stroke 0.2s;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <button class="sl-btn" id="sl-btn-config" title="在画布创建配置节点">⚓ 创建配置锚点</button>
+                <button class="clab-btn" id="clab-btn-config" title="在画布创建配置节点">⚓ 创建配置锚点</button>
             </div>
         </div>
-        <div class="sl-cards-container" id="sl-cards-container"></div>
+        <div class="clab-cards-container" id="clab-cards-container"></div>
 
-        <div id="sl-card-width-ctrl" style="position: absolute; bottom: 16px; left: 16px; z-index: 1000; display: flex; align-items: center; gap: 8px; transition: opacity 0.2s;">
-            <svg id="sl-card-width-reset" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="恢复默认宽度" style="cursor: pointer; transition: stroke 0.2s;" onmouseover="this.style.stroke='#fff'" onmouseout="this.style.stroke='#888'">
+        <div id="clab-card-width-ctrl" style="position: absolute; bottom: 16px; left: 16px; z-index: 1000; display: flex; align-items: center; gap: 8px; transition: opacity 0.2s;">
+            <svg id="clab-card-width-reset" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="恢复默认宽度" style="cursor: pointer; transition: stroke 0.2s;" onmouseover="this.style.stroke='#fff'" onmouseout="this.style.stroke='#888'">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                 <line x1="9" y1="3" x2="9" y2="21"></line>
             </svg>
-            <input type="range" id="sl-card-width-slider" min="260" max="600" value="320" style="width: 80px; accent-color: #888; cursor: pointer; height: 4px; background: rgba(255,255,255,0.2); outline: none; border-radius: 2px; -webkit-appearance: none;">
-            <input type="number" id="sl-card-width-input" title="手动输入宽度 (回车确认)" style="width: 36px; background: transparent; border: none; color: #888; font-size: 12px; outline: none; text-align: left; padding: 0; margin: 0; font-family: monospace; transition: color 0.2s;" onfocus="this.style.color='#fff'" onblur="this.style.color='#888'">
+            <input type="range" id="clab-card-width-slider" min="260" max="600" value="320" style="width: 80px; accent-color: #888; cursor: pointer; height: 4px; background: rgba(255,255,255,0.2); outline: none; border-radius: 2px; -webkit-appearance: none;">
+            <input type="number" id="clab-card-width-input" title="手动输入宽度 (回车确认)" style="width: 36px; background: transparent; border: none; color: #888; font-size: 12px; outline: none; text-align: left; padding: 0; margin: 0; font-family: monospace; transition: color 0.2s;" onfocus="this.style.color='#fff'" onblur="this.style.color='#888'">
         </div>
     `;
 
     setupStaticToolbarEvents(panelContainer);
     
-    const countInput = panelContainer.querySelector('#sl-run-batch-count');
-    const upBtn = panelContainer.querySelector('#sl-run-count-up');
-    const downBtn = panelContainer.querySelector('#sl-run-count-down');
+    const countInput = panelContainer.querySelector('#clab-run-batch-count');
+    const upBtn = panelContainer.querySelector('#clab-run-count-up');
+    const downBtn = panelContainer.querySelector('#clab-run-count-down');
     if (countInput && upBtn && downBtn) {
         upBtn.onclick = (e) => {
             e.stopPropagation();
@@ -361,23 +361,23 @@ function createPanelDOM() {
     panelContainer.addEventListener("click", (e) => {
         if (!state.painterMode) return;
         if (e.target.closest('#tb-format-painter')) return;
-        const isToolbar = e.target.closest('#sl-toolbar-handle');
-        const isAddCardBtn = e.target.closest('.sl-add-card-inline');
+        const isToolbar = e.target.closest('#clab-toolbar-handle');
+        const isAddCardBtn = e.target.closest('.clab-add-card-inline');
 
         if (isToolbar || isAddCardBtn) {
             state.painterMode = false;
             state.painterSource = null;
-            panelContainer.classList.remove('sl-painter-active');
+            panelContainer.classList.remove('clab-painter-active');
             updateSelectionUI();
         }
     }, true);
 
-    const cardsContainer = panelContainer.querySelector("#sl-cards-container");
-    const toolbar = panelContainer.querySelector("#sl-toolbar-handle");
+    const cardsContainer = panelContainer.querySelector("#clab-cards-container");
+    const toolbar = panelContainer.querySelector("#clab-toolbar-handle");
     
     cardsContainer.addEventListener("mousedown", (e) => {
         if (state.painterMode) return; 
-        const cardEl = e.target.closest('.sl-card:not(.sl-add-card-inline)');
+        const cardEl = e.target.closest('.clab-card:not(.clab-add-card-inline)');
         if (cardEl && cardEl.dataset.cardId) {
             const targetId = cardEl.dataset.cardId;
             if (state.activeCardId !== targetId) state.activeCardId = targetId;
@@ -385,7 +385,7 @@ function createPanelDOM() {
     }, true); 
 
     const handleDeselectAll = (forceExitPainter = false) => {
-        const openDropdowns = document.querySelectorAll('.sl-custom-select.open');
+        const openDropdowns = document.querySelectorAll('.clab-custom-select.open');
         if (openDropdowns.length > 0) {
             openDropdowns.forEach(el => el.classList.remove('open'));
             return; 
@@ -410,13 +410,13 @@ function createPanelDOM() {
     };
 
     cardsContainer.addEventListener("mousedown", (e) => {
-        const isInteractive = e.target.closest('button, input, select, textarea, .sl-custom-select, .sl-edit-val-bool, .sl-del-area-btn, .sl-del-card-btn, .sl-history-thumb, .sl-upload-zone, .sl-video-controls-interactive');
+        const isInteractive = e.target.closest('button, input, select, textarea, .clab-custom-select, .clab-edit-val-bool, .clab-del-area-btn, .clab-del-card-btn, .clab-history-thumb, .clab-upload-zone, .clab-video-controls-interactive');
         
         if (state.painterMode) {
             if (isInteractive && e.button === 0) {
                 state.painterMode = false;
                 state.painterSource = null;
-                panelContainer.classList.remove('sl-painter-active');
+                panelContainer.classList.remove('clab-painter-active');
                 updateSelectionUI();
             }
             return; 
@@ -424,9 +424,9 @@ function createPanelDOM() {
 
         if (e.button !== 0) return; 
 
-        const isMedia = e.target.closest('.sl-video-player, .sl-audio-player, .sl-preview-bg, video, audio');
-        const areaEl = e.target.closest('.sl-area');
-        const cardEl = e.target.closest('.sl-card:not(.sl-add-card-inline)');
+        const isMedia = e.target.closest('.clab-video-player, .clab-audio-player, .clab-preview-bg, video, audio');
+        const areaEl = e.target.closest('.clab-area');
+        const cardEl = e.target.closest('.clab-card:not(.clab-add-card-inline)');
 
         if (areaEl) {
             const areaId = areaEl.dataset.areaId;
@@ -536,17 +536,17 @@ function createPanelDOM() {
 
 
     cardsContainer.addEventListener("click", (e) => {
-        const isInteractive = e.target.closest('button, input, select, textarea, .sl-custom-select, .sl-edit-val-bool, .sl-del-area-btn, .sl-del-card-btn, .sl-history-thumb, .sl-upload-zone, .sl-video-controls-interactive');
-        const isMedia = e.target.closest('.sl-video-player, .sl-audio-player, .sl-preview-bg, video, audio');
+        const isInteractive = e.target.closest('button, input, select, textarea, .clab-custom-select, .clab-edit-val-bool, .clab-del-area-btn, .clab-del-card-btn, .clab-history-thumb, .clab-upload-zone, .clab-video-controls-interactive');
+        const isMedia = e.target.closest('.clab-video-player, .clab-audio-player, .clab-preview-bg, video, audio');
         
-        const areaEl = e.target.closest('.sl-area');
-        const cardEl = e.target.closest('.sl-card:not(.sl-add-card-inline)');
+        const areaEl = e.target.closest('.clab-area');
+        const cardEl = e.target.closest('.clab-card:not(.clab-add-card-inline)');
 
         if (state.painterMode) {
             if (isInteractive) {
                 state.painterMode = false;
                 state.painterSource = null;
-                panelContainer.classList.remove('sl-painter-active');
+                panelContainer.classList.remove('clab-painter-active');
                 updateSelectionUI();
                 return;
             }
@@ -570,12 +570,12 @@ function createPanelDOM() {
                         attachCardEvents(newEl.parentElement);
                         attachAreaEvents(newEl);
                         
-                        if (window._slJustSave) window._slJustSave();
-                        if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
+                        if (window._clabJustSave) window._clabJustSave();
+                        if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
                     }
                 } else if (!cardEl) {
                     let insertIndex = state.cards.length;
-                    const cardEls = cardsContainer.querySelectorAll('.sl-card:not(.sl-add-card-inline)');
+                    const cardEls = cardsContainer.querySelectorAll('.clab-card:not(.clab-add-card-inline)');
                     for (let i = 0; i < cardEls.length; i++) {
                         const rect = cardEls[i].getBoundingClientRect();
                         if (e.clientX < rect.left + rect.width / 2) { insertIndex = i; break; }
@@ -586,7 +586,7 @@ function createPanelDOM() {
                     state.cards.splice(insertIndex, 0, newCard);
                     
                     // 【核心修复】：在空白处刷出新卡片时，也采用原生物理 DOM 拼贴引擎！
-                    const wrapper = document.querySelector('.sl-cards-wrapper');
+                    const wrapper = document.querySelector('.clab-cards-wrapper');
                     if (wrapper) {
                         const newHtml = generateSingleCardHTML(newCard, insertIndex);
                         const temp = document.createElement('div');
@@ -594,8 +594,8 @@ function createPanelDOM() {
                         const newEl = temp.firstElementChild;
                         
                         const nextCard = state.cards[insertIndex + 1];
-                        let referenceNode = nextCard ? wrapper.querySelector(`.sl-card[data-card-id="${nextCard.id}"]`) : null;
-                        if (!referenceNode) referenceNode = wrapper.querySelector('.sl-add-card-inline');
+                        let referenceNode = nextCard ? wrapper.querySelector(`.clab-card[data-card-id="${nextCard.id}"]`) : null;
+                        if (!referenceNode) referenceNode = wrapper.querySelector('.clab-add-card-inline');
                         
                         if (referenceNode) wrapper.insertBefore(newEl, referenceNode);
                         else wrapper.appendChild(newEl);
@@ -603,9 +603,9 @@ function createPanelDOM() {
                         attachCardEvents(wrapper);
                         attachAreaEvents(newEl);
                         
-                        if (window._slJustSave) window._slJustSave();
-                        if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
-                        if (window._slUpdateCardsLayout) window._slUpdateCardsLayout();
+                        if (window._clabJustSave) window._clabJustSave();
+                        if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
+                        if (window._clabUpdateCardsLayout) window._clabUpdateCardsLayout();
                         
                         setTimeout(() => {
                             newEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -640,9 +640,9 @@ function createPanelDOM() {
                             if (area.type !== src.type) area.value = ''; 
                             
                             // 格式刷覆盖时使用点穴级更新
-                            if (window._slSurgicallyUpdateArea) {
-                                window._slSurgicallyUpdateArea(targetAreaId);
-                                if (window._slJustSave) window._slJustSave();
+                            if (window._clabSurgicallyUpdateArea) {
+                                window._clabSurgicallyUpdateArea(targetAreaId);
+                                if (window._clabJustSave) window._clabJustSave();
                             } else {
                                 saveAndRender();
                             }
@@ -651,7 +651,7 @@ function createPanelDOM() {
                 } else if (cardEl && !areaEl) {
                     let insertIndex = 0;
                     const targetCard = state.cards.find(c => c.id === cardEl.dataset.cardId);
-                    const areaEls = cardEl.querySelectorAll('.sl-area');
+                    const areaEls = cardEl.querySelectorAll('.clab-area');
                     if (areaEls && areaEls.length > 0) {
                         insertIndex = targetCard.areas ? targetCard.areas.length : 0;
                         for (let i = 0; i < areaEls.length; i++) {
@@ -665,22 +665,22 @@ function createPanelDOM() {
                     targetCard.areas.splice(insertIndex, 0, newArea);
                     
                     // 格式刷空白插入时，使用原生 DOM 追加，绝不全局重绘
-                    if (window._slGenerateAreaHTML && window._slAttachAreaEvents) {
+                    if (window._clabGenerateAreaHTML && window._clabAttachAreaEvents) {
                         const temp = document.createElement('div');
-                        temp.innerHTML = window._slGenerateAreaHTML(newArea, targetCard);
+                        temp.innerHTML = window._clabGenerateAreaHTML(newArea, targetCard);
                         const newEl = temp.firstElementChild;
-                        const cardBody = cardEl.querySelector('.sl-area-list');
+                        const cardBody = cardEl.querySelector('.clab-area-list');
                         if (cardBody) {
                             if (insertIndex >= targetCard.areas.length - 1) cardBody.appendChild(newEl);
                             else {
                                 const nextArea = targetCard.areas[insertIndex + 1];
-                                const nextEl = cardBody.querySelector(`.sl-area[data-area-id="${nextArea.id}"]`);
+                                const nextEl = cardBody.querySelector(`.clab-area[data-area-id="${nextArea.id}"]`);
                                 cardBody.insertBefore(newEl, nextEl);
                             }
-                            window._slAttachAreaEvents(cardBody);
+                            window._clabAttachAreaEvents(cardBody);
                         }
-                        if (window._slJustSave) window._slJustSave();
-                        if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
+                        if (window._clabJustSave) window._clabJustSave();
+                        if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
                     } else {
                         saveAndRender();
                     }
@@ -695,14 +695,14 @@ function createPanelDOM() {
             return;
         }
 
-        if (!isInteractive && !isMedia && (e.target === cardsContainer || e.target.classList.contains('sl-cards-wrapper'))) {
+        if (!isInteractive && !isMedia && (e.target === cardsContainer || e.target.classList.contains('clab-cards-wrapper'))) {
             handleDeselectAll(false);
         }
     }, true);
 
     toolbar.addEventListener("click", (e) => {
         const isInteractive = ['BUTTON', 'INPUT', 'LABEL', 'SELECT'].includes(e.target.tagName) || 
-                              e.target.closest('button, input, label, select, .sl-custom-select, .sl-type-btn');
+                              e.target.closest('button, input, label, select, .clab-custom-select, .clab-type-btn');
         if (!isInteractive) handleDeselectAll(true);
     });
 
@@ -727,8 +727,8 @@ function createPanelDOM() {
             e.preventDefault(); 
             
             // 【核心修复】：动态获取当前卡片的真实宽度（完美适配自定义宽度滑块） + 20px (CSS gap 间距)
-            const cardEl = cardsContainer.querySelector('.sl-card:not(.sl-add-card-inline)');
-            const cardWidth = cardEl ? cardEl.offsetWidth : (parseInt(getComputedStyle(panelContainer).getPropertyValue('--sl-card-width')) || 320);
+            const cardEl = cardsContainer.querySelector('.clab-card:not(.clab-add-card-inline)');
+            const cardWidth = cardEl ? cardEl.offsetWidth : (parseInt(getComputedStyle(panelContainer).getPropertyValue('--clab-card-width')) || 320);
             const scrollDistance = cardWidth + 20; 
             
             // 采用平滑滚动 (smooth)，让每次滚动刚好优雅地对齐一张卡片！
@@ -738,16 +738,16 @@ function createPanelDOM() {
 
     makePanelDraggable();
 
-    const widthSlider = panelContainer.querySelector('#sl-card-width-slider');
-    const widthInput = panelContainer.querySelector('#sl-card-width-input');
-    const widthResetBtn = panelContainer.querySelector('#sl-card-width-reset');
-    const widthCtrlNode = panelContainer.querySelector('#sl-card-width-ctrl');
+    const widthSlider = panelContainer.querySelector('#clab-card-width-slider');
+    const widthInput = panelContainer.querySelector('#clab-card-width-input');
+    const widthResetBtn = panelContainer.querySelector('#clab-card-width-reset');
+    const widthCtrlNode = panelContainer.querySelector('#clab-card-width-ctrl');
     
     if (widthSlider && widthInput && widthResetBtn) {
-        const savedWidth = localStorage.getItem('shelllink-card-width') || '320';
+        const savedWidth = localStorage.getItem('clab-card-width-v1') || '320';
         widthSlider.value = savedWidth <= 600 ? savedWidth : 600; 
         widthInput.value = savedWidth;
-        panelContainer.style.setProperty('--sl-card-width', `${savedWidth}px`);
+        panelContainer.style.setProperty('--clab-card-width', `${savedWidth}px`);
 
         const updateWidth = (val) => {
             let numVal = parseInt(val, 10);
@@ -757,15 +757,15 @@ function createPanelDOM() {
 
             widthSlider.value = Math.min(numVal, 600); 
             widthInput.value = numVal;
-            panelContainer.style.setProperty('--sl-card-width', `${numVal}px`);
-            localStorage.setItem('shelllink-card-width', numVal);
+            panelContainer.style.setProperty('--clab-card-width', `${numVal}px`);
+            localStorage.setItem('clab-card-width-v1', numVal);
         };
 
         widthSlider.addEventListener('input', (e) => {
             e.stopPropagation();
             const val = e.target.value;
             widthInput.value = val;
-            panelContainer.style.setProperty('--sl-card-width', `${val}px`);
+            panelContainer.style.setProperty('--clab-card-width', `${val}px`);
         });
 
         widthSlider.addEventListener('change', (e) => {
@@ -796,7 +796,7 @@ function createPanelDOM() {
         }
     }
 
-    window.ShellLink.handleMediaError = (cardId, areaId, failedUrl) => {
+    window.CLab.handleMediaError = (cardId, areaId, failedUrl) => {
         const card = state.cards.find(c => c.id === cardId);
         const area = card?.areas.find(a => a.id === areaId);
         if (area && area.history && area.history.length > 0) {
@@ -815,24 +815,24 @@ function createPanelDOM() {
                     area.historyIndex = Math.min(idx, area.history.length - 1);
                     area.resultUrl = area.history[area.historyIndex];
                 }
-                setTimeout(() => { if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(areaId); }, 10);
+                setTimeout(() => { if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(areaId); }, 10);
             } else if (area.resultUrl === failedUrl) {
                 area.resultUrl = '';
-                setTimeout(() => { if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(areaId); }, 10);
+                setTimeout(() => { if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(areaId); }, 10);
             }
         } else if (area && area.resultUrl === failedUrl) {
              area.resultUrl = '';
-             setTimeout(() => { if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(areaId); }, 10);
+             setTimeout(() => { if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(areaId); }, 10);
         }
     };
 }
 
 function makePanelDraggable() {
-    const handle = panelContainer.querySelector('#sl-toolbar-handle');
+    const handle = panelContainer.querySelector('#clab-toolbar-handle');
     let isDragging = false, offsetX = 0, offsetY = 0;
 
     handle.addEventListener('mousedown', (e) => {
-        if (['BUTTON', 'SELECT', 'INPUT', 'LABEL'].includes(e.target.tagName) || e.target.closest('button, select, input, label, .sl-custom-select')) return;
+        if (['BUTTON', 'SELECT', 'INPUT', 'LABEL'].includes(e.target.tagName) || e.target.closest('button, select, input, label, .clab-custom-select')) return;
         isDragging = true;
         const rect = panelContainer.getBoundingClientRect();
         offsetX = e.clientX - rect.left;

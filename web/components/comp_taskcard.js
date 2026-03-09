@@ -8,20 +8,20 @@ import { updateSelectionUI } from "./ui_selection.js";
 
 // 【全新动态布局引擎】：同步精确计算纯卡片宽度，控制自适应居中与左对齐
 export function updateCardsLayout() {
-    const container = document.querySelector('#sl-cards-container');
-    const wrapper = document.querySelector('.sl-cards-wrapper');
+    const container = document.querySelector('#clab-cards-container');
+    const wrapper = document.querySelector('.clab-cards-wrapper');
     if (!container || !wrapper) return;
 
-    const cardEls = wrapper.querySelectorAll('.sl-card');
+    const cardEls = wrapper.querySelectorAll('.clab-card');
     const count = cardEls.length;
     
     // 【核心修复 1】：彻底抛弃 20ms 的 setTimeout 异步等待！
     // 刚插入的卡片就算没被浏览器绘制出 offsetWidth 也没关系，
     // 我们直接抓取面板配置的 CSS 绝对宽度，做到“未卜先知”的 0 延迟同步排版！
     let cardWidth = 340; 
-    const panel = document.getElementById('shell-link-panel');
+    const panel = document.getElementById('clab-panel');
     if (panel) {
-        const cssVal = parseInt(getComputedStyle(panel).getPropertyValue('--sl-card-width'));
+        const cssVal = parseInt(getComputedStyle(panel).getPropertyValue('--clab-card-width'));
         if (!isNaN(cssVal) && cssVal > 0) {
             cardWidth = cssVal;
         } else if (cardEls.length > 0 && cardEls[0].offsetWidth > 0) {
@@ -52,7 +52,7 @@ export function updateCardsLayout() {
         wrapper.style.margin = '0 auto'; // 未溢出时完美纯净居中
     }
 }
-window._slUpdateCardsLayout = updateCardsLayout;
+window._clabUpdateCardsLayout = updateCardsLayout;
 
 export function generateSingleCardHTML(card, index) {
     const isCardSelected = state.selectedCardIds && state.selectedCardIds.includes(card.id);
@@ -63,43 +63,43 @@ export function generateSingleCardHTML(card, index) {
     const displayTitle = card.title ? card.title : defaultTitle;
 
     return `
-        <div class="sl-card ${activeClass}" style="${borderStyle}" data-card-id="${card.id}" draggable="true">
-            <div class="sl-card-title-bar" style="cursor: grab; position: relative;">
-                <input class="sl-card-title-input" type="text" data-id="${card.id}" data-default="${defaultTitle}" value="${displayTitle}" placeholder="${defaultTitle}" size="${Math.max(displayTitle.length, 2)}" style="width: unset; max-width: 240px; min-width: 30px;" />
+        <div class="clab-card ${activeClass}" style="${borderStyle}" data-card-id="${card.id}" draggable="true">
+            <div class="clab-card-title-bar" style="cursor: grab; position: relative;">
+                <input class="clab-card-title-input" type="text" data-id="${card.id}" data-default="${defaultTitle}" value="${displayTitle}" placeholder="${defaultTitle}" size="${Math.max(displayTitle.length, 2)}" style="width: unset; max-width: 240px; min-width: 30px;" />
                 
-                <div class="sl-card-progress-container" data-card-prog-id="${card.id}" style="position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; opacity: 0; transition: opacity 0.3s ease; z-index: 5;">
-                    <div class="sl-card-progress-bar" style="height: 100%; width: 0%; background: #4CAF50; transition: width 0.1s ease-out, background-color 0.2s; box-shadow: 0 0 5px rgba(76,175,80,0.5);"></div>
+                <div class="clab-card-progress-container" data-card-prog-id="${card.id}" style="position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; opacity: 0; transition: opacity 0.3s ease; z-index: 5;">
+                    <div class="clab-card-progress-bar" style="height: 100%; width: 0%; background: #4CAF50; transition: width 0.1s ease-out, background-color 0.2s; box-shadow: 0 0 5px rgba(76,175,80,0.5);"></div>
                 </div>
             </div>
-            <button class="sl-del-card-btn" data-id="${card.id}" title="删除此任务(若多选则批量删除)">✖</button>
-            <div class="sl-card-body" data-card-id="${card.id}">
-                <div class="sl-area-list" data-card-id="${card.id}">${areasHtml}</div>
+            <button class="clab-del-card-btn" data-id="${card.id}" title="删除此任务(若多选则批量删除)">✖</button>
+            <div class="clab-card-body" data-card-id="${card.id}">
+                <div class="clab-area-list" data-card-id="${card.id}">${areasHtml}</div>
             </div>
         </div>
     `;
 }
 
 export function renderCardsList(container) {
-    if (!document.getElementById('sl-card-dnd-styles')) {
+    if (!document.getElementById('clab-card-dnd-styles')) {
         const style = document.createElement('style');
-        style.id = 'sl-card-dnd-styles';
+        style.id = 'clab-card-dnd-styles';
         style.innerHTML = `
-            .sl-drag-over-card-left { border-left: 3px solid #4CAF50 !important; }
-            .sl-drag-over-card-right { border-right: 3px solid #4CAF50 !important; }
+            .clab-drag-over-card-left { border-left: 3px solid #4CAF50 !important; }
+            .clab-drag-over-card-right { border-right: 3px solid #4CAF50 !important; }
         `;
         document.head.appendChild(style);
     }
 
     container.innerHTML = "";
     
-    const panelContainer = container.closest('#shell-link-panel');
+    const panelContainer = container.closest('#clab-panel');
     if (panelContainer) {
-        if (state.painterMode) panelContainer.classList.add('sl-painter-active');
-        else panelContainer.classList.remove('sl-painter-active');
+        if (state.painterMode) panelContainer.classList.add('clab-painter-active');
+        else panelContainer.classList.remove('clab-painter-active');
     }
 
     const wrapper = document.createElement("div");
-    wrapper.className = "sl-cards-wrapper";
+    wrapper.className = "clab-cards-wrapper";
     
     // 【核心修复 2】：彻底剔除 transition: margin 0.3s ease;
     // 这样在创建新卡片需要居中对齐时，不会再产生任何拖泥带水的“平移滑动动画”，瞬间清爽对齐！
@@ -119,13 +119,13 @@ export function renderCardsList(container) {
     container.appendChild(wrapper);
     
     // 界面初次打开时，同步执行一次对齐排版
-    if (window._slUpdateCardsLayout) window._slUpdateCardsLayout();
+    if (window._clabUpdateCardsLayout) window._clabUpdateCardsLayout();
 }
 
 export function attachCardEvents(container) {
-    container.querySelectorAll('.sl-card-title-input').forEach(input => {
-        if (input.dataset.slEventsBound) return;
-        input.dataset.slEventsBound = "1";
+    container.querySelectorAll('.clab-card-title-input').forEach(input => {
+        if (input.dataset.clabEventsBound) return;
+        input.dataset.clabEventsBound = "1";
 
         input.addEventListener('input', function() {
             this.size = Math.max(this.value.length, 2); 
@@ -143,9 +143,9 @@ export function attachCardEvents(container) {
         };
     });
 
-    container.querySelectorAll('.sl-del-card-btn').forEach(btn => {
-        if (btn.dataset.slEventsBound) return;
-        btn.dataset.slEventsBound = "1";
+    container.querySelectorAll('.clab-del-card-btn').forEach(btn => {
+        if (btn.dataset.clabEventsBound) return;
+        btn.dataset.clabEventsBound = "1";
 
         btn.onclick = (e) => {
             const id = e.target.dataset.id;
@@ -158,26 +158,26 @@ export function attachCardEvents(container) {
             state.activeCardId = (state.selectedCardIds && state.selectedCardIds.length > 0) ? state.selectedCardIds[state.selectedCardIds.length - 1] : null;
             
             idsToDelete.forEach(delId => {
-                const el = document.querySelector(`.sl-card[data-card-id="${delId}"]`);
+                const el = document.querySelector(`.clab-card[data-card-id="${delId}"]`);
                 if (el) el.remove();
             });
             justSave();
             updateSelectionUI();
-            if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles(); 
+            if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles(); 
             
-            if (window._slUpdateCardsLayout) window._slUpdateCardsLayout();
+            if (window._clabUpdateCardsLayout) window._clabUpdateCardsLayout();
         };
     });
 
-    container.querySelectorAll('.sl-card').forEach(cardEl => {
-        if (cardEl.dataset.slEventsBound) return;
-        cardEl.dataset.slEventsBound = "1";
+    container.querySelectorAll('.clab-card').forEach(cardEl => {
+        if (cardEl.dataset.clabEventsBound) return;
+        cardEl.dataset.clabEventsBound = "1";
 
         cardEl.addEventListener('dragstart', (e) => {
-            if (['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName) || e.target.closest('.sl-custom-select') || e.target.closest('.sl-edit-val-bool')) {
+            if (['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName) || e.target.closest('.clab-custom-select') || e.target.closest('.clab-edit-val-bool')) {
                 e.preventDefault(); return;
             }
-            if (e.target.closest('.sl-area')) return; 
+            if (e.target.closest('.clab-area')) return; 
 
             const currentCardId = cardEl.dataset.cardId;
 
@@ -193,16 +193,16 @@ export function attachCardEvents(container) {
             
             setTimeout(() => {
                 draggedIds.forEach(id => {
-                    const el = document.querySelector(`.sl-card[data-card-id="${id}"]`);
-                    if (el) el.classList.add('sl-dragging');
+                    const el = document.querySelector(`.clab-card[data-card-id="${id}"]`);
+                    if (el) el.classList.add('clab-dragging');
                 });
             }, 0);
         });
 
         cardEl.addEventListener('dragend', () => {
-            document.querySelectorAll('.sl-dragging').forEach(el => el.classList.remove('sl-dragging'));
-            document.querySelectorAll('.sl-drag-over-card-left, .sl-drag-over-card-right').forEach(el => {
-                el.classList.remove('sl-drag-over-card-left', 'sl-drag-over-card-right');
+            document.querySelectorAll('.clab-dragging').forEach(el => el.classList.remove('clab-dragging'));
+            document.querySelectorAll('.clab-drag-over-card-left, .clab-drag-over-card-right').forEach(el => {
+                el.classList.remove('clab-drag-over-card-left', 'clab-drag-over-card-right');
             });
             dragState.type = null; dragState.cardIds = null; dragState.areaIds = null;
         });
@@ -214,12 +214,12 @@ export function attachCardEvents(container) {
                 const midX = rect.left + rect.width / 2; 
                 
                 if (e.clientX < midX) {
-                    cardEl.classList.add('sl-drag-over-card-left');
-                    cardEl.classList.remove('sl-drag-over-card-right');
+                    cardEl.classList.add('clab-drag-over-card-left');
+                    cardEl.classList.remove('clab-drag-over-card-right');
                     cardEl.dataset.dropPosition = 'left';
                 } else {
-                    cardEl.classList.add('sl-drag-over-card-right');
-                    cardEl.classList.remove('sl-drag-over-card-left');
+                    cardEl.classList.add('clab-drag-over-card-right');
+                    cardEl.classList.remove('clab-drag-over-card-left');
                     cardEl.dataset.dropPosition = 'right';
                 }
             }
@@ -227,7 +227,7 @@ export function attachCardEvents(container) {
 
         cardEl.addEventListener('dragleave', (e) => {
             if (!cardEl.contains(e.relatedTarget)) {
-                cardEl.classList.remove('sl-drag-over-card-left', 'sl-drag-over-card-right');
+                cardEl.classList.remove('clab-drag-over-card-left', 'clab-drag-over-card-right');
                 delete cardEl.dataset.dropPosition;
             }
         });
@@ -237,7 +237,7 @@ export function attachCardEvents(container) {
                 e.preventDefault(); e.stopPropagation();
                 
                 const dropPos = cardEl.dataset.dropPosition;
-                cardEl.classList.remove('sl-drag-over-card-left', 'sl-drag-over-card-right');
+                cardEl.classList.remove('clab-drag-over-card-left', 'clab-drag-over-card-right');
                 delete cardEl.dataset.dropPosition;
                 
                 const targetCardId = cardEl.dataset.cardId;
@@ -262,44 +262,44 @@ export function attachCardEvents(container) {
                     }
 
                     state.cards.forEach(c => {
-                        const el = wrapper.querySelector(`.sl-card[data-card-id="${c.id}"]`);
+                        const el = wrapper.querySelector(`.clab-card[data-card-id="${c.id}"]`);
                         if (el) wrapper.appendChild(el);
                     });
                     
                     justSave();
-                    if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
+                    if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
                 }
             }
         });
     });
 
-    container.querySelectorAll('.sl-card-body').forEach(bodyEl => {
-        if (bodyEl.dataset.slEventsBound) return;
-        bodyEl.dataset.slEventsBound = "1";
+    container.querySelectorAll('.clab-card-body').forEach(bodyEl => {
+        if (bodyEl.dataset.clabEventsBound) return;
+        bodyEl.dataset.clabEventsBound = "1";
 
         bodyEl.addEventListener('dragover', (e) => {
             if (dragState.type === 'area' && dragState.areaIds) {
                 e.preventDefault();
-                if (!e.target.closest('.sl-area')) {
-                    bodyEl.classList.add('sl-drag-over-list');
+                if (!e.target.closest('.clab-area')) {
+                    bodyEl.classList.add('clab-drag-over-list');
                 } else {
-                    bodyEl.classList.remove('sl-drag-over-list');
+                    bodyEl.classList.remove('clab-drag-over-list');
                 }
             }
         });
 
         bodyEl.addEventListener('dragleave', (e) => {
             if (!e.currentTarget.contains(e.relatedTarget)) {
-                bodyEl.classList.remove('sl-drag-over-list');
+                bodyEl.classList.remove('clab-drag-over-list');
             }
         });
 
         bodyEl.addEventListener('drop', (e) => {
             if (dragState.type === 'area' && dragState.areaIds) {
                 e.preventDefault(); e.stopPropagation();
-                bodyEl.classList.remove('sl-drag-over-list');
+                bodyEl.classList.remove('clab-drag-over-list');
                 
-                if (!e.target.closest('.sl-area')) {
+                if (!e.target.closest('.clab-area')) {
                     const targetCardId = bodyEl.dataset.cardId;
                     if (!targetCardId) return;
                     
@@ -320,10 +320,10 @@ export function attachCardEvents(container) {
                     targetCard.areas.push(...movedAreas); 
                     syncAreaDOMOrder(targetCardId, targetCard.areas);
                     
-                    if (window._slUpdateAreaDOMIdentity) movedAreas.forEach(a => window._slUpdateAreaDOMIdentity(a.id, targetCardId));
+                    if (window._clabUpdateAreaDOMIdentity) movedAreas.forEach(a => window._clabUpdateAreaDOMIdentity(a.id, targetCardId));
 
                     justSave();
-                    if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles(); 
+                    if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles(); 
                 }
             }
         });

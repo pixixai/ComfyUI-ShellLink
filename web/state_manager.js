@@ -1,6 +1,6 @@
 /**
  * 状态管理器 (Model / Controller)
- * 负责管理面板的卡片数据，以及与画布上的 ShellLinkSystemConfig 节点进行 JSON 同步
+ * 负责管理面板的卡片数据，以及与画布上的 CLabSystemConfig 节点进行 JSON 同步
  */
 
 export const StateManager = {
@@ -26,7 +26,7 @@ export const StateManager = {
             
             // 场景 1：节点被用户在画布上删除了，立即清空面板
             if (!node && this._lastSyncedJSON !== "") {
-                console.log("[ShellLink] 🐶 看门狗侦测到配置节点被删除，正在清空面板...");
+                console.log("[CLab] 🐶 看门狗侦测到配置节点被删除，正在清空面板...");
                 this.loadFromNode(graph);
                 return;
             }
@@ -35,7 +35,7 @@ export const StateManager = {
             if (node) {
                 const widget = node.widgets?.find(w => w.name === "scenes_data");
                 if (widget && widget.value && widget.value !== this._lastSyncedJSON) {
-                    console.log("[ShellLink] 🐶 看门狗侦测到配置节点数据被外部修改(粘贴/撤销等)，正在热更新面板...");
+                    console.log("[CLab] 🐶 看门狗侦测到配置节点数据被外部修改(粘贴/撤销等)，正在热更新面板...");
                     this.loadFromNode(graph);
                 }
             }
@@ -47,7 +47,7 @@ export const StateManager = {
      */
     getConfigNode(graph) {
         if (!graph) return null;
-        const nodes = graph._nodes.filter(n => n.type === "ShellLinkSystemConfig");
+        const nodes = graph._nodes.filter(n => n.type === "CLab_SystemConfig");
         if (nodes.length === 0) return null;
 
         // 【优化点】：当画布上有多个配置节点时（比如新建了一个空的，又粘贴了一个有数据的）
@@ -94,29 +94,29 @@ export const StateManager = {
                     
                     // 如果是手动新建的空节点（默认值为 {}），也视为空，执行清空操作
                     if (Object.keys(parsedData).length === 0 || !parsedData.cards) {
-                        console.log("[ShellLink] 读取到空配置节点，执行面板复位");
+                        console.log("[CLab] 读取到空配置节点，执行面板复位");
                         this.state = { cards: [], activeCardId: null, selectedCardIds: [], selectedAreaIds: [] };
-                        document.dispatchEvent(new CustomEvent("shell_link_state_cleared"));
+                        document.dispatchEvent(new CustomEvent("clab_state_cleared"));
                     } else {
                         // 有效数据，执行恢复
                         this.state = parsedData;
-                        console.log("[ShellLink] 成功从节点恢复卡片数据");
+                        console.log("[CLab] 成功从节点恢复卡片数据");
                         
                         // 【新增】：扫描硬盘，强行补齐缺失的历史图片记录
                         await this.syncLocalHistoryToOutputAreas();
                         
-                        document.dispatchEvent(new CustomEvent("shell_link_state_loaded", { detail: this.state }));
+                        document.dispatchEvent(new CustomEvent("clab_state_loaded", { detail: this.state }));
                     }
                 } catch (e) {
-                    console.error("[ShellLink] 解析配置节点数据失败:", e);
+                    console.error("[CLab] 解析配置节点数据失败:", e);
                 }
             }
         } else {
             // 没有找到节点，清空面板
-            console.log("[ShellLink] 当前工作流无配置节点，隔离并清空面板");
+            console.log("[CLab] 当前工作流无配置节点，隔离并清空面板");
             this._lastSyncedJSON = "";
             this.state = { cards: [], activeCardId: null, selectedCardIds: [], selectedAreaIds: [] };
-            document.dispatchEvent(new CustomEvent("shell_link_state_cleared"));
+            document.dispatchEvent(new CustomEvent("clab_state_cleared"));
         }
         this.startWatchdog(graph); // 确保看门狗在运行
     },
@@ -126,7 +126,7 @@ export const StateManager = {
      */
     async syncLocalHistoryToOutputAreas() {
         try {
-            const resp = await fetch('/shell_link/get_local_history');
+            const resp = await fetch('/clab/get_local_history');
             const data = await resp.json();
             
             if (data.status === 'success' && data.history && data.history.length > 0) {
@@ -156,10 +156,10 @@ export const StateManager = {
                         }
                     });
                 });
-                console.log("[ShellLink] 💽 已成功将本地硬盘记录同步回输出模块中！");
+                console.log("[CLab] 💽 已成功将本地硬盘记录同步回输出模块中！");
             }
         } catch (e) {
-            console.error("[ShellLink] 同步硬盘历史记录请求失败:", e);
+            console.error("[CLab] 同步硬盘历史记录请求失败:", e);
         }
     },
 
@@ -196,7 +196,7 @@ export const StateManager = {
             return;
         }
         
-        const node = LiteGraph.createNode("ShellLinkSystemConfig");
+        const node = LiteGraph.createNode("CLab_SystemConfig");
         
         let posX = 400; let posY = 300;
         try {
@@ -209,7 +209,7 @@ export const StateManager = {
         
         // 创建完毕后立马同步现有面板数据进去
         this.syncToNode(graph);
-        console.log("[ShellLink] ⚓ 配置节点已成功创建并绑定当前数据！");
+        console.log("[CLab] ⚓ 配置节点已成功创建并绑定当前数据！");
         
         // 弹出成功提示
         this.showToast("✅ 配置节点已创建");

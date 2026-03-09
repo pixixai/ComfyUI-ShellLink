@@ -34,6 +34,6 @@ WEB_DIRECTORY = "./web" # 指向包含 js 的 web 文件夹
 try:
     from . import api
 except Exception as e:
-    print(f"[ShellLink] ⚠️ 后端 API 接口加载失败: {e}")
+    print(f"[CLab] ⚠️ 后端 API 接口加载失败: {e}")
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

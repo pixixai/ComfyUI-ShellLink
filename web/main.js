@@ -1,5 +1,5 @@
 /**
- * ComfyUI-ShellLink 扩展入口文件
+ * ComfyUI-CLab 扩展入口文件
  * 负责向 ComfyUI 注册扩展，统筹 UI 层与底层逻辑的初始化
  */
 import { app } from "../../scripts/app.js";
@@ -8,10 +8,10 @@ import { setupAPIInjector } from "./api_injector.js";
 import { setupUI } from "./ui_panel.js"; 
 
 app.registerExtension({
-    name: "ComfyUI.ShellLink",
+    name: "ComfyUI.CLab",
     
     async setup() {
-        console.log("[ShellLink] 开始加载...");
+        console.log("[CLab] 开始加载...");
         setupUI();
         setupAPIInjector(app);
 
@@ -20,7 +20,7 @@ app.registerExtension({
         const originalClear = app.graph.clear;
         app.graph.clear = function() {
             originalClear.apply(this, arguments);
-            console.log("[ShellLink] 工作流被清空，隔离并重置面板状态...");
+            console.log("[CLab] 工作流被清空，隔离并重置面板状态...");
             // 此时图为空，调用 load 会自动走到清理逻辑
             StateManager.loadFromNode(app.graph); 
         };
@@ -28,8 +28,8 @@ app.registerExtension({
 
     // 节点加载完成时的钩子：用于打开包含配置节点的工作流时，自动恢复数据
     loadedGraphNode(node, appData) {
-        if (node.type === "ShellLinkSystemConfig") {
-            console.log("[ShellLink] 检测到工作流配置节点，准备同步数据...");
+        if (node.type === "CLab_SystemConfig") {
+            console.log("[CLab] 检测到工作流配置节点，准备同步数据...");
             // 延迟读取，确保 ComfyUI 已经把 JSON 数据完全注入到小部件中
             setTimeout(() => {
                 StateManager.loadFromNode(app.graph);
@@ -40,8 +40,8 @@ app.registerExtension({
     // 【新增】：节点被手动创建/粘贴时的钩子
     // 完美支持跨工作流复制：只要你把配置节点 Ctrl+V 进来，立刻覆盖并刷新面板
     nodeCreated(node) {
-        if (node.type === "ShellLinkSystemConfig") {
-            console.log("[ShellLink] 配置节点被创建或粘贴，尝试读取数据...");
+        if (node.type === "CLab_SystemConfig") {
+            console.log("[CLab] 配置节点被创建或粘贴，尝试读取数据...");
             setTimeout(() => {
                 StateManager.loadFromNode(app.graph);
             }, 100);
@@ -52,7 +52,7 @@ app.registerExtension({
 /**
  * 暴露全局方法给 UI 层调用
  */
-window.ShellLink = {
+window.CLab = {
     // 供 UI 调用：一键生成配置节点
     createNode() {
         StateManager.createConfigNode(app.graph);

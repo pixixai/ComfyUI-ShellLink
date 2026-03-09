@@ -18,8 +18,8 @@ except ImportError:
 # =========================================================================
 # 1. 动态注入专属保存节点 (去除原版 SaveImage 讨厌的尾部下划线)
 # =========================================================================
-class ShellLinkSaveImage(nodes.SaveImage):
-    def save_images(self, images, filename_prefix="ShellLink/Pix", prompt=None, extra_pnginfo=None):
+class CLabSaveImage(nodes.SaveImage):
+    def save_images(self, images, filename_prefix="CLab/Pix", prompt=None, extra_pnginfo=None):
         filename_prefix += self.prefix_append
         full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(filename_prefix, self.output_dir, images[0].shape[1], images[0].shape[0])
         results = list()
@@ -53,15 +53,15 @@ class ShellLinkSaveImage(nodes.SaveImage):
 
         return { "ui": { "images": results } }
 
-nodes.NODE_CLASS_MAPPINGS["ShellLinkSaveImage"] = ShellLinkSaveImage
-nodes.NODE_DISPLAY_NAME_MAPPINGS["ShellLinkSaveImage"] = "ShellLink Save Image"
+nodes.NODE_CLASS_MAPPINGS["CLab_SaveImage"] = CLabSaveImage
+nodes.NODE_DISPLAY_NAME_MAPPINGS["CLab_SaveImage"] = "💾 CLab Save Image"
 
 
 # =========================================================================
-# 2. 注册 ShellLink 的专属操作接口 (删除 & 整理)
+# 2. 注册 CLab 的专属操作接口 (删除 & 整理)
 # =========================================================================
-@server.PromptServer.instance.routes.post("/shell_link/delete_file")
-async def shell_link_delete_file(request):
+@server.PromptServer.instance.routes.post("/clab/delete_file")
+async def clab_delete_file(request):
     try:
         data = await request.json()
         filename = data.get("filename")
@@ -81,7 +81,7 @@ async def shell_link_delete_file(request):
         
         if os.path.exists(full_path):
             os.remove(full_path)
-            print(f"[ShellLink] 🗑️ 已成功删除本地文件: {full_path}")
+            print(f"[CLab] 🗑️ 已成功删除本地文件: {full_path}")
             return web.json_response({"status": "success"})
         else:
             return web.json_response({"status": "error", "error": "文件不存在或已被删除"})
@@ -89,8 +89,8 @@ async def shell_link_delete_file(request):
         return web.json_response({"status": "error", "error": str(e)})
 
 
-@server.PromptServer.instance.routes.post("/shell_link/organize_files")
-async def shell_link_organize_files(request):
+@server.PromptServer.instance.routes.post("/clab/organize_files")
+async def clab_organize_files(request):
     try:
         data = await request.json()
         action = data.get("action", "move")
@@ -153,14 +153,14 @@ async def shell_link_organize_files(request):
 
         return web.json_response({"status": "success", "results": results})
     except Exception as e:
-        print(f"[ShellLink] 组织文件发生错误: {str(e)}")
+        print(f"[CLab] 组织文件发生错误: {str(e)}")
         return web.json_response({"status": "error", "error": str(e)})
 
 # =========================================================================
 # 3. 截胡转移专用接口 (复制 temp 或 output 文件到专属归档目录)
 # =========================================================================
-@server.PromptServer.instance.routes.post("/shell_link/copy_temp_asset")
-async def shell_link_copy_temp_asset(request):
+@server.PromptServer.instance.routes.post("/clab/copy_temp_asset")
+async def clab_copy_temp_asset(request):
     try:
         data = await request.json()
         filename = data.get("filename")
@@ -190,9 +190,9 @@ async def shell_link_copy_temp_asset(request):
         # 确定目标目录 
         target_base_dir = folder_paths.get_output_directory()
         if asset_type == "image":
-            target_subfolder = "ShellLink"
+            target_subfolder = "CLab"
         else:
-            target_subfolder = f"ShellLink/{asset_type}"
+            target_subfolder = f"CLab/{asset_type}"
             
         target_dir = os.path.normpath(os.path.join(target_base_dir, target_subfolder))
         os.makedirs(target_dir, exist_ok=True)
@@ -212,7 +212,7 @@ async def shell_link_copy_temp_asset(request):
             
         # 执行复制操作 (保留原始文件，避免干涉其他正常节点逻辑)
         shutil.copy2(source_path, target_path)
-        print(f"[ShellLink] 🎯 成功截胡资产: {filename} -> {target_subfolder}/{new_filename}")
+        print(f"[CLab] 🎯 成功截胡资产: {filename} -> {target_subfolder}/{new_filename}")
         
         return web.json_response({
             "status": "success", 
@@ -222,5 +222,5 @@ async def shell_link_copy_temp_asset(request):
         })
         
     except Exception as e:
-        print(f"[ShellLink] 截胡转移资产时发生错误: {str(e)}")
+        print(f"[CLab] 截胡转移资产时发生错误: {str(e)}")
         return web.json_response({"status": "error", "error": str(e)})

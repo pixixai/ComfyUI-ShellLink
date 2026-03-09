@@ -63,22 +63,22 @@ export function buildTasksQueue(isRunAll = false) {
 }
 
 export function attachRunEvents(panelContainer) {
-    const runWrapper = panelContainer.querySelector("#sl-run-btn-wrapper");
+    const runWrapper = panelContainer.querySelector("#clab-run-btn-wrapper");
     if (runWrapper) {
-        const toggleBtn = runWrapper.querySelector("#sl-run-dropdown-toggle");
-        const dropdown = runWrapper.querySelector("#sl-run-dropdown-menu");
+        const toggleBtn = runWrapper.querySelector("#clab-run-dropdown-toggle");
+        const dropdown = runWrapper.querySelector("#clab-run-dropdown-menu");
 
         toggleBtn.onclick = (e) => {
             e.stopPropagation();
             const isVisible = dropdown.style.display === 'block';
-            document.querySelectorAll('.sl-custom-select-dropdown').forEach(d => d.style.display = 'none');
+            document.querySelectorAll('.clab-custom-select-dropdown').forEach(d => d.style.display = 'none');
             dropdown.style.display = isVisible ? 'none' : 'block';
         };
     }
 
     // 辅助函数：实时获取输入框里的循环次数
     const getBatchCount = () => {
-        const countInput = panelContainer.querySelector('#sl-run-batch-count');
+        const countInput = panelContainer.querySelector('#clab-run-batch-count');
         if (countInput) {
             let v = parseInt(countInput.value, 10);
             return (!isNaN(v) && v > 0) ? v : 1;
@@ -86,7 +86,7 @@ export function attachRunEvents(panelContainer) {
         return 1;
     };
 
-    panelContainer.querySelector("#sl-btn-run").onclick = () => {
+    panelContainer.querySelector("#clab-btn-run").onclick = () => {
         const baseQueue = buildTasksQueue(false);
 
         if (baseQueue.length === 0) {
@@ -101,20 +101,20 @@ export function attachRunEvents(panelContainer) {
             finalQueue = finalQueue.concat(baseQueue.map(task => ({ ...task })));
         }
         
-        console.log(`[ShellLink] 局部运行 - 循环 ${batchCount} 遍，共派发 ${finalQueue.length} 个任务:`, finalQueue);
-        document.dispatchEvent(new CustomEvent('sl_execution_start', { detail: { tasks: finalQueue } }));
+        console.log(`[CLab] 局部运行 - 循环 ${batchCount} 遍，共派发 ${finalQueue.length} 个任务:`, finalQueue);
+        document.dispatchEvent(new CustomEvent('clab_execution_start', { detail: { tasks: finalQueue } }));
 
-        if (window.ShellLink && window.ShellLink.executeTasks) {
-            window.ShellLink.executeTasks(finalQueue);
+        if (window.CLab && window.CLab.executeTasks) {
+            window.CLab.executeTasks(finalQueue);
         } else if (app.queuePrompt) {
             // 降级兼容：如果 api_injector 出了问题，用原生接口连发
             for(let i=0; i<finalQueue.length; i++) app.queuePrompt(0, 1);
         }
     };
 
-    panelContainer.querySelector("#sl-btn-run-all").onclick = (e) => {
+    panelContainer.querySelector("#clab-btn-run-all").onclick = (e) => {
         e.stopPropagation();
-        const dropdown = panelContainer.querySelector("#sl-run-dropdown-menu");
+        const dropdown = panelContainer.querySelector("#clab-run-dropdown-menu");
         if (dropdown) dropdown.style.display = 'none';
 
         if (!state.cards || state.cards.length === 0) return alert("面板中没有任何任务卡片！");
@@ -129,11 +129,11 @@ export function attachRunEvents(panelContainer) {
             finalQueue = finalQueue.concat(baseQueue.map(task => ({ ...task })));
         }
         
-        console.log(`[ShellLink] 运行全部 - 循环 ${batchCount} 遍，共派发 ${finalQueue.length} 个任务:`, finalQueue);
-        document.dispatchEvent(new CustomEvent('sl_execution_start', { detail: { tasks: finalQueue } }));
+        console.log(`[CLab] 运行全部 - 循环 ${batchCount} 遍，共派发 ${finalQueue.length} 个任务:`, finalQueue);
+        document.dispatchEvent(new CustomEvent('clab_execution_start', { detail: { tasks: finalQueue } }));
 
-        if (window.ShellLink && window.ShellLink.executeTasks) {
-            window.ShellLink.executeTasks(finalQueue);
+        if (window.CLab && window.CLab.executeTasks) {
+            window.CLab.executeTasks(finalQueue);
         } else {
             alert("API 拦截器尚未加载完毕，请稍后再试！");
         }

@@ -6,53 +6,53 @@ import { formatTime, formatTimeWithFrames } from "./media_utils.js";
 
 export function renderVideo(area, objectFit, url, errCall) {
     return `
-        <div class="sl-video-player" data-area-id="${area.id}">
-            <video id="sl-img-${area.id}" class="sl-preview-img sl-media-target" src="${url}" draggable="false" style="object-fit: ${objectFit}; width: 100%; height: 100%; display: block;" autoplay loop muted playsinline onerror="${errCall}"></video>
-            <div class="sl-video-controls">
-                <div class="sl-video-toolbar">
+        <div class="clab-video-player" data-area-id="${area.id}">
+            <video id="clab-img-${area.id}" class="clab-preview-img clab-media-target" src="${url}" draggable="false" style="object-fit: ${objectFit}; width: 100%; height: 100%; display: block;" autoplay loop muted playsinline onerror="${errCall}"></video>
+            <div class="clab-video-controls">
+                <div class="clab-video-toolbar">
                     <!-- 【样式锁定】：强制无衬线体，彻底去除投影 -->
-                    <span class="sl-timecode" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; text-shadow: none !important; -webkit-font-smoothing: antialiased;">00:00 / 00:00</span>
-                    <div class="sl-video-tools-right">
+                    <span class="clab-timecode" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; text-shadow: none !important; -webkit-font-smoothing: antialiased;">00:00 / 00:00</span>
+                    <div class="clab-video-tools-right">
                         
                         <!-- 极简音量滑杆 -->
-                        <div class="sl-volume-wrap sl-video-controls-interactive" style="background: transparent !important;">
-                            <div class="sl-volume-slider-container sl-vid-vol-slider" title="调节音量">
-                                <div class="sl-volume-slider-track">
-                                    <div class="sl-volume-slider-fill"></div>
-                                    <div class="sl-volume-slider-thumb"></div>
+                        <div class="clab-volume-wrap clab-video-controls-interactive" style="background: transparent !important;">
+                            <div class="clab-volume-slider-container clab-vid-vol-slider" title="调节音量">
+                                <div class="clab-volume-slider-track">
+                                    <div class="clab-volume-slider-fill"></div>
+                                    <div class="clab-volume-slider-thumb"></div>
                                 </div>
                             </div>
-                            <button class="sl-media-opt-btn sl-opt-mute" title="静音/取消静音" style="padding: 4px 6px; background: transparent !important; color: #aaa; transition: color 0.2s;" onmouseover="if(this.style.pointerEvents !== 'none') this.style.color='#fff'" onmouseout="if(this.style.pointerEvents !== 'none') this.style.color='#aaa'">
-                                <svg class="sl-vol-icon-high" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-                                <svg class="sl-vol-icon-muted" style="display:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
-                                <svg class="sl-vol-icon-none" style="display:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon></svg>
+                            <button class="clab-media-opt-btn clab-opt-mute" title="静音/取消静音" style="padding: 4px 6px; background: transparent !important; color: #aaa; transition: color 0.2s;" onmouseover="if(this.style.pointerEvents !== 'none') this.style.color='#fff'" onmouseout="if(this.style.pointerEvents !== 'none') this.style.color='#aaa'">
+                                <svg class="clab-vol-icon-high" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                                <svg class="clab-vol-icon-muted" style="display:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                                <svg class="clab-vol-icon-none" style="display:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon></svg>
                             </button>
                         </div>
                         
-                        <div class="sl-media-opt-wrapper sl-video-controls-interactive">
-                            <button class="sl-media-opt-btn sl-more-toggle">⋮</button>
-                            <div class="sl-media-dropdown sl-more-dropdown">
+                        <div class="clab-media-opt-wrapper clab-video-controls-interactive">
+                            <button class="clab-media-opt-btn clab-more-toggle">⋮</button>
+                            <div class="clab-media-dropdown clab-more-dropdown">
                                 <div style="padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1);">
                                     <span style="font-size: 11px; color: #aaa; font-family: sans-serif !important;">播放速度</span>
                                     <div style="display: flex; align-items: center; background: rgba(0,0,0,0.5); border: 1px solid #555; border-radius: 4px; padding: 0 4px;">
-                                        <input type="number" class="sl-media-speed-input" value="1.0" step="0.1" min="0.1" max="5.0" style="width: 28px; background: transparent; border: none; color: #eee; font-size: 11px; text-align: center; outline: none; -moz-appearance: textfield;">
+                                        <input type="number" class="clab-media-speed-input" value="1.0" step="0.1" min="0.1" max="5.0" style="width: 28px; background: transparent; border: none; color: #eee; font-size: 11px; text-align: center; outline: none; -moz-appearance: textfield;">
                                         <span style="font-size: 10px; color: #aaa; pointer-events: none;">x</span>
                                     </div>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                    <span class="sl-vid-speed-opt" data-spd="0.5" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">0.5</span>
-                                    <span class="sl-vid-speed-opt" data-spd="1.0" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">1.0</span>
-                                    <span class="sl-vid-speed-opt" data-spd="1.5" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">1.5</span>
-                                    <span class="sl-vid-speed-opt" data-spd="2.0" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">2.0</span>
+                                    <span class="clab-vid-speed-opt" data-spd="0.5" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">0.5</span>
+                                    <span class="clab-vid-speed-opt" data-spd="1.0" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">1.0</span>
+                                    <span class="clab-vid-speed-opt" data-spd="1.5" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">1.5</span>
+                                    <span class="clab-vid-speed-opt" data-spd="2.0" style="cursor: pointer; font-size: 10px; color: #eee; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); transition: background 0.2s;">2.0</span>
                                 </div>
-                                <div class="sl-media-dropdown-item sl-opt-pip" style="margin-top: 4px;">画中画</div>
-                                <div class="sl-media-dropdown-item sl-opt-fullscreen">全屏</div>
+                                <div class="clab-media-dropdown-item clab-opt-pip" style="margin-top: 4px;">画中画</div>
+                                <div class="clab-media-dropdown-item clab-opt-fullscreen">全屏</div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="sl-video-progress-container sl-video-controls-interactive">
-                    <div class="sl-video-progress-bar"></div>
+                <div class="clab-video-progress-container clab-video-controls-interactive">
+                    <div class="clab-video-progress-bar"></div>
                 </div>
             </div>
         </div>
@@ -60,22 +60,22 @@ export function renderVideo(area, objectFit, url, errCall) {
 }
 
 export function updateVideoProgress() {
-    document.querySelectorAll('.sl-video-player').forEach(player => {
+    document.querySelectorAll('.clab-video-player').forEach(player => {
         const vid = player.querySelector('video');
         if (!vid) return;
 
         // 音量与静音状态更新
-        const muteOpt = player.querySelector('.sl-opt-mute');
+        const muteOpt = player.querySelector('.clab-opt-mute');
         if (muteOpt) {
             let noAudio = false;
             if (vid.audioTracks && vid.audioTracks.length === 0) noAudio = true;
             else if (vid.mozHasAudio === false) noAudio = true;
             else if (vid.currentTime > 0.1 && vid.webkitAudioDecodedByteCount === 0) noAudio = true;
 
-            const iconHigh = muteOpt.querySelector('.sl-vol-icon-high');
-            const iconMuted = muteOpt.querySelector('.sl-vol-icon-muted');
-            const iconNone = muteOpt.querySelector('.sl-vol-icon-none');
-            const slider = player.querySelector('.sl-vid-vol-slider');
+            const iconHigh = muteOpt.querySelector('.clab-vol-icon-high');
+            const iconMuted = muteOpt.querySelector('.clab-vol-icon-muted');
+            const iconNone = muteOpt.querySelector('.clab-vol-icon-none');
+            const slider = player.querySelector('.clab-vid-vol-slider');
 
             if (noAudio) {
                 muteOpt.style.color = '#888'; muteOpt.style.pointerEvents = 'none';
@@ -100,8 +100,8 @@ export function updateVideoProgress() {
         // 当因为滚轮或拖拽正在 scrubbing 时，不执行默认的时间码更新逻辑
         if (vid.dataset.isScrubbing === 'true') return; 
         
-        const bar = player.querySelector('.sl-video-progress-bar');
-        const tc = player.querySelector('.sl-timecode');
+        const bar = player.querySelector('.clab-video-progress-bar');
+        const tc = player.querySelector('.clab-timecode');
         if (bar && tc && vid.duration) {
             bar.style.width = `${(vid.currentTime / vid.duration) * 100}%`;
             // 正常播放时显示标准格式
@@ -111,7 +111,7 @@ export function updateVideoProgress() {
 }
 
 export function attachVideoEvents(container) {
-    container.querySelectorAll('.sl-video-player').forEach(player => {
+    container.querySelectorAll('.clab-video-player').forEach(player => {
         if (player.dataset.binded) return;
         player.dataset.binded = "1";
 
@@ -123,7 +123,7 @@ export function attachVideoEvents(container) {
         // =========================================================================
         player.addEventListener('wheel', (e) => {
             // 只有当视频加载了时长且鼠标没在底部的交互控件上时才响应
-            if (!vid.duration || e.target.closest('.sl-video-controls-interactive')) return;
+            if (!vid.duration || e.target.closest('.clab-video-controls-interactive')) return;
 
             // 强力拦截：阻止面板滚动条和外层容器滚动条的默认行为，并切断冒泡！
             e.preventDefault();
@@ -144,8 +144,8 @@ export function attachVideoEvents(container) {
             vid.currentTime = Math.max(0, Math.min(vid.duration, newTime));
 
             // 视觉反馈：即时更新时间码（显示帧格式，并变绿提示正在调节）
-            const tc = player.querySelector('.sl-timecode');
-            const bar = player.querySelector('.sl-video-progress-bar');
+            const tc = player.querySelector('.clab-timecode');
+            const bar = player.querySelector('.clab-video-progress-bar');
             
             if (bar) {
                  bar.style.width = `${(vid.currentTime / vid.duration) * 100}%`;
@@ -177,20 +177,20 @@ export function attachVideoEvents(container) {
 
         // 【右键处理】：彻底移除进度调节，仅保留呼出菜单
         player.addEventListener('contextmenu', (e) => {
-            if (e.target.closest('.sl-video-controls-interactive')) return;
+            if (e.target.closest('.clab-video-controls-interactive')) return;
             e.preventDefault();
             e.stopPropagation();
-            if (window.ShellLink && window.ShellLink.showPreviewContextMenu) {
+            if (window.CLab && window.CLab.showPreviewContextMenu) {
                 const areaId = player.dataset.areaId;
-                const cardEl = player.closest('.sl-card');
+                const cardEl = player.closest('.clab-card');
                 const cardId = cardEl ? cardEl.dataset.cardId : null;
-                window.ShellLink.showPreviewContextMenu(e.clientX, e.clientY, cardId, areaId, vid.src);
+                window.CLab.showPreviewContextMenu(e.clientX, e.clientY, cardId, areaId, vid.src);
             }
         }, true);
 
         // 单击播放/暂停
         player.addEventListener('click', (e) => {
-            if (e.target.closest('.sl-video-controls-interactive')) return;
+            if (e.target.closest('.clab-video-controls-interactive')) return;
             if (e.button === 0 && e.target.tagName === 'VIDEO') {
                 if (vid.paused) vid.play().catch(()=>{});
                 else vid.pause();
@@ -200,7 +200,7 @@ export function attachVideoEvents(container) {
         // =========================================================================
         // 【核心修改 2】：底部进度条改为纯净的“仅点击跳转”模式
         // =========================================================================
-        const progContainer = player.querySelector('.sl-video-progress-container');
+        const progContainer = player.querySelector('.clab-video-progress-container');
         if (progContainer) {
             progContainer.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
@@ -213,11 +213,11 @@ export function attachVideoEvents(container) {
                 const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
                 vid.currentTime = pos * vid.duration;
                 
-                const bar = player.querySelector('.sl-video-progress-bar');
+                const bar = player.querySelector('.clab-video-progress-bar');
                 if (bar) bar.style.width = `${pos * 100}%`;
                 
                 // 让时间码瞬间刷新，不用等下一次 timeupdate
-                const tc = player.querySelector('.sl-timecode');
+                const tc = player.querySelector('.clab-timecode');
                 if (tc) {
                     tc.textContent = `${formatTime(vid.currentTime)} / ${formatTime(vid.duration)}`;
                 }
@@ -225,11 +225,11 @@ export function attachVideoEvents(container) {
         }
 
         // 音量逻辑 (保持原样，因为音量通常需要拖拽调节)
-        const volContainer = player.querySelector('.sl-vid-vol-slider');
+        const volContainer = player.querySelector('.clab-vid-vol-slider');
         if (volContainer && vid) {
             const updateVolUI = (vol) => {
-                const fill = volContainer.querySelector('.sl-volume-slider-fill');
-                const thumb = volContainer.querySelector('.sl-volume-slider-thumb');
+                const fill = volContainer.querySelector('.clab-volume-slider-fill');
+                const thumb = volContainer.querySelector('.clab-volume-slider-thumb');
                 if (fill) fill.style.width = `${vol * 100}%`;
                 if (thumb) thumb.style.right = `${vol * 100}%`;
             };
@@ -253,13 +253,13 @@ export function attachVideoEvents(container) {
             });
         }
 
-        const muteOpt = player.querySelector('.sl-opt-mute');
+        const muteOpt = player.querySelector('.clab-opt-mute');
         if (muteOpt) {
             muteOpt.onclick = (e) => {
                 e.stopPropagation();
                 
-                const fill = player.querySelector('.sl-volume-slider-fill');
-                const thumb = player.querySelector('.sl-volume-slider-thumb');
+                const fill = player.querySelector('.clab-volume-slider-fill');
+                const thumb = player.querySelector('.clab-volume-slider-thumb');
                 
                 if (vid.muted || vid.volume === 0) {
                     // 关闭静音，音量设为 80%
@@ -278,8 +278,8 @@ export function attachVideoEvents(container) {
         }
 
         // 更多菜单
-        const moreToggle = player.querySelector('.sl-more-toggle');
-        const moreDropdown = player.querySelector('.sl-more-dropdown');
+        const moreToggle = player.querySelector('.clab-more-toggle');
+        const moreDropdown = player.querySelector('.clab-more-dropdown');
         if (moreToggle) {
             moreToggle.onclick = (e) => {
                 e.stopPropagation();
@@ -287,7 +287,7 @@ export function attachVideoEvents(container) {
             };
         }
 
-        const speedInput = player.querySelector('.sl-media-speed-input');
+        const speedInput = player.querySelector('.clab-media-speed-input');
         if (speedInput) {
             speedInput.onchange = (e) => {
                 let v = parseFloat(e.target.value);
@@ -295,7 +295,7 @@ export function attachVideoEvents(container) {
             };
         }
         
-        player.querySelectorAll('.sl-vid-speed-opt').forEach(item => {
+        player.querySelectorAll('.clab-vid-speed-opt').forEach(item => {
             item.onclick = (e) => {
                 e.stopPropagation();
                 const spd = parseFloat(item.dataset.spd);
@@ -305,7 +305,7 @@ export function attachVideoEvents(container) {
             };
         });
 
-        const fsOpt = player.querySelector('.sl-opt-fullscreen');
+        const fsOpt = player.querySelector('.clab-opt-fullscreen');
         if (fsOpt) fsOpt.onclick = (e) => { 
             e.stopPropagation(); 
             if (vid.requestFullscreen) vid.requestFullscreen(); 

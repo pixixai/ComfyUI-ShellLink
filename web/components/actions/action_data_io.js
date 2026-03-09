@@ -32,37 +32,37 @@ export function attachDataIOEvents(panelContainer) {
     // ----------------------------------------------------
     // 1. JSON 导入功能
     // ----------------------------------------------------
-    const addModuleBtn = panelContainer.querySelector("#sl-global-add-module");
-    if (addModuleBtn && !panelContainer.querySelector("#sl-import-json-wrapper")) {
+    const addModuleBtn = panelContainer.querySelector("#clab-global-add-module");
+    if (addModuleBtn && !panelContainer.querySelector("#clab-import-json-wrapper")) {
         addModuleBtn.insertAdjacentHTML('afterend', `
-            <div id="sl-import-json-wrapper" style="position:relative; display:inline-flex; align-items:center;">
-                <button class="sl-btn" id="sl-import-json-btn" title="批量导入JSON快速构建" style="padding: 0; width: 34px; height: 34px; display:flex; align-items:center; justify-content:center;">
+            <div id="clab-import-json-wrapper" style="position:relative; display:inline-flex; align-items:center;">
+                <button class="clab-btn" id="clab-import-json-btn" title="批量导入JSON快速构建" style="padding: 0; width: 34px; height: 34px; display:flex; align-items:center; justify-content:center;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="6 9 12 15 18 9"></polyline>
                     </svg>
                 </button>
-                <div id="sl-import-json-dropdown" class="sl-custom-select-dropdown" style="display:none; top: calc(100% + 4px); left: 0; min-width: 170px; z-index: 10002;">
-                    <div class="sl-custom-select-group-title" style="padding: 6px 12px; font-size: 12px; margin-top: 0; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05);">从剪切板导入JSON数据</div>
-                    <div class="sl-custom-select-item" id="sl-import-new-clip">创建任务</div>
-                    <div class="sl-custom-select-item" id="sl-import-append-smart-clip">追加模块</div>
-                    <div class="sl-custom-select-item" id="sl-import-append-sel-clip">追加模块到选中</div>
+                <div id="clab-import-json-dropdown" class="clab-custom-select-dropdown" style="display:none; top: calc(100% + 4px); left: 0; min-width: 170px; z-index: 10002;">
+                    <div class="clab-custom-select-group-title" style="padding: 6px 12px; font-size: 12px; margin-top: 0; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05);">从剪切板导入JSON数据</div>
+                    <div class="clab-custom-select-item" id="clab-import-new-clip">创建任务</div>
+                    <div class="clab-custom-select-item" id="clab-import-append-smart-clip">追加模块</div>
+                    <div class="clab-custom-select-item" id="clab-import-append-sel-clip">追加模块到选中</div>
                     
-                    <div class="sl-custom-select-group-title" style="padding: 6px 12px; font-size: 12px; margin-top: 4px; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05);">从本地文件导入JSON数据</div>
-                    <div class="sl-custom-select-item" id="sl-import-new-local">创建任务</div>
-                    <div class="sl-custom-select-item" id="sl-import-append-smart-local">追加模块</div>
-                    <div class="sl-custom-select-item" id="sl-import-append-sel-local">追加模块到选中</div>
+                    <div class="clab-custom-select-group-title" style="padding: 6px 12px; font-size: 12px; margin-top: 4px; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05);">从本地文件导入JSON数据</div>
+                    <div class="clab-custom-select-item" id="clab-import-new-local">创建任务</div>
+                    <div class="clab-custom-select-item" id="clab-import-append-smart-local">追加模块</div>
+                    <div class="clab-custom-select-item" id="clab-import-append-sel-local">追加模块到选中</div>
                 </div>
             </div>
         `);
 
-        const wrapper = panelContainer.querySelector("#sl-import-json-wrapper");
-        const btn = wrapper.querySelector("#sl-import-json-btn");
-        const dropdown = wrapper.querySelector("#sl-import-json-dropdown");
+        const wrapper = panelContainer.querySelector("#clab-import-json-wrapper");
+        const btn = wrapper.querySelector("#clab-import-json-btn");
+        const dropdown = wrapper.querySelector("#clab-import-json-dropdown");
 
         btn.onclick = (e) => {
             e.stopPropagation();
             const isVisible = dropdown.style.display === 'block';
-            document.querySelectorAll('.sl-custom-select-dropdown').forEach(d => d.style.display = 'none');
+            document.querySelectorAll('.clab-custom-select-dropdown').forEach(d => d.style.display = 'none');
             dropdown.style.display = isVisible ? 'none' : 'block';
         };
 
@@ -186,7 +186,7 @@ export function attachDataIOEvents(panelContainer) {
                 // =========================================================
                 // 【核心引擎替换】：彻底抛弃 saveAndRender，采用无感 DOM 物理拼贴
                 // =========================================================
-                const cardsWrapper = document.querySelector('.sl-cards-wrapper');
+                const cardsWrapper = document.querySelector('.clab-cards-wrapper');
                 
                 // 1. 批量插入全新生成的任务卡片
                 if (newCardsToDOM.length > 0 && cardsWrapper) {
@@ -203,13 +203,13 @@ export function attachDataIOEvents(panelContainer) {
                     
                     attachCardEvents(cardsWrapper);
                     // 为通过 JSON 凭空生成的新卡片内部模块，补绑拖拽和监听事件！
-                    if (window._slAttachAreaEvents) window._slAttachAreaEvents(cardsWrapper);
+                    if (window._clabAttachAreaEvents) window._clabAttachAreaEvents(cardsWrapper);
                 }
                 
                 // 2. 批量追加新模块到现有的任务卡片中
                 for (let cardId in newAreasToDOM) {
                     const card = state.cards.find(c => c.id === cardId);
-                    const cardBody = document.querySelector(`.sl-card[data-card-id="${cardId}"] .sl-area-list`);
+                    const cardBody = document.querySelector(`.clab-card[data-card-id="${cardId}"] .clab-area-list`);
                     if (cardBody && card) {
                         const temp = document.createElement('div');
                         newAreasToDOM[cardId].forEach(area => {
@@ -225,11 +225,11 @@ export function attachDataIOEvents(panelContainer) {
                 // 3. 静默保存数据与更新 UI，全程不闪屏
                 justSave();
                 updateSelectionUI();
-                if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
-                if (window._slUpdateCardsLayout) window._slUpdateCardsLayout();
+                if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
+                if (window._clabUpdateCardsLayout) window._clabUpdateCardsLayout();
                 
                 setTimeout(() => {
-                    const container = panelContainer.querySelector("#sl-cards-container");
+                    const container = panelContainer.querySelector("#clab-cards-container");
                     if (!container) return;
                     if (mode === 'new' || mode === 'smart_append') container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
                 }, 50);
@@ -265,68 +265,68 @@ export function attachDataIOEvents(panelContainer) {
             fileInput.click();
         };
 
-        wrapper.querySelector("#sl-import-new-clip").onclick = (e) => { e.stopPropagation(); handleClipboardImport('new'); };
-        wrapper.querySelector("#sl-import-append-smart-clip").onclick = (e) => { e.stopPropagation(); handleClipboardImport('smart_append'); };
-        wrapper.querySelector("#sl-import-append-sel-clip").onclick = (e) => { e.stopPropagation(); handleClipboardImport('append_selected'); };
-        wrapper.querySelector("#sl-import-new-local").onclick = (e) => { e.stopPropagation(); handleLocalImport('new'); };
-        wrapper.querySelector("#sl-import-append-smart-local").onclick = (e) => { e.stopPropagation(); handleLocalImport('smart_append'); };
-        wrapper.querySelector("#sl-import-append-sel-local").onclick = (e) => { e.stopPropagation(); handleLocalImport('append_selected'); };
+        wrapper.querySelector("#clab-import-new-clip").onclick = (e) => { e.stopPropagation(); handleClipboardImport('new'); };
+        wrapper.querySelector("#clab-import-append-smart-clip").onclick = (e) => { e.stopPropagation(); handleClipboardImport('smart_append'); };
+        wrapper.querySelector("#clab-import-append-sel-clip").onclick = (e) => { e.stopPropagation(); handleClipboardImport('append_selected'); };
+        wrapper.querySelector("#clab-import-new-local").onclick = (e) => { e.stopPropagation(); handleLocalImport('new'); };
+        wrapper.querySelector("#clab-import-append-smart-local").onclick = (e) => { e.stopPropagation(); handleLocalImport('smart_append'); };
+        wrapper.querySelector("#clab-import-append-sel-local").onclick = (e) => { e.stopPropagation(); handleLocalImport('append_selected'); };
     }
 
     // ----------------------------------------------------
     // 2. 导出与媒体下载功能
     // ----------------------------------------------------
-    const configBtn = panelContainer.querySelector("#sl-btn-config");
-    if (configBtn && !panelContainer.querySelector("#sl-export-json-wrapper")) {
+    const configBtn = panelContainer.querySelector("#clab-btn-config");
+    if (configBtn && !panelContainer.querySelector("#clab-export-json-wrapper")) {
         configBtn.insertAdjacentHTML('beforebegin', `
-            <div id="sl-export-json-wrapper" style="position:relative; display:inline-flex; align-items:center;">
-                <button class="sl-btn" id="sl-export-json-btn" title="导出与下载" style="padding: 0; width: 34px; height: 34px; display:flex; align-items:center; justify-content:center;">
+            <div id="clab-export-json-wrapper" style="position:relative; display:inline-flex; align-items:center;">
+                <button class="clab-btn" id="clab-export-json-btn" title="导出与下载" style="padding: 0; width: 34px; height: 34px; display:flex; align-items:center; justify-content:center;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>
                     </svg>
                 </button>
-                <div id="sl-export-json-dropdown" class="sl-custom-select-dropdown" style="display:none; top: calc(100% + 4px); right: 0; left: auto; min-width: 250px; z-index: 10002;">
+                <div id="clab-export-json-dropdown" class="clab-custom-select-dropdown" style="display:none; top: calc(100% + 4px); right: 0; left: auto; min-width: 250px; z-index: 10002;">
                     
-                    <div class="sl-custom-select-group-title" style="padding: 6px 12px; font-size: 12px; margin-top: 0; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05); display: flex; align-items: center; white-space: nowrap; gap: 12px;">打包为ZIP</div>
-                    <div class="sl-custom-select-item" id="sl-export-media-all">下载全部</div>
-                    <div class="sl-custom-select-item" id="sl-export-media-sel">下载选中</div>
-                    <div class="sl-custom-select-item" id="sl-export-media-all-history">下载全部 (含所有生成记录)</div>
-                    <div class="sl-custom-select-item" id="sl-export-media-sel-history">下载选中 (含所有生成记录)</div>
+                    <div class="clab-custom-select-group-title" style="padding: 6px 12px; font-size: 12px; margin-top: 0; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05); display: flex; align-items: center; white-space: nowrap; gap: 12px;">打包为ZIP</div>
+                    <div class="clab-custom-select-item" id="clab-export-media-all">下载全部</div>
+                    <div class="clab-custom-select-item" id="clab-export-media-sel">下载选中</div>
+                    <div class="clab-custom-select-item" id="clab-export-media-all-history">下载全部 (含所有生成记录)</div>
+                    <div class="clab-custom-select-item" id="clab-export-media-sel-history">下载选中 (含所有生成记录)</div>
                     
-                    <div class="sl-custom-select-group-title" style="padding: 6px 12px; font-size: 12px; margin-top: 4px; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05);">收集整理</div>
-                    <div class="sl-custom-select-item" id="sl-export-org-move">移动到子文件夹</div>
-                    <div class="sl-custom-select-item" id="sl-export-org-copy">复制到子文件夹</div>
-                    <div class="sl-custom-select-item" id="sl-export-org-move-history">移动到子文件夹 (含所有生成记录)</div>
-                    <div class="sl-custom-select-item" id="sl-export-org-copy-history">复制到子文件夹 (含所有生成记录)</div>
+                    <div class="clab-custom-select-group-title" style="padding: 6px 12px; font-size: 12px; margin-top: 4px; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05);">收集整理</div>
+                    <div class="clab-custom-select-item" id="clab-export-org-move">移动到子文件夹</div>
+                    <div class="clab-custom-select-item" id="clab-export-org-copy">复制到子文件夹</div>
+                    <div class="clab-custom-select-item" id="clab-export-org-move-history">移动到子文件夹 (含所有生成记录)</div>
+                    <div class="clab-custom-select-item" id="clab-export-org-copy-history">复制到子文件夹 (含所有生成记录)</div>
                     
-                    <div class="sl-custom-select-group-title" style="padding: 0 0 0 12px; height: 28px; font-size: 12px; margin-top: 4px; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; white-space: nowrap;">
+                    <div class="clab-custom-select-group-title" style="padding: 0 0 0 12px; height: 28px; font-size: 12px; margin-top: 4px; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; white-space: nowrap;">
                         <span>导出JSON数据</span>
                         <div style="display: flex; height: 100%; align-items: center; pointer-events: auto;">
-                            <div id="sl-json-action-copy" style="height: 100%; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #2a2a2a; color: #fff; transition: all 0.2s;" title="点亮：点击下方项复制到剪切板">
+                            <div id="clab-json-action-copy" style="height: 100%; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #2a2a2a; color: #fff; transition: all 0.2s;" title="点亮：点击下方项复制到剪切板">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                             </div>
-                            <div id="sl-json-action-download" style="height: 100%; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: transparent; color: #888; transition: all 0.2s;" title="点亮：点击下方项下载到本地">
+                            <div id="clab-json-action-download" style="height: 100%; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: transparent; color: #888; transition: all 0.2s;" title="点亮：点击下方项下载到本地">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                             </div>
                         </div>
                     </div>
-                    <div class="sl-custom-select-item" id="sl-export-json-input">输入模块</div>
-                    <div class="sl-custom-select-item" id="sl-export-json-output">输出模块</div>
-                    <div class="sl-custom-select-item" id="sl-export-json-all">全部模块</div>
-                    <div class="sl-custom-select-item" id="sl-export-json-output-history">输出模块 (含所有生成记录)</div>
-                    <div class="sl-custom-select-item" id="sl-export-json-all-history">全部模块 (含所有生成记录)</div>
+                    <div class="clab-custom-select-item" id="clab-export-json-input">输入模块</div>
+                    <div class="clab-custom-select-item" id="clab-export-json-output">输出模块</div>
+                    <div class="clab-custom-select-item" id="clab-export-json-all">全部模块</div>
+                    <div class="clab-custom-select-item" id="clab-export-json-output-history">输出模块 (含所有生成记录)</div>
+                    <div class="clab-custom-select-item" id="clab-export-json-all-history">全部模块 (含所有生成记录)</div>
                 </div>
             </div>
         `);
 
-        const exportWrapper = panelContainer.querySelector("#sl-export-json-wrapper");
-        const exportBtn = exportWrapper.querySelector("#sl-export-json-btn");
-        const exportDropdown = exportWrapper.querySelector("#sl-export-json-dropdown");
+        const exportWrapper = panelContainer.querySelector("#clab-export-json-wrapper");
+        const exportBtn = exportWrapper.querySelector("#clab-export-json-btn");
+        const exportDropdown = exportWrapper.querySelector("#clab-export-json-dropdown");
 
         exportBtn.onclick = (e) => {
             e.stopPropagation();
             const isVisible = exportDropdown.style.display === 'block';
-            document.querySelectorAll('.sl-custom-select-dropdown').forEach(d => d.style.display = 'none');
+            document.querySelectorAll('.clab-custom-select-dropdown').forEach(d => d.style.display = 'none');
             exportDropdown.style.display = isVisible ? 'none' : 'block';
         };
 
@@ -386,7 +386,7 @@ export function attachDataIOEvents(panelContainer) {
                         });
                     }
                     const zip = new window.JSZip();
-                    const folder = zip.folder("ShellLink_Export");
+                    const folder = zip.folder("CLab_Export");
                     
                     for (let i = 0; i < uniqueUrls.length; i++) {
                         const url = uniqueUrls[i];
@@ -400,7 +400,7 @@ export function attachDataIOEvents(panelContainer) {
                     const zipBlob = await zip.generateAsync({ type: "blob" });
                     const zipUrl = URL.createObjectURL(zipBlob);
                     const a = document.createElement('a');
-                    a.href = zipUrl; a.download = `ShellLink_Media_${Date.now()}.zip`;
+                    a.href = zipUrl; a.download = `CLab_Media_${Date.now()}.zip`;
                     document.body.appendChild(a); a.click(); document.body.removeChild(a);
                     URL.revokeObjectURL(zipUrl);
                     if (typeof hideBindingToast === 'function') hideBindingToast();
@@ -426,14 +426,14 @@ export function attachDataIOEvents(panelContainer) {
             }
         };
 
-        exportWrapper.querySelector("#sl-export-media-all").onclick = (e) => { e.stopPropagation(); downloadMediaFiles('all', false); };
-        exportWrapper.querySelector("#sl-export-media-sel").onclick = (e) => { e.stopPropagation(); downloadMediaFiles('selected', false); };
-        exportWrapper.querySelector("#sl-export-media-all-history").onclick = (e) => { e.stopPropagation(); downloadMediaFiles('all', true); };
-        exportWrapper.querySelector("#sl-export-media-sel-history").onclick = (e) => { e.stopPropagation(); downloadMediaFiles('selected', true); };
+        exportWrapper.querySelector("#clab-export-media-all").onclick = (e) => { e.stopPropagation(); downloadMediaFiles('all', false); };
+        exportWrapper.querySelector("#clab-export-media-sel").onclick = (e) => { e.stopPropagation(); downloadMediaFiles('selected', false); };
+        exportWrapper.querySelector("#clab-export-media-all-history").onclick = (e) => { e.stopPropagation(); downloadMediaFiles('all', true); };
+        exportWrapper.querySelector("#clab-export-media-sel-history").onclick = (e) => { e.stopPropagation(); downloadMediaFiles('selected', true); };
 
         let currentJsonAction = 'copy'; 
-        const copyActionBtn = exportWrapper.querySelector("#sl-json-action-copy");
-        const downloadActionBtn = exportWrapper.querySelector("#sl-json-action-download");
+        const copyActionBtn = exportWrapper.querySelector("#clab-json-action-copy");
+        const downloadActionBtn = exportWrapper.querySelector("#clab-json-action-download");
 
         const updateJsonActionState = () => {
             if (currentJsonAction === 'copy') {
@@ -503,16 +503,16 @@ export function attachDataIOEvents(panelContainer) {
                 const blob = new Blob([jsonStr], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
-                a.href = url; a.download = `ShellLink_Export_${mode}_${Date.now()}.json`;
+                a.href = url; a.download = `CLab_Export_${mode}_${Date.now()}.json`;
                 a.click(); URL.revokeObjectURL(url);
             }
         };
 
-        exportWrapper.querySelector("#sl-export-json-input").onclick = (e) => { e.stopPropagation(); handleJsonExport('input'); };
-        exportWrapper.querySelector("#sl-export-json-output").onclick = (e) => { e.stopPropagation(); handleJsonExport('output'); };
-        exportWrapper.querySelector("#sl-export-json-all").onclick = (e) => { e.stopPropagation(); handleJsonExport('all'); };
-        exportWrapper.querySelector("#sl-export-json-output-history").onclick = (e) => { e.stopPropagation(); handleJsonExport('output_history'); };
-        exportWrapper.querySelector("#sl-export-json-all-history").onclick = (e) => { e.stopPropagation(); handleJsonExport('all_history'); };
+        exportWrapper.querySelector("#clab-export-json-input").onclick = (e) => { e.stopPropagation(); handleJsonExport('input'); };
+        exportWrapper.querySelector("#clab-export-json-output").onclick = (e) => { e.stopPropagation(); handleJsonExport('output'); };
+        exportWrapper.querySelector("#clab-export-json-all").onclick = (e) => { e.stopPropagation(); handleJsonExport('all'); };
+        exportWrapper.querySelector("#clab-export-json-output-history").onclick = (e) => { e.stopPropagation(); handleJsonExport('output_history'); };
+        exportWrapper.querySelector("#clab-export-json-all-history").onclick = (e) => { e.stopPropagation(); handleJsonExport('all_history'); };
 
         // =========================================================================
         // 【核心升级】：支持遍历所有生成记录的物理文件重排与归档
@@ -520,8 +520,8 @@ export function attachDataIOEvents(panelContainer) {
         const organizeOutputFiles = async (action, includeHistory = false) => {
             exportDropdown.style.display = 'none';
             let workflowName = "Unsaved_Workflow";
-            const configNode = app.graph._nodes.find(n => n.type === "ShellLinkSystemConfig");
-            if (configNode && configNode.title && configNode.title !== "⚓ ShellLink 配置中心") workflowName = configNode.title;
+            const configNode = app.graph._nodes.find(n => n.type === "CLab_SystemConfig");
+            if (configNode && configNode.title && configNode.title !== "⚓ CLab System Config") workflowName = configNode.title;
             else if (app?.extensionManager?.workflow?.activeWorkflow?.filename) workflowName = app.extensionManager.workflow.activeWorkflow.filename.replace(".json", "");
             workflowName = workflowName.replace(/[\\/:"*?<>|]/g, "_").trim();
 
@@ -547,7 +547,7 @@ export function attachDataIOEvents(panelContainer) {
                                         filename: filename,
                                         type: urlObj.searchParams.get('type') || "output", 
                                         subfolder: subfolder,
-                                        target_subfolder: `ShellLink/${workflowName}`,
+                                        target_subfolder: `CLab/${workflowName}`,
                                         // 为历史记录添加有序后缀 (例如: _v1, _v2)，防止依赖后端容错导致排序错乱
                                         target_filename: indexSuffix ? `${taskName}_${areaName}${indexSuffix}` : `${taskName}_${areaName}`
                                     });
@@ -571,7 +571,7 @@ export function attachDataIOEvents(panelContainer) {
             if (filesToProcess.length === 0) return alert("当前面板没有找到任何可处理的输出媒体文件！");
 
             try {
-                const response = await fetch('/shell_link/organize_files', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: action, files: filesToProcess }) });
+                const response = await fetch('/clab/organize_files', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: action, files: filesToProcess }) });
                 const res = await response.json();
                 if (res.status === 'success') {
                     if (action === 'move') {
@@ -612,9 +612,9 @@ export function attachDataIOEvents(panelContainer) {
                         // 全部走微创定点更新，绝对不闪屏！
                         if (affectedAreaIds.length > 0) {
                             affectedAreaIds.forEach(id => {
-                                if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(id);
+                                if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(id);
                             });
-                            if (window._slJustSave) window._slJustSave(); else saveAndRender();
+                            if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
                         }
                     }
                     alert(`✅ 成功${action === 'move' ? '移动' : '复制'}并重命名了 ${res.results.length} 个文件到 ${workflowName} 文件夹！`);
@@ -622,10 +622,10 @@ export function attachDataIOEvents(panelContainer) {
             } catch (err) { alert("❌ 请求后端接口失败。\n" + err.message); }
         };
 
-        exportWrapper.querySelector("#sl-export-org-move").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('move', false); };
-        exportWrapper.querySelector("#sl-export-org-copy").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('copy', false); };
+        exportWrapper.querySelector("#clab-export-org-move").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('move', false); };
+        exportWrapper.querySelector("#clab-export-org-copy").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('copy', false); };
         // 【新增】：绑定历史记录归档功能
-        exportWrapper.querySelector("#sl-export-org-move-history").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('move', true); };
-        exportWrapper.querySelector("#sl-export-org-copy-history").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('copy', true); };
+        exportWrapper.querySelector("#clab-export-org-move-history").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('move', true); };
+        exportWrapper.querySelector("#clab-export-org-copy-history").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('copy', true); };
     }
 }

@@ -31,10 +31,10 @@ export const appState = {
  */
 export function saveAndRender() {
     // 调用底层暴露的 saveState 方法存入节点
-    if (window.ShellLink) window.ShellLink.saveState(state);
+    if (window.CLab) window.CLab.saveState(state);
     
     // 派发自定义事件，通知 ui_panel.js 执行 performRender
-    document.dispatchEvent(new CustomEvent("sl_render_ui"));
+    document.dispatchEvent(new CustomEvent("clab_render_ui"));
 }
 
 // =========================================================================

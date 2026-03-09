@@ -7,24 +7,24 @@ import { StateManager } from "./state_manager.js";
 import { showBindingToast, hideBindingToast } from "./components/ui_utils.js";
 
 export function setupAPIInjector(app) {
-    console.log("[ShellLink] 初始化 API 拦截、动态剪枝与回传系统...");
+    console.log("[CLab] 初始化 API 拦截、动态剪枝与回传系统...");
 
-    window.ShellLink = window.ShellLink || {};
-    window._slExecQueue = window._slExecQueue || []; 
-    window._slTaskMap = window._slTaskMap || {};     
-    window._slLastGeneratedTask = null;              
-    window._slCurrentBatchPromptIds = [];            
-    window._slCardProgress = window._slCardProgress || {}; 
-    window._slHideTimers = window._slHideTimers || {};     
-    window._slDoneTasks = window._slDoneTasks || new Set();
+    window.CLab = window.CLab || {};
+    window._clabExecQueue = window._clabExecQueue || []; 
+    window._clabTaskMap = window._clabTaskMap || {};     
+    window._clabLastGeneratedTask = null;              
+    window._clabCurrentBatchPromptIds = [];            
+    window._clabCardProgress = window._clabCardProgress || {}; 
+    window._clabHideTimers = window._clabHideTimers || {};     
+    window._clabDoneTasks = window._clabDoneTasks || new Set();
 
     // =========================================================================
-    // 【神级修复】：全局媒体加载监听器，实现切换历史记录时动态适配尺寸，且支持无感刷新
+    // 【神级修复】：全局媒体加载监听器，实现切换历史记录时动态适配尺寸
     // =========================================================================
-    if (!window._slMediaLoadHijacked) {
+    if (!window._clabMediaLoadHijacked) {
         const handleMediaLoad = (element, width, height) => {
             if (!width || !height) return;
-            const areaEl = element.closest('.sl-area');
+            const areaEl = element.closest('.clab-area');
             if (!areaEl) return;
             const cardId = areaEl.dataset.cardId;
             const areaId = areaEl.dataset.areaId;
@@ -37,50 +37,47 @@ export function setupAPIInjector(app) {
                     area.width = width;
                     area.height = height;
                     StateManager.syncToNode(app.graph);
-                    
-                    // 【核心修复】：动态适配尺寸时，优先使用局部微创更新，拒绝全屏闪烁！
-                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(areaId);
-                    else document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                    document.dispatchEvent(new CustomEvent("clab_render_ui"));
                 }
             }
         };
 
         document.addEventListener('load', (e) => {
-            if (e.target && e.target.tagName === 'IMG' && e.target.classList && e.target.classList.contains('sl-preview-img')) {
+            if (e.target && e.target.tagName === 'IMG' && e.target.classList && e.target.classList.contains('clab-preview-img')) {
                 handleMediaLoad(e.target, e.target.naturalWidth, e.target.naturalHeight);
             }
         }, true);
 
         document.addEventListener('loadeddata', (e) => {
-            if (e.target && e.target.tagName === 'VIDEO' && e.target.classList && e.target.classList.contains('sl-preview-img')) {
+            if (e.target && e.target.tagName === 'VIDEO' && e.target.classList && e.target.classList.contains('clab-preview-img')) {
                 handleMediaLoad(e.target, e.target.videoWidth, e.target.videoHeight);
             }
         }, true);
 
-        window._slMediaLoadHijacked = true;
+        window._clabMediaLoadHijacked = true;
     }
 
     // =========================================================================
     // 【核弹级 UI 渲染器】：支持报错红灯模式
     // =========================================================================
     const setUIProgress = (cardId, percentage, isHide = false, isError = false, isRestore = false) => {
-        if (window._slDoneTasks.has(cardId) && !isHide && !isRestore && percentage < 100) return; 
+        if (window._clabDoneTasks.has(cardId) && !isHide && !isRestore && percentage < 100) return; 
 
         if (!isRestore) {
             if (isHide) {
-                delete window._slCardProgress[cardId];
+                delete window._clabCardProgress[cardId];
             } else {
-                window._slCardProgress[cardId] = { percentage, isHide, isError };
-                if (window._slHideTimers[cardId]) {
-                    clearTimeout(window._slHideTimers[cardId]);
-                    delete window._slHideTimers[cardId];
+                window._clabCardProgress[cardId] = { percentage, isHide, isError };
+                if (window._clabHideTimers[cardId]) {
+                    clearTimeout(window._clabHideTimers[cardId]);
+                    delete window._clabHideTimers[cardId];
                 }
             }
         }
 
-        const progContainer = document.querySelector(`.sl-card-progress-container[data-card-prog-id="${cardId}"]`);
+        const progContainer = document.querySelector(`.clab-card-progress-container[data-card-prog-id="${cardId}"]`);
         if (!progContainer) return;
-        const bar = progContainer.querySelector('.sl-card-progress-bar');
+        const bar = progContainer.querySelector('.clab-card-progress-bar');
         if (!bar) return;
 
         if (isError) {
@@ -93,9 +90,9 @@ export function setupAPIInjector(app) {
             bar.classList.remove('error');
             progContainer.style.opacity = '0';
             setTimeout(() => {
-                const freshContainer = document.querySelector(`.sl-card-progress-container[data-card-prog-id="${cardId}"]`);
+                const freshContainer = document.querySelector(`.clab-card-progress-container[data-card-prog-id="${cardId}"]`);
                 if (freshContainer) freshContainer.style.display = 'none';
-                const freshBar = document.querySelector(`.sl-card-progress-container[data-card-prog-id="${cardId}"] .sl-card-progress-bar`);
+                const freshBar = document.querySelector(`.clab-card-progress-container[data-card-prog-id="${cardId}"] .clab-card-progress-bar`);
                 if (freshBar) {
                     freshBar.style.setProperty('transition', 'none', 'important');
                     freshBar.style.setProperty('width', '0%', 'important');
@@ -114,19 +111,19 @@ export function setupAPIInjector(app) {
         }
     };
 
-    document.addEventListener("sl_render_ui", () => {
+    document.addEventListener("clab_render_ui", () => {
         setTimeout(() => {
-            const allContainers = document.querySelectorAll('.sl-card-progress-container');
+            const allContainers = document.querySelectorAll('.clab-card-progress-container');
             allContainers.forEach(container => {
                 const cardId = container.getAttribute('data-card-prog-id');
-                const state = window._slCardProgress[cardId];
+                const state = window._clabCardProgress[cardId];
                 
                 if (state && !state.isHide) {
                     setUIProgress(cardId, state.percentage, state.isHide, state.isError, true);
                 } else {
                     container.style.display = 'none';
                     container.style.opacity = '0';
-                    const bar = container.querySelector('.sl-card-progress-bar');
+                    const bar = container.querySelector('.clab-card-progress-bar');
                     if (bar) {
                         bar.style.setProperty('transition', 'none', 'important');
                         bar.style.setProperty('width', '0%', 'important');
@@ -138,12 +135,12 @@ export function setupAPIInjector(app) {
 
     api.addEventListener("status", (e) => {
         if (e.detail && e.detail.exec_info && e.detail.exec_info.queue_remaining === 0) {
-            for (const cardId in window._slCardProgress) {
-                const state = window._slCardProgress[cardId];
+            for (const cardId in window._clabCardProgress) {
+                const state = window._clabCardProgress[cardId];
                 if (state && !state.isHide) {
                     setUIProgress(cardId, 100);
-                    if (window._slHideTimers[cardId]) clearTimeout(window._slHideTimers[cardId]);
-                    window._slHideTimers[cardId] = setTimeout(() => {
+                    if (window._clabHideTimers[cardId]) clearTimeout(window._clabHideTimers[cardId]);
+                    window._clabHideTimers[cardId] = setTimeout(() => {
                         setUIProgress(cardId, 0, true);
                     }, 800);
                 }
@@ -156,30 +153,30 @@ export function setupAPIInjector(app) {
         setTimeout(() => hideBindingToast(), 6000);
         
         const pid = e.detail?.prompt_id;
-        const task = window._slTaskMap[pid];
+        const task = window._clabTaskMap[pid];
         
         if (task) {
             setUIProgress(task.cardId, 100, false, true);
             
-            if (window._slHideTimers[task.cardId]) clearTimeout(window._slHideTimers[task.cardId]);
-            window._slHideTimers[task.cardId] = setTimeout(() => {
+            if (window._clabHideTimers[task.cardId]) clearTimeout(window._clabHideTimers[task.cardId]);
+            window._clabHideTimers[task.cardId] = setTimeout(() => {
                 setUIProgress(task.cardId, 0, true);
             }, 6000);
 
-            if (window._slCurrentBatchPromptIds && window._slCurrentBatchPromptIds.length > 0) {
-                const toDelete = window._slCurrentBatchPromptIds.filter(id => id !== pid);
+            if (window._clabCurrentBatchPromptIds && window._clabCurrentBatchPromptIds.length > 0) {
+                const toDelete = window._clabCurrentBatchPromptIds.filter(id => id !== pid);
                 if (toDelete.length > 0) {
                     api.fetchApi('/queue', {
                         method: 'POST',
                         body: JSON.stringify({ delete: toDelete })
-                    }).catch(err => console.error("[ShellLink] 无法删除后续队列", err));
+                    }).catch(err => console.error("[CLab] 无法删除后续队列", err));
 
                     toDelete.forEach(delPid => {
-                        const delTask = window._slTaskMap[delPid];
+                        const delTask = window._clabTaskMap[delPid];
                         if (delTask) setUIProgress(delTask.cardId, 0, true);
                     });
                 }
-                window._slCurrentBatchPromptIds = [];
+                window._clabCurrentBatchPromptIds = [];
             }
         }
     });
@@ -187,15 +184,15 @@ export function setupAPIInjector(app) {
     // =========================================================================
     // 1. 坚如磐石的异步执行队列
     // =========================================================================
-    window.ShellLink.executeTasks = async function(tasks) {
-        window._slCurrentBatchPromptIds = []; 
-        window._slDoneTasks = window._slDoneTasks || new Set(); 
+    window.CLab.executeTasks = async function(tasks) {
+        window._clabCurrentBatchPromptIds = []; 
+        window._clabDoneTasks = window._clabDoneTasks || new Set(); 
 
         for (let task of tasks) {
-            window._slDoneTasks.delete(task.cardId); 
-            window._slExecQueue.push(task);
+            window._clabDoneTasks.delete(task.cardId); 
+            window._clabExecQueue.push(task);
             
-            const bar = document.querySelector(`.sl-card-progress-container[data-card-prog-id="${task.cardId}"] .sl-card-progress-bar`);
+            const bar = document.querySelector(`.clab-card-progress-container[data-card-prog-id="${task.cardId}"] .clab-card-progress-bar`);
             if (bar) bar.classList.remove('error'); 
             setUIProgress(task.cardId, 5);
         }
@@ -205,24 +202,24 @@ export function setupAPIInjector(app) {
             try {
                 await app.queuePrompt(0, 1); 
             } catch (submitErr) {
-                console.warn("[ShellLink] 🚫 前端图谱校验未通过，触发阻断！", submitErr);
+                console.warn("[CLab] 🚫 前端图谱校验未通过，触发阻断！", submitErr);
                 showBindingToast("❌ 节点前端校验失败！请检查工作流连线或必填参数。", true);
                 setTimeout(() => hideBindingToast(), 6000);
                 
-                if (window._slLastGeneratedTask) {
-                    const errorCardId = window._slLastGeneratedTask.cardId;
+                if (window._clabLastGeneratedTask) {
+                    const errorCardId = window._clabLastGeneratedTask.cardId;
                     setUIProgress(errorCardId, 100, false, true);
                     
-                    if (window._slHideTimers[errorCardId]) clearTimeout(window._slHideTimers[errorCardId]);
-                    window._slHideTimers[errorCardId] = setTimeout(() => {
+                    if (window._clabHideTimers[errorCardId]) clearTimeout(window._clabHideTimers[errorCardId]);
+                    window._clabHideTimers[errorCardId] = setTimeout(() => {
                         setUIProgress(errorCardId, 0, true);
                     }, 6000);
 
-                    window._slLastGeneratedTask = null;
+                    window._clabLastGeneratedTask = null;
                 }
 
-                while (window._slExecQueue.length > 0) {
-                    let skippedTask = window._slExecQueue.shift();
+                while (window._clabExecQueue.length > 0) {
+                    let skippedTask = window._clabExecQueue.shift();
                     setUIProgress(skippedTask.cardId, 0, true);
                 }
                 break;
@@ -233,10 +230,10 @@ export function setupAPIInjector(app) {
     const origQueuePrompt = api.queuePrompt;
     api.queuePrompt = async function() {
         const res = await origQueuePrompt.apply(this, arguments);
-        if (res && res.prompt_id && window._slLastGeneratedTask) {
-            window._slTaskMap[res.prompt_id] = window._slLastGeneratedTask;
-            window._slCurrentBatchPromptIds.push(res.prompt_id); 
-            window._slLastGeneratedTask = null; 
+        if (res && res.prompt_id && window._clabLastGeneratedTask) {
+            window._clabTaskMap[res.prompt_id] = window._clabLastGeneratedTask;
+            window._clabCurrentBatchPromptIds.push(res.prompt_id); 
+            window._clabLastGeneratedTask = null; 
         }
         return res;
     };
@@ -248,10 +245,10 @@ export function setupAPIInjector(app) {
     app.graphToPrompt = async function () {
         const result = await originalGraphToPrompt.apply(this, arguments);
         
-        let execTask = window._slExecQueue.shift();
+        let execTask = window._clabExecQueue.shift();
         if (!execTask) return result; 
 
-        window._slLastGeneratedTask = execTask;
+        window._clabLastGeneratedTask = execTask;
         const activeCard = StateManager.state.cards.find(c => c.id === execTask.cardId);
         if (!activeCard) return result;
 
@@ -320,7 +317,7 @@ export function setupAPIInjector(app) {
     api.addEventListener("progress_state", (e) => {
         const pid = e.detail?.prompt_id;
         const nodes = e.detail?.nodes;
-        const task = window._slTaskMap[pid];
+        const task = window._clabTaskMap[pid];
         
         if (task && nodes) {
             let total = 0;
@@ -339,23 +336,23 @@ export function setupAPIInjector(app) {
 
     api.addEventListener("executing", (e) => {
         const pid = e.detail?.prompt_id;
-        const task = window._slTaskMap[pid];
+        const task = window._clabTaskMap[pid];
         
         if (task && !e.detail.node) {
-            window._slDoneTasks = window._slDoneTasks || new Set();
-            window._slDoneTasks.add(task.cardId); 
+            window._clabDoneTasks = window._clabDoneTasks || new Set();
+            window._clabDoneTasks.add(task.cardId); 
 
             setUIProgress(task.cardId, 100);
             
-            if (window._slHideTimers[task.cardId]) clearTimeout(window._slHideTimers[task.cardId]);
-            window._slHideTimers[task.cardId] = setTimeout(() => {
+            if (window._clabHideTimers[task.cardId]) clearTimeout(window._clabHideTimers[task.cardId]);
+            window._clabHideTimers[task.cardId] = setTimeout(() => {
                 setUIProgress(task.cardId, 0, true);
             }, 800);
         }
     });
 
     // =========================================================================
-    // 4. 监听引擎执行完成事件 (增强版：截胡转存与无感局部回写闭环)
+    // 4. 监听引擎执行完成事件 (增强版：截胡转存与状态回写闭环)
     // =========================================================================
     api.addEventListener("executed", async (event) => {
         const detail = event.detail;
@@ -363,7 +360,7 @@ export function setupAPIInjector(app) {
         const outputData = detail.output;       
         const prompt_id = detail.prompt_id; 
 
-        const task = (window._slTaskMap && prompt_id) ? window._slTaskMap[prompt_id] : null;
+        const task = (window._clabTaskMap && prompt_id) ? window._clabTaskMap[prompt_id] : null;
         if (!task) return;
 
         const card = StateManager.state.cards.find(c => c.id === task.cardId);
@@ -386,6 +383,8 @@ export function setupAPIInjector(app) {
                 else if (outputData.images && outputData.images.length > 0) targetItems = outputData.images;
 
                 if (targetItems && targetItems.length > 0) {
+                    
+                    // 🔥【优化】：遍历所有的生成资产（处理多图批次出图），彻底消灭漏网之鱼
                     for (let i = 0; i < targetItems.length; i++) {
                         let media = targetItems[i];
                         
@@ -398,14 +397,16 @@ export function setupAPIInjector(app) {
                             isAudio = true;
                         }
 
+                        // 记录原始的临时路径，等会要去 history 里面“抓人”
                         const oldParams = new URLSearchParams({ filename: media.filename, type: media.type, subfolder: media.subfolder || "" });
                         const oldUrlStr = `/view?${oldParams.toString()}`;
                         const oldUrl = api.apiURL(oldUrlStr);
 
+                        // 🛡️ 截胡归档系统
                         if (media.type === "temp" || media.type === "output") {
                             try {
                                 const asset_type = isVideo ? "video" : (isAudio ? "audio" : "image");
-                                const res = await fetch('/shell_link/copy_temp_asset', {
+                                const res = await fetch('/clab/copy_temp_asset', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
@@ -421,25 +422,36 @@ export function setupAPIInjector(app) {
                                     media.filename = data.new_filename;
                                     media.subfolder = data.new_subfolder;
                                     media.type = data.new_type; 
+                                } else {
+                                    console.error("[CLab] 截胡资产失败:", data.error);
                                 }
                             } catch (err) {
-                                console.error("[ShellLink] 截胡资产网络请求失败:", err);
+                                console.error("[CLab] 截胡资产网络请求失败:", err);
                             }
                         }
 
+                        // 构造后端复制完毕后的永久物理路径
                         const newParams = new URLSearchParams({ filename: media.filename, type: media.type, subfolder: media.subfolder || "" });
                         const newUrl = api.apiURL(`/view?${newParams.toString()}`);
 
+                        // 🔥 【核心状态回写】：强制纠正由于异步时间差被提前写进去的 temp 路径！
                         if (newUrl) {
                             if (!area.history) area.history = [];
+                            
+                            // 查找是否已经存在于 history 中（匹配完整路径或包含参数）
                             const foundIdx = area.history.findIndex(h => h === oldUrl || h.includes(oldUrlStr));
                             if (foundIdx !== -1) {
+                                // 替换为永久资产路径
                                 area.history[foundIdx] = newUrl;
                             } else {
-                                if (!area.history.includes(newUrl)) area.history.push(newUrl);
+                                // 如果没被别处拦截写入，那么我们主动帮它存入历史记录里，防止丢失
+                                if (!area.history.includes(newUrl)) {
+                                    area.history.push(newUrl);
+                                }
                             }
                         }
 
+                        // 记录第一项结果用于设置封面和触发排版
                         if (i === 0 && newUrl) {
                             newUrlFirst = newUrl;
                             isVideoFirst = isVideo;
@@ -449,6 +461,8 @@ export function setupAPIInjector(app) {
 
                     if (newUrlFirst) {
                         area.resultUrl = newUrlFirst;
+
+                        // 🔥 状态变更后，立即序列化同步到 ComfyUI 图谱内保存配置！
                         StateManager.syncToNode(app.graph);
 
                         if (area.matchMedia) {
@@ -461,18 +475,15 @@ export function setupAPIInjector(app) {
                                     area.width = tempVid.videoWidth;
                                     area.height = tempVid.videoHeight;
                                     StateManager.syncToNode(app.graph);
-                                    // 【核心修复】：视频运算完尺寸后，依然走外科手术级局部更新
-                                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(area.id);
-                                    else document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                                    document.dispatchEvent(new CustomEvent("clab_render_ui"));
                                 };
-                                tempVid.onerror = (e) => console.error("[ShellLink] 读取视频尺寸失败", e);
+                                tempVid.onerror = (e) => console.error("[CLab] 读取视频尺寸失败", e);
                                 tempVid.src = newUrlFirst;
                                 tempVid.load();
                             } else if (isAudioFirst) {
                                 area.ratio = 'auto';
                                 StateManager.syncToNode(app.graph);
-                                if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(area.id);
-                                else document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                                document.dispatchEvent(new CustomEvent("clab_render_ui"));
                             } else {
                                 const tempImg = new Image();
                                 tempImg.onload = () => {
@@ -480,16 +491,15 @@ export function setupAPIInjector(app) {
                                     area.width = tempImg.naturalWidth;
                                     area.height = tempImg.naturalHeight;
                                     StateManager.syncToNode(app.graph);
-                                    if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(area.id);
-                                    else document.dispatchEvent(new CustomEvent("sl_render_ui"));
+                                    document.dispatchEvent(new CustomEvent("clab_render_ui"));
                                 };
                                 tempImg.src = newUrlFirst; 
                             }
                         } else {
-                            // 【核心修复】：取消通过派发 shell_link_update_preview 处理，直接统一进行原生手术级更新
-                            if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(area.id);
+                            // 【核心修复】：取消通过派发 clab_update_preview 处理，直接统一进行原生手术级更新
+                            if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(area.id);
                             else {
-                                document.dispatchEvent(new CustomEvent("shell_link_update_preview", {
+                                document.dispatchEvent(new CustomEvent("clab_update_preview", {
                                     detail: { cardId: card.id, areaId: area.id, url: newUrlFirst }
                                 }));
                             }

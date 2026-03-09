@@ -18,13 +18,13 @@ export function enterBindingModeForSelected(targetType, panelContainer, backdrop
     if (app.canvas) {
         app.canvas.deselectAllNodes();
         
-        if (!app.canvas._slHijackedContextMenu) {
+        if (!app.canvas._clabHijackedContextMenu) {
             const origProcessContextMenu = app.canvas.processContextMenu;
             app.canvas.processContextMenu = function() {
                 if (appState.isBindingMode) return; 
                 return origProcessContextMenu.apply(this, arguments);
             };
-            app.canvas._slHijackedContextMenu = true;
+            app.canvas._clabHijackedContextMenu = true;
         }
     }
 

@@ -16,7 +16,7 @@ export function justSave() {
 
 // 【终极定点爆破】：自带 Mini-Stash（微型物理金库），局部替换 DOM 时完美保护视频状态！
 export function surgicallyUpdateArea(areaId) {
-    const areaEl = document.querySelector(`.sl-area[data-area-id="${areaId}"]`);
+    const areaEl = document.querySelector(`.clab-area[data-area-id="${areaId}"]`);
     if (!areaEl) return;
     let targetCard = null;
     let targetArea = null;
@@ -25,7 +25,7 @@ export function surgicallyUpdateArea(areaId) {
         if (a) { targetCard = c; targetArea = a; }
     });
     if (targetCard && targetArea) {
-        const mediaEl = areaEl.querySelector('.sl-media-target');
+        const mediaEl = areaEl.querySelector('.clab-media-target');
         let stashedMedia = null, stashedSrc = null, stashedTime = 0, stashedPaused = true;
 
         if (mediaEl && (mediaEl.tagName === 'VIDEO' || mediaEl.tagName === 'AUDIO')) {
@@ -34,13 +34,13 @@ export function surgicallyUpdateArea(areaId) {
             stashedTime = mediaEl.currentTime;
             stashedPaused = mediaEl.paused;
             
-            if (!window._slMiniVault) {
-                window._slMiniVault = document.createElement('div');
-                window._slMiniVault.id = 'sl-mini-vault';
-                window._slMiniVault.style.cssText = 'position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -9999; overflow: hidden;';
-                document.body.appendChild(window._slMiniVault);
+            if (!window._clabMiniVault) {
+                window._clabMiniVault = document.createElement('div');
+                window._clabMiniVault.id = 'clab-mini-vault';
+                window._clabMiniVault.style.cssText = 'position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -9999; overflow: hidden;';
+                document.body.appendChild(window._clabMiniVault);
             }
-            window._slMiniVault.appendChild(mediaEl);
+            window._clabMiniVault.appendChild(mediaEl);
         }
 
         const temp = document.createElement('div');
@@ -49,7 +49,7 @@ export function surgicallyUpdateArea(areaId) {
         areaEl.replaceWith(newAreaEl);
 
         if (stashedMedia) {
-            const newMediaEl = newAreaEl.querySelector('.sl-media-target');
+            const newMediaEl = newAreaEl.querySelector('.clab-media-target');
             if (newMediaEl) {
                 const newSrc = newMediaEl.getAttribute('src') || '';
                 
@@ -86,14 +86,14 @@ export function surgicallyUpdateArea(areaId) {
 
 // 【魔法纠偏】：静默扫描全场，给所有的卡片和模块理顺排队序号
 export function updateAllDefaultTitles() {
-    document.querySelectorAll('.sl-card:not(.sl-add-card-inline)').forEach((cardEl) => {
+    document.querySelectorAll('.clab-card:not(.clab-add-card-inline)').forEach((cardEl) => {
         const cardId = cardEl.dataset.cardId;
         const stateCardIdx = state.cards.findIndex(c => c.id === cardId);
         if (stateCardIdx === -1) return;
 
         const stateCard = state.cards[stateCardIdx];
         const defaultCardTitle = `#${stateCardIdx + 1}`;
-        const cardTitleInput = cardEl.querySelector('.sl-card-title-input');
+        const cardTitleInput = cardEl.querySelector('.clab-card-title-input');
         
         if (cardTitleInput) {
             cardTitleInput.placeholder = defaultCardTitle;
@@ -107,7 +107,7 @@ export function updateAllDefaultTitles() {
         let editCount = 0;
         let previewCount = 0;
 
-        const allAreas = cardEl.querySelectorAll('.sl-area');
+        const allAreas = cardEl.querySelectorAll('.clab-area');
         allAreas.forEach((areaEl) => {
             const areaId = areaEl.dataset.areaId;
             const stateArea = stateCard.areas?.find(a => a.id === areaId);
@@ -123,7 +123,7 @@ export function updateAllDefaultTitles() {
             }
 
             const defaultAreaTitle = `##${currentIdx}`;
-            const areaTitleInput = areaEl.querySelector('.sl-area-title-input');
+            const areaTitleInput = areaEl.querySelector('.clab-area-title-input');
             
             if (areaTitleInput) {
                 areaTitleInput.placeholder = defaultAreaTitle;
@@ -139,27 +139,27 @@ export function updateAllDefaultTitles() {
 // 【全新洗牌引擎】：当模块发生物理位移时，重写 DOM 上所有残留的卡片 ID 烙印
 export function updateAreaDOMIdentity(areaId, newCardId) {
     try {
-        const el = document.querySelector(`.sl-area[data-area-id="${areaId}"]`);
+        const el = document.querySelector(`.clab-area[data-area-id="${areaId}"]`);
         if (el) {
             el.dataset.cardId = newCardId;
             el.querySelectorAll('[data-card]').forEach(child => child.dataset.card = newCardId);
             el.querySelectorAll('[data-card-id]').forEach(child => child.dataset.cardId = newCardId);
         }
-    } catch(e) { console.error("[ShellLink] DOM 身份更新失败:", e); }
+    } catch(e) { console.error("[CLab] DOM 身份更新失败:", e); }
 }
 
-window._slSurgicallyUpdateArea = surgicallyUpdateArea;
-window._slJustSave = justSave;
-window._slUpdateAllDefaultTitles = updateAllDefaultTitles;
-window._slUpdateAreaDOMIdentity = updateAreaDOMIdentity;
-window._slGenerateAreaHTML = generateAreaHTML;
-window._slAttachAreaEvents = attachAreaEvents;
+window._clabSurgicallyUpdateArea = surgicallyUpdateArea;
+window._clabJustSave = justSave;
+window._clabUpdateAllDefaultTitles = updateAllDefaultTitles;
+window._clabUpdateAreaDOMIdentity = updateAreaDOMIdentity;
+window._clabGenerateAreaHTML = generateAreaHTML;
+window._clabAttachAreaEvents = attachAreaEvents;
 
 export function syncAreaDOMOrder(cardId, newAreasArray) {
-    const list = document.querySelector(`.sl-card[data-card-id="${cardId}"] .sl-area-list`);
+    const list = document.querySelector(`.clab-card[data-card-id="${cardId}"] .clab-area-list`);
     if (!list) return;
     newAreasArray.forEach(a => {
-        const el = document.querySelector(`.sl-area[data-area-id="${a.id}"]`);
+        const el = document.querySelector(`.clab-area[data-area-id="${a.id}"]`);
         if (el) list.appendChild(el); 
     });
 }
@@ -176,17 +176,17 @@ export function attachAreaEvents(container) {
     attachOutputEvents(container);
     
     bindComboSelectEvents(container, state, () => {
-        if (window._slSurgicallyUpdateArea && appState.lastClickedAreaId) {
-            window._slSurgicallyUpdateArea(appState.lastClickedAreaId);
+        if (window._clabSurgicallyUpdateArea && appState.lastClickedAreaId) {
+            window._clabSurgicallyUpdateArea(appState.lastClickedAreaId);
             justSave();
         } else {
             saveAndRender();
         }
     });
 
-    container.querySelectorAll('.sl-del-area-btn').forEach(btn => {
-        if (btn.dataset.slEventsBound) return;
-        btn.dataset.slEventsBound = "1";
+    container.querySelectorAll('.clab-del-area-btn').forEach(btn => {
+        if (btn.dataset.clabEventsBound) return;
+        btn.dataset.clabEventsBound = "1";
         
         btn.onclick = (e) => {
             e.stopPropagation();
@@ -200,7 +200,7 @@ export function attachAreaEvents(container) {
                     }
                 });
                 state.selectedAreaIds.forEach(id => {
-                    const el = document.querySelector(`.sl-area[data-area-id="${id}"]`);
+                    const el = document.querySelector(`.clab-area[data-area-id="${id}"]`);
                     if (el) el.remove(); 
                 });
                 state.selectedAreaIds = [];
@@ -211,7 +211,7 @@ export function attachAreaEvents(container) {
                     if (state.selectedAreaIds) {
                         state.selectedAreaIds = state.selectedAreaIds.filter(id => id !== areaId);
                     }
-                    const el = document.querySelector(`.sl-area[data-area-id="${areaId}"]`);
+                    const el = document.querySelector(`.clab-area[data-area-id="${areaId}"]`);
                     if (el) el.remove(); 
                 }
             }
@@ -220,9 +220,9 @@ export function attachAreaEvents(container) {
         };
     });
 
-    container.querySelectorAll('.sl-area-title-input').forEach(input => {
-        if (input.dataset.slEventsBound) return;
-        input.dataset.slEventsBound = "1";
+    container.querySelectorAll('.clab-area-title-input').forEach(input => {
+        if (input.dataset.clabEventsBound) return;
+        input.dataset.clabEventsBound = "1";
         
         input.addEventListener('input', function() {
             this.size = Math.max(this.value.length, 2); 
@@ -240,9 +240,9 @@ export function attachAreaEvents(container) {
         };
     });
 
-    container.querySelectorAll('.sl-area').forEach(areaEl => {
-        if (areaEl.dataset.slEventsBound) return;
-        areaEl.dataset.slEventsBound = "1";
+    container.querySelectorAll('.clab-area').forEach(areaEl => {
+        if (areaEl.dataset.clabEventsBound) return;
+        areaEl.dataset.clabEventsBound = "1";
         
         // 【防御补丁】：强行确保所有模块节点都具备原生物理拖拽能力
         areaEl.setAttribute('draggable', 'true');
@@ -254,23 +254,23 @@ export function attachAreaEvents(container) {
             const area = card?.areas.find(a => a.id === areaId);
             
             if (area && area.type === 'preview' && area.resultUrl) {
-                if (e.target.closest('.sl-preview-bg') || e.target.closest('.sl-history-thumb')) {
+                if (e.target.closest('.clab-preview-bg') || e.target.closest('.clab-history-thumb')) {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (window.ShellLink && window.ShellLink.showPreviewContextMenu) {
+                    if (window.CLab && window.CLab.showPreviewContextMenu) {
                         let targetUrl = area.resultUrl;
-                        if (e.target.closest('.sl-history-thumb')) {
-                            const thumbIdx = parseInt(e.target.closest('.sl-history-thumb').dataset.index, 10);
+                        if (e.target.closest('.clab-history-thumb')) {
+                            const thumbIdx = parseInt(e.target.closest('.clab-history-thumb').dataset.index, 10);
                             targetUrl = area.history[thumbIdx];
                         }
-                        window.ShellLink.showPreviewContextMenu(e.clientX, e.clientY, cardId, areaId, targetUrl);
+                        window.CLab.showPreviewContextMenu(e.clientX, e.clientY, cardId, areaId, targetUrl);
                     }
                 }
             }
         });
 
         areaEl.addEventListener('dragstart', (e) => {
-            if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) || e.target.closest('.sl-custom-select') || e.target.closest('.sl-bool-label') || e.target.closest('.sl-upload-zone') || e.target.closest('.sl-history-thumb')) return;
+            if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) || e.target.closest('.clab-custom-select') || e.target.closest('.clab-bool-label') || e.target.closest('.clab-upload-zone') || e.target.closest('.clab-history-thumb')) return;
             
             e.stopPropagation(); 
             const currentAreaId = areaEl.dataset.areaId;
@@ -311,19 +311,19 @@ export function attachAreaEvents(container) {
             
             setTimeout(() => {
                 draggedIds.forEach(id => {
-                    const el = document.querySelector(`.sl-area[data-area-id="${id}"]`);
-                    if (el) el.classList.add('sl-dragging');
+                    const el = document.querySelector(`.clab-area[data-area-id="${id}"]`);
+                    if (el) el.classList.add('clab-dragging');
                 });
             }, 0);
         });
 
         areaEl.addEventListener('dragend', (e) => {
             e.stopPropagation();
-            document.querySelectorAll('.sl-dragging').forEach(el => el.classList.remove('sl-dragging'));
-            document.querySelectorAll('.sl-drag-over-area-top, .sl-drag-over-area-bottom').forEach(el => {
-                el.classList.remove('sl-drag-over-area-top', 'sl-drag-over-area-bottom');
+            document.querySelectorAll('.clab-dragging').forEach(el => el.classList.remove('clab-dragging'));
+            document.querySelectorAll('.clab-drag-over-area-top, .clab-drag-over-area-bottom').forEach(el => {
+                el.classList.remove('clab-drag-over-area-top', 'clab-drag-over-area-bottom');
             });
-            document.querySelectorAll('.sl-drag-over-list').forEach(el => el.classList.remove('sl-drag-over-list'));
+            document.querySelectorAll('.clab-drag-over-list').forEach(el => el.classList.remove('clab-drag-over-list'));
             dragState.type = null; dragState.cardId = null; dragState.anchorAreaId = null; dragState.areaIds = null; dragState.sourceInfo = null;
         });
 
@@ -334,12 +334,12 @@ export function attachAreaEvents(container) {
                 const rect = areaEl.getBoundingClientRect();
                 const midY = rect.top + rect.height / 2;
                 if (e.clientY < midY) {
-                    areaEl.classList.add('sl-drag-over-area-top');
-                    areaEl.classList.remove('sl-drag-over-area-bottom');
+                    areaEl.classList.add('clab-drag-over-area-top');
+                    areaEl.classList.remove('clab-drag-over-area-bottom');
                     areaEl.dataset.dropPosition = 'top';
                 } else {
-                    areaEl.classList.add('sl-drag-over-area-bottom');
-                    areaEl.classList.remove('sl-drag-over-area-top');
+                    areaEl.classList.add('clab-drag-over-area-bottom');
+                    areaEl.classList.remove('clab-drag-over-area-top');
                     areaEl.dataset.dropPosition = 'bottom';
                 }
             }
@@ -349,7 +349,7 @@ export function attachAreaEvents(container) {
             if (e.dataTransfer.types.includes('Files')) return;
             e.stopPropagation();
             if (!areaEl.contains(e.relatedTarget)) {
-                areaEl.classList.remove('sl-drag-over-area-top', 'sl-drag-over-area-bottom');
+                areaEl.classList.remove('clab-drag-over-area-top', 'clab-drag-over-area-bottom');
                 delete areaEl.dataset.dropPosition;
             }
         });
@@ -360,7 +360,7 @@ export function attachAreaEvents(container) {
             if (dragState.type === 'area' && dragState.areaIds) {
                 e.preventDefault(); e.stopPropagation();
                 const dropPos = areaEl.dataset.dropPosition;
-                areaEl.classList.remove('sl-drag-over-area-top', 'sl-drag-over-area-bottom');
+                areaEl.classList.remove('clab-drag-over-area-top', 'clab-drag-over-area-bottom');
                 delete areaEl.dataset.dropPosition;
                 
                 const targetCardId = areaEl.dataset.cardId;
@@ -409,7 +409,7 @@ export function attachAreaEvents(container) {
                                 c.areas.splice(absoluteMirrorIdx, 0, ...moved);
                                 
                                 syncAreaDOMOrder(c.id, c.areas);
-                                if (window._slUpdateAreaDOMIdentity) moved.forEach(a => window._slUpdateAreaDOMIdentity(a.id, c.id));
+                                if (window._clabUpdateAreaDOMIdentity) moved.forEach(a => window._clabUpdateAreaDOMIdentity(a.id, c.id));
                             }
                         });
                     } else {
@@ -422,7 +422,7 @@ export function attachAreaEvents(container) {
                         });
                         
                         syncAreaDOMOrder(targetCardId, targetCard.areas);
-                        if (window._slUpdateAreaDOMIdentity) allMovedAreas.forEach(a => window._slUpdateAreaDOMIdentity(a.id, targetCardId));
+                        if (window._clabUpdateAreaDOMIdentity) allMovedAreas.forEach(a => window._clabUpdateAreaDOMIdentity(a.id, targetCardId));
                     }
                     
                     justSave();

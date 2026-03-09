@@ -11,8 +11,8 @@ import { execSyncParams } from "./action_batch_sync.js";
 import { generateSingleCardHTML, attachCardEvents } from "../comp_taskcard.js";
 
 export function renderDynamicToolbar(toolbarHandleContainer) {
-    const separator = toolbarHandleContainer.querySelector('#sl-module-toolbar-separator');
-    const tb = toolbarHandleContainer.querySelector('#sl-module-toolbar');
+    const separator = toolbarHandleContainer.querySelector('#clab-module-toolbar-separator');
+    const tb = toolbarHandleContainer.querySelector('#clab-module-toolbar');
     if (!tb || !separator) return;
 
     const wasNodeOpen = tb.querySelector('#tb-node-select-custom')?.classList.contains('open');
@@ -44,8 +44,8 @@ export function renderDynamicToolbar(toolbarHandleContainer) {
 
             html += `
                 <div style="display:flex; border: 1px dashed rgba(255,255,255,0.3); border-radius: 20px; padding: 2px; gap: 2px;">
-                    <div class="sl-type-btn ${mainType==='edit'?'active':''}" data-type="edit" style="padding: 4px 14px; border-radius: 16px; cursor: pointer; font-size: 12px; transition: all 0.2s; ${mainType==='edit'?'background: rgba(255,255,255,0.2); color: #fff; font-weight: bold;':'color: #aaa;'}">输入</div>
-                    <div class="sl-type-btn ${mainType==='preview'?'active':''}" data-type="preview" style="padding: 4px 14px; border-radius: 16px; cursor: pointer; font-size: 12px; transition: all 0.2s; ${mainType==='preview'?'background: rgba(255,255,255,0.2); color: #fff; font-weight: bold;':'color: #aaa;'}">输出</div>
+                    <div class="clab-type-btn ${mainType==='edit'?'active':''}" data-type="edit" style="padding: 4px 14px; border-radius: 16px; cursor: pointer; font-size: 12px; transition: all 0.2s; ${mainType==='edit'?'background: rgba(255,255,255,0.2); color: #fff; font-weight: bold;':'color: #aaa;'}">输入</div>
+                    <div class="clab-type-btn ${mainType==='preview'?'active':''}" data-type="preview" style="padding: 4px 14px; border-radius: 16px; cursor: pointer; font-size: 12px; transition: all 0.2s; ${mainType==='preview'?'background: rgba(255,255,255,0.2); color: #fff; font-weight: bold;':'color: #aaa;'}">输出</div>
                 </div>
             `;
 
@@ -65,17 +65,17 @@ export function renderDynamicToolbar(toolbarHandleContainer) {
                 `;
 
                 const fillModes = ['显示全部', '填充', '拉伸'];
-                let fillItems = fillModes.map(m => `<div class="sl-custom-select-item ${mainArea.fillMode===m?'selected':''}" data-value="${m}">${m}</div>`).join('');
+                let fillItems = fillModes.map(m => `<div class="clab-custom-select-item ${mainArea.fillMode===m?'selected':''}" data-value="${m}">${m}</div>`).join('');
                 
                 const ratios = ['21:9', '16:9', '3:2', '4:3', '1:1', '3:4', '2:3', '9:16', '9:21', '自定义比例'];
-                let ratioItems = ratios.map(r => `<div class="sl-custom-select-item ${mainArea.ratio===r?'selected':''}" data-value="${r}">${r}</div>`).join('');
+                let ratioItems = ratios.map(r => `<div class="clab-custom-select-item ${mainArea.ratio===r?'selected':''}" data-value="${r}">${r}</div>`).join('');
                 
                 html += `
                     <div style="display:flex; align-items:center; gap:6px; margin-left: 8px;">
                         ${buildCustomSelect('tb-ratio-select-custom', '100px', mainArea.ratio || '16:9', ratioItems, mainArea.matchMedia)}
-                        <input id="tb-ratio-w" type="number" class="sl-input sl-capsule" style="width:75px; min-height:24px; font-size:12px;" placeholder="W" value="${mainArea.width||''}" ${mainArea.matchMedia ? 'disabled' : ''}>
+                        <input id="tb-ratio-w" type="number" class="clab-input clab-capsule" style="width:75px; min-height:24px; font-size:12px;" placeholder="W" value="${mainArea.width||''}" ${mainArea.matchMedia ? 'disabled' : ''}>
                         <span style="color:#aaa;">:</span>
-                        <input id="tb-ratio-h" type="number" class="sl-input sl-capsule" style="width:75px; min-height:24px; font-size:12px;" placeholder="H" value="${mainArea.height||''}" ${mainArea.matchMedia ? 'disabled' : ''}>
+                        <input id="tb-ratio-h" type="number" class="clab-input clab-capsule" style="width:75px; min-height:24px; font-size:12px;" placeholder="H" value="${mainArea.height||''}" ${mainArea.matchMedia ? 'disabled' : ''}>
                         <div style="width:1px; height:14px; background:rgba(255,255,255,0.2); margin:0 4px;"></div>
                         ${buildCustomSelect('tb-fill-select-custom', '100px', mainArea.fillMode || '显示全部', fillItems, mainArea.matchMedia)}
                         <label style="font-size:13px; color:#ccc; display:flex; align-items:center; gap:4px; margin-left:8px; cursor:pointer;">
@@ -113,7 +113,7 @@ export function renderDynamicToolbar(toolbarHandleContainer) {
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
                     </button>
                     
-                    <button class="sl-btn" id="tb-btn-sync-params" title="同步参数至其它任务相同位置" style="padding: 0; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; color: #aaa; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#aaa'">
+                    <button class="clab-btn" id="tb-btn-sync-params" title="同步参数至其它任务相同位置" style="padding: 0; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; color: #aaa; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#aaa'">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M4 12v-2.5c0-1.93 1.57-3.5 3.5-3.5h11"/>
                             <polyline points="15 2 19 6 15 10"/>
@@ -130,10 +130,10 @@ export function renderDynamicToolbar(toolbarHandleContainer) {
     
     html += `
         <div style="display:flex; align-items:center; gap:2px;">
-            <button id="tb-clone-btn" class="sl-btn" style="padding:4px 8px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.1); border-color:transparent; color:#aaa;" title="原样克隆选中项" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#aaa'">
+            <button id="tb-clone-btn" class="clab-btn" style="padding:4px 8px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.1); border-color:transparent; color:#aaa;" title="原样克隆选中项" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#aaa'">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             </button>
-            <button id="tb-format-painter" class="sl-btn" style="padding:4px 8px; display:flex; align-items:center; justify-content:center; ${state.painterMode ? 'background:#ff9800; border-color:#ff9800; color:#fff;' : 'background:rgba(255,255,255,0.1); border-color:transparent; color:#aaa;'}" title="格式刷：连续点击覆盖参数或在空白处插入克隆 (ESC/右键/工具栏点击退出)" onmouseover="if(!state.painterMode) this.style.color='#fff'" onmouseout="if(!state.painterMode) this.style.color='#aaa'">
+            <button id="tb-format-painter" class="clab-btn" style="padding:4px 8px; display:flex; align-items:center; justify-content:center; ${state.painterMode ? 'background:#ff9800; border-color:#ff9800; color:#fff;' : 'background:rgba(255,255,255,0.1); border-color:transparent; color:#aaa;'}" title="格式刷：连续点击覆盖参数或在空白处插入克隆 (ESC/右键/工具栏点击退出)" onmouseover="if(!state.painterMode) this.style.color='#fff'" onmouseout="if(!state.painterMode) this.style.color='#aaa'">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"></path><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"></path></svg>
             </button>
         </div>
@@ -143,7 +143,7 @@ export function renderDynamicToolbar(toolbarHandleContainer) {
         html += `<div style="width:1px; height:16px; background:rgba(255,255,255,0.25); margin:0 2px;"></div>`;
         html += `
             <div style="display:flex; align-items:center; gap:2px;">
-                <button id="tb-manage-history" class="sl-btn" style="padding:4px 8px; display:flex; align-items:center; justify-content:center; ${mainArea?.isManageMode ? 'background:#4CAF50; border-color:#4CAF50; color:#fff;' : 'background:rgba(255,255,255,0.1); border-color:transparent; color:#aaa;'}" title="管理生成记录 (网格视图与拖拽排序)" onmouseover="if(!${mainArea?.isManageMode}) this.style.color='#fff'" onmouseout="if(!${mainArea?.isManageMode}) this.style.color='#aaa'">
+                <button id="tb-manage-history" class="clab-btn" style="padding:4px 8px; display:flex; align-items:center; justify-content:center; ${mainArea?.isManageMode ? 'background:#4CAF50; border-color:#4CAF50; color:#fff;' : 'background:rgba(255,255,255,0.1); border-color:transparent; color:#aaa;'}" title="管理生成记录 (网格视图与拖拽排序)" onmouseover="if(!${mainArea?.isManageMode}) this.style.color='#fff'" onmouseout="if(!${mainArea?.isManageMode}) this.style.color='#aaa'">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                 </button>
             </div>
@@ -156,7 +156,7 @@ export function renderDynamicToolbar(toolbarHandleContainer) {
 }
 
 export function attachDynamicToolbarEvents(toolbarHandleContainer) {
-    const tb = toolbarHandleContainer.querySelector('#sl-module-toolbar');
+    const tb = toolbarHandleContainer.querySelector('#clab-module-toolbar');
     if (!tb) return;
 
     if (state.selectedAreaIds && state.selectedAreaIds.length > 0) {
@@ -171,10 +171,10 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                     updater(sa.area);
                     
                     if (isSoftUpdate) {
-                        const areaEl = document.querySelector(`.sl-area[data-area-id="${sa.area.id}"]`);
+                        const areaEl = document.querySelector(`.clab-area[data-area-id="${sa.area.id}"]`);
                         if (areaEl) {
-                            const bg = areaEl.querySelector('.sl-preview-bg');
-                            const media = areaEl.querySelector('.sl-media-target');
+                            const bg = areaEl.querySelector('.clab-preview-bg');
+                            const media = areaEl.querySelector('.clab-media-target');
                             if (bg) {
                                 let finalRatio = '16/9';
                                 if (sa.area.matchMedia) {
@@ -210,17 +210,17 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                             }
                         }
                     } else {
-                        if (window._slSurgicallyUpdateArea) window._slSurgicallyUpdateArea(sa.area.id);
+                        if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(sa.area.id);
                     }
                 } 
             });
             
-            if (window._slJustSave) window._slJustSave(); else saveAndRender();
+            if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
             
             renderDynamicToolbar(toolbarHandleContainer);
             attachDynamicToolbarEvents(toolbarHandleContainer);
 
-            if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
+            if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
         };
 
         tb.querySelector('#tb-manage-history')?.addEventListener('click', (e) => {
@@ -230,7 +230,7 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
             updateSelected(a => { a.isManageMode = targetState; });
         });
 
-        tb.querySelectorAll('.sl-type-btn').forEach(btn => {
+        tb.querySelectorAll('.clab-type-btn').forEach(btn => {
             btn.onclick = (e) => {
                 e.stopPropagation();
                 const newType = btn.dataset.type;
@@ -251,15 +251,15 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
             };
         });
 
-        tb.querySelectorAll('.sl-custom-select').forEach(el => {
+        tb.querySelectorAll('.clab-custom-select').forEach(el => {
             if (el.classList.contains('disabled')) return;
-            const input = el.querySelector('.sl-custom-select-value');
-            const items = el.querySelectorAll('.sl-custom-select-item');
+            const input = el.querySelector('.clab-custom-select-value');
+            const items = el.querySelectorAll('.clab-custom-select-item');
 
             el.addEventListener('mousedown', e => e.stopPropagation());
             const openDropdown = (e) => {
                 e.stopPropagation();
-                document.querySelectorAll('.sl-custom-select.open').forEach(other => { if (other !== el) other.classList.remove('open'); });
+                document.querySelectorAll('.clab-custom-select.open').forEach(other => { if (other !== el) other.classList.remove('open'); });
                 el.classList.add('open');
             };
 
@@ -269,7 +269,7 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
             input.addEventListener('input', (e) => {
                 const keyword = e.target.value.toLowerCase().trim();
                 el.classList.add('open');
-                const groupTitles = el.querySelectorAll('.sl-custom-select-group-title');
+                const groupTitles = el.querySelectorAll('.clab-custom-select-group-title');
                 if (keyword !== '') groupTitles.forEach(title => title.style.display = 'none');
                 else groupTitles.forEach(title => title.style.display = 'flex');
 
@@ -282,8 +282,8 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                 setTimeout(() => {
                     el.classList.remove('open');
                     items.forEach(item => item.style.display = 'block');
-                    el.querySelectorAll('.sl-custom-select-group-title').forEach(title => title.style.display = 'flex');
-                    const selected = el.querySelector('.sl-custom-select-item.selected');
+                    el.querySelectorAll('.clab-custom-select-group-title').forEach(title => title.style.display = 'flex');
+                    const selected = el.querySelector('.clab-custom-select-item.selected');
                     if (selected) input.value = selected.textContent;
                     else input.value = input.getAttribute('title');
                 }, 200);
@@ -401,7 +401,7 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
         });
 
         tb.querySelector('#tb-node-pick')?.addEventListener('click', () => {
-            document.dispatchEvent(new CustomEvent('sl_enter_binding_mode', { detail: mainType }));
+            document.dispatchEvent(new CustomEvent('clab_enter_binding_mode', { detail: mainType }));
         });
 
         tb.querySelector('#tb-reset-module')?.addEventListener('click', (e) => {
@@ -454,7 +454,7 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                 }
             });
 
-            document.querySelectorAll('.sl-area.active').forEach(el => el.classList.remove('active', 'selected'));
+            document.querySelectorAll('.clab-area.active').forEach(el => el.classList.remove('active', 'selected'));
 
             for (const cardId in areasByCard) {
                 const card = state.cards.find(c => c.id === cardId);
@@ -484,29 +484,29 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                 
                 card.areas.splice(insertBaseIndex, 0, ...clonedAreas);
 
-                const lastEl = document.querySelector(`.sl-area[data-area-id="${sortedAreaIdsToClone[sortedAreaIdsToClone.length - 1]}"]`);
-                if (lastEl && window._slGenerateAreaHTML && window._slAttachAreaEvents) {
+                const lastEl = document.querySelector(`.clab-area[data-area-id="${sortedAreaIdsToClone[sortedAreaIdsToClone.length - 1]}"]`);
+                if (lastEl && window._clabGenerateAreaHTML && window._clabAttachAreaEvents) {
                     const temp = document.createElement('div');
-                    temp.innerHTML = clonedAreas.map(a => window._slGenerateAreaHTML(a, card)).join('');
+                    temp.innerHTML = clonedAreas.map(a => window._clabGenerateAreaHTML(a, card)).join('');
                     const frag = document.createDocumentFragment();
                     while(temp.firstChild) frag.appendChild(temp.firstChild);
                     lastEl.parentNode.insertBefore(frag, lastEl.nextSibling);
-                    window._slAttachAreaEvents(lastEl.parentNode);
+                    window._clabAttachAreaEvents(lastEl.parentNode);
                 }
             }
             
-            if (window._slJustSave) window._slJustSave(); else saveAndRender();
+            if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
             
             renderDynamicToolbar(toolbarHandleContainer);
             attachDynamicToolbarEvents(toolbarHandleContainer);
-            if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
-            if (window.ShellLink && window.ShellLink.updateSelectionUI) {
-                window.ShellLink.updateSelectionUI();
+            if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
+            if (window.CLab && window.CLab.updateSelectionUI) {
+                window.CLab.updateSelectionUI();
             }
 
             setTimeout(() => {
                 if(newSelectedAreaIds.length > 0) {
-                     document.querySelector(`.sl-area[data-area-id="${newSelectedAreaIds[newSelectedAreaIds.length - 1]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                     document.querySelector(`.clab-area[data-area-id="${newSelectedAreaIds[newSelectedAreaIds.length - 1]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             }, 50);
 
@@ -536,7 +536,7 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                 }
             });
 
-            document.querySelectorAll('.sl-card.active').forEach(el => {
+            document.querySelectorAll('.clab-card.active').forEach(el => {
                 el.classList.remove('active', 'selected');
                 el.style.borderColor = ''; 
             });
@@ -547,7 +547,7 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
             appState.lastClickedCardId = state.activeCardId;
 
             import("../comp_taskcard.js").then(taskcard => {
-                const wrapper = document.querySelector('.sl-cards-wrapper');
+                const wrapper = document.querySelector('.clab-cards-wrapper');
                 if (wrapper) {
                     const temp = document.createElement('div');
                     clonedCards.forEach((c, idx) => {
@@ -558,7 +558,7 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                     while(temp.firstChild) frag.appendChild(temp.firstChild);
                     
                     const lastSrcCardId = sortedCardIdsToClone[sortedCardIdsToClone.length - 1];
-                    const lastSrcEl = wrapper.querySelector(`.sl-card[data-card-id="${lastSrcCardId}"]`);
+                    const lastSrcEl = wrapper.querySelector(`.clab-card[data-card-id="${lastSrcCardId}"]`);
                     
                     if (lastSrcEl && lastSrcEl.nextSibling) {
                         wrapper.insertBefore(frag, lastSrcEl.nextSibling);
@@ -567,21 +567,21 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                     }
                     
                     taskcard.attachCardEvents(wrapper);
-                    if (window._slAttachAreaEvents) window._slAttachAreaEvents(wrapper);
+                    if (window._clabAttachAreaEvents) window._clabAttachAreaEvents(wrapper);
                 }
                 
-                if (window._slJustSave) window._slJustSave();
-                if (window.ShellLink && window.ShellLink.updateSelectionUI) window.ShellLink.updateSelectionUI();
-                if (window._slUpdateAllDefaultTitles) window._slUpdateAllDefaultTitles();
-                if (window._slUpdateCardsLayout) window._slUpdateCardsLayout();
+                if (window._clabJustSave) window._clabJustSave();
+                if (window.CLab && window.CLab.updateSelectionUI) window.CLab.updateSelectionUI();
+                if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
+                if (window._clabUpdateCardsLayout) window._clabUpdateCardsLayout();
                 
                 setTimeout(() => {
                     if(newSelectedCardIds.length > 0) {
-                         document.querySelector(`.sl-card[data-card-id="${newSelectedCardIds[newSelectedCardIds.length - 1]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                         document.querySelector(`.clab-card[data-card-id="${newSelectedCardIds[newSelectedCardIds.length - 1]}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                     }
                 }, 50);
             }).catch(err => {
-                console.error("[ShellLink] 动态加载卡片引擎失败，降级为全量刷新:", err);
+                console.error("[CLab] 动态加载卡片引擎失败，降级为全量刷新:", err);
                 saveAndRender();
             });
         }
@@ -589,11 +589,11 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
     
     tb.querySelector('#tb-format-painter')?.addEventListener('click', (e) => {
         e.stopPropagation();
-        const panelContainer = document.getElementById('shell-link-panel');
+        const panelContainer = document.getElementById('clab-panel');
         if (state.painterMode) {
             state.painterMode = false;
             state.painterSource = null;
-            if (panelContainer) panelContainer.classList.remove('sl-painter-active');
+            if (panelContainer) panelContainer.classList.remove('clab-painter-active');
         } else {
             state.painterMode = true;
             if (state.selectedAreaIds && state.selectedAreaIds.length > 0) {
@@ -627,7 +627,7 @@ export function attachDynamicToolbarEvents(toolbarHandleContainer) {
                 }
                 state.painterSource = { type: 'card', data: clonedCard };
             }
-            if (panelContainer) panelContainer.classList.add('sl-painter-active');
+            if (panelContainer) panelContainer.classList.add('clab-painter-active');
         }
         renderDynamicToolbar(toolbarHandleContainer);
         attachDynamicToolbarEvents(toolbarHandleContainer);

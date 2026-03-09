@@ -190,7 +190,7 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
         const tag = e.target.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
         
-        if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
             e.preventDefault();
             togglePanelFunc();
         }

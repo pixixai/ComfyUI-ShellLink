@@ -177,7 +177,7 @@ export function setupUI() {
                 id: "clabSidebar",
                 icon: "pi pi-sliders-v clab-sidebar-icon", 
                 title: "CLab",
-                tooltip: "打开 CLab 主面板 (快捷键 S)",
+                tooltip: "打开 CLab 主面板 (快捷键 C)",
                 type: "custom",
                 render: (el) => {}
             });

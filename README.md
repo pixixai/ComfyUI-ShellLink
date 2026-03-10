@@ -2,7 +2,25 @@
 
 CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管理面板。它通过完全解耦的架构，让你在不改变底层连线的情况下，像使用专业非编软件一样管理、克隆、批处理多个任务和参数组合。
 
+<video 
+  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/1-overview.mp4" 
+  poster="images/1-overview.png" 
+  controls 
+  preload="none" 
+  width="100%" 
+  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+</video>
+---
 ### 🏷️ 任务卡片
+
+<video 
+  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/2-task.mp4" 
+  poster="images/2-task.png" 
+  controls 
+  preload="none" 
+  width="100%" 
+  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+</video>
 
 1. **新建任务**
     - **默认：** 在未选中任何内容时，在**任务列表**末尾添加新的“任务卡片”。
@@ -21,8 +39,18 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
     - **格式刷 (智能继承引擎)：** 吸取选中卡片内部的所有信息与排版（会自动剥离旧的历史生成图片/视频）。
         - **画在空白处 (新建)：** 像盖章一样直接新建卡片，并且 **100% 携带**原有的所有具体参数值（Value）。
         - **画在现有卡片 (覆盖)：** 仅覆盖目标的排版比例和节点绑定规则，**智能保留**目标原有的具体参数值，绝不冲掉你辛苦输入的提示词！如果目标卡片坑位不足而新生了模块，新顺延的模块则会带上格式刷的初始参数值。<功能待完善>
+---
 
 ### 🧩 模块
+
+<video 
+  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/3-module.mp4" 
+  poster="images/3-module.png" 
+  controls 
+  preload="none" 
+  width="100%" 
+  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+</video>
 
 1. **新建模块**
     - **选中卡片时：** 在其内部末尾添加空白“模块”。支持多选卡片实现**批量齐发**。
@@ -74,6 +102,15 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 ### 📥 导入
 
+<video 
+  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/4-import.mp4" 
+  poster="images/4-import.png" 
+  controls 
+  preload="none" 
+  width="100%" 
+  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+</video>
+
 - **从剪切板导入JSON数据**
     - **创建任务：** 将数据作为新卡片追加到末尾。
     - **追加模块：** 智能追加到现有任务卡片，超出时自动新建。
@@ -82,6 +119,15 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
     - 同上（创建任务 / 追加模块 / 追加模块到选中）。
 
 ### 📤 导出
+
+<video 
+  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/5-export.mp4" 
+  poster="images/5-export.png" 
+  controls 
+  preload="none" 
+  width="100%" 
+  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+</video>
 
 - **打包为ZIP**
     - **下载全部 / 下载选中：** 仅提取当前表面正在显示的媒体。
@@ -95,6 +141,15 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 ### ▶️ 运行
 
+<video 
+  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/6-run.mp4" 
+  poster="images/6-run.png" 
+  controls 
+  preload="none" 
+  width="100%" 
+  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+</video>
+
 - **运行：** 智能按需隔离运行机制。
     - **选择“任务卡片”运行：** 注入输入参数，运行该卡片内所有的输出节点。
     - **选择“输入模块”运行：** 等同于选择卡片运行。
@@ -104,12 +159,30 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 ### ⚓ 数据维护与配置锚点
 
+<video 
+  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/7-config.mp4" 
+  poster="images/7-config.png" 
+  controls 
+  preload="none" 
+  width="100%" 
+  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+</video>
+
 - **创建配置锚点：** 在画布上生成隐形的 `CLab_SystemConfig` 节点，将面板数据转化为 JSON 存入，随工作流 `Ctrl+S` 永久保存。
 - **清理失效记录 (全局)：** 纯前端高并发探针，瞬间扫描全盘历史记录，自动从内存中将本地已被删除的图片“死链(404)”剔除。
 - **重新同步记录 (全局)：** 它相当于一个强制刷新按钮。当你在本地硬盘用外部工具（如 Photoshop）修改了插件生成的图片覆盖保存后，浏览器因为缓存不会更新。点击此按钮，系统会强行下发时间戳（Cache-Busting）绕过缓存，瞬间在面板上加载修改后的最新画面。
 - **全局媒体 404 防空洞：** 当服务器临时文件被清理或本地文件丢失导致加载失败时，插件会全自动拦截网络报错，并在原地渲染一个优雅的纯黑底色“媒体丢失”界面。彻底告别浏览器丑陋的裂开图标和干瘪黑屏。
 
 ### 🎛️ 组件 (多媒体极客控件)
+
+<video 
+  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/8-component.mp4" 
+  poster="images/8-component.png" 
+  controls 
+  preload="none" 
+  width="100%" 
+  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+</video>
 
 - **视频组件：** 纯手工打造的无缝媒体播放器。
     - **滚轮调节进度：** 鼠标悬停在视频画面上，直接**滚动鼠标滚轮**即可高精度调节进度，左下角的时间码会变成绿色的 `分:秒:帧 (MM:SS:FF)` 格式；
@@ -138,6 +211,8 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 ## ⚙️ 核心偏好设置 (Settings)
 
 CLab 提供了极为丰富的个性化选项。请点击 ComfyUI 原生设置齿轮（Settings），找到 **`Creative Lab`** 下的分组进行高度定制：
+
+![设置界面](images/setting.png)
 
 ### 1. 常规 (General)
 
@@ -170,3 +245,32 @@ CLab 提供了极为丰富的个性化选项。请点击 ComfyUI 原生设置齿
 ### 6. 模块选中态外观 (Module Appearance)
 
 - 独立自定义模块（输入/输出区）被点击选中时的反馈效果，包含：**发光强度**、**填充透明度 (%)**、**描边粗细 (px)** 以及 **高亮主题色**（默认亮蓝）。
+
+---
+
+## 📖 更新与维护
+
+- [📅 更新日志](web/docs/更新日志.md)
+
+- [📘 开发指南](web/docs/开发指南.md)
+
+- [🗺️ 开发者功能映射手册](web/docs/开发者功能映射手册.md)
+
+- [🛡️ 多选护盾与高级拖拽](web/docs/多选护盾与高级拖拽.md)
+
+- [🔢 运行次数与批处理机制](web/docs/运行次数与批处理机制.md)
+
+- [📦 资产管理与状态同步原理](web/docs/资产管理与状态同步原理.md)
+
+- [🔧 开局部微创更新重构记录南](web/docs/局部微创更新重构记录.md)
+
+
+## 🤙 联系方式
+
+如有问题请提交 Issue。
+
+- bilibili：[噼哩画啦](https://space.bilibili.com/1370099549)
+
+- 邮箱：pixixai@gmail.com
+  
+- 邮箱：pixixai@qq.com

@@ -4,12 +4,12 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 <video 
   src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/1-overview.mp4" 
-  poster="images/1-overview.png" 
-  controls 
-  preload="none" 
-  width="100%" 
-  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+  poster="https://raw.githubusercontent.com/pixixai/ComfyUI-CreativeLab/main/images/1-overview.png"
+  controls="controls" 
+  muted="muted"
+  width="100%">
 </video>
+
 ---
 ### 🏷️ 任务卡片
 

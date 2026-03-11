@@ -2,27 +2,13 @@
 
 CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管理面板。它通过完全解耦的架构，让你在不改变底层连线的情况下，像使用专业非编软件一样管理、克隆、批处理多个任务和参数组合。
 
-[![视频概述](images/1-overview.png)](https://youtu.be/eErUlUco7TM)
+https://github.com/user-attachments/assets/535a99a4-1c8a-4c2e-94d2-b4aabb8171ce
 
-<video 
-  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/1-overview.mp4" 
-  poster="images/1-overview.png" 
-  controls 
-  preload="none" 
-  width="100%" 
-  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-</video>
 ---
 ### 🏷️ 任务卡片
 
-<video 
-  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/2-task.mp4" 
-  poster="images/2-task.png" 
-  controls 
-  preload="none" 
-  width="100%" 
-  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-</video>
+https://github.com/user-attachments/assets/95d58bab-34d8-4d13-a61b-6de866037679
+
 
 1. **新建任务**
     - **默认：** 在未选中任何内容时，在**任务列表**末尾添加新的“任务卡片”。
@@ -45,14 +31,8 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 ### 🧩 模块
 
-<video 
-  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/3-module.mp4" 
-  poster="images/3-module.png" 
-  controls 
-  preload="none" 
-  width="100%" 
-  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-</video>
+https://github.com/user-attachments/assets/f662718d-4038-4678-b940-f737c8bb4d5b
+
 
 1. **新建模块**
     - **选中卡片时：** 在其内部末尾添加空白“模块”。支持多选卡片实现**批量齐发**。
@@ -104,14 +84,8 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 ### 📥 导入
 
-<video 
-  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/4-import.mp4" 
-  poster="images/4-import.png" 
-  controls 
-  preload="none" 
-  width="100%" 
-  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-</video>
+https://github.com/user-attachments/assets/12f6ba64-4524-4fd9-959b-0c2c0995b16e
+
 
 - **从剪切板导入JSON数据**
     - **创建任务：** 将数据作为新卡片追加到末尾。
@@ -122,14 +96,7 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 ### 📤 导出
 
-<video 
-  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/5-export.mp4" 
-  poster="images/5-export.png" 
-  controls 
-  preload="none" 
-  width="100%" 
-  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-</video>
+https://github.com/user-attachments/assets/210a6e66-6e42-46a1-a41a-4ff33db10b9e
 
 - **打包为ZIP**
     - **下载全部 / 下载选中：** 仅提取当前表面正在显示的媒体。
@@ -143,14 +110,7 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 ### ▶️ 运行
 
-<video 
-  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/6-run.mp4" 
-  poster="images/6-run.png" 
-  controls 
-  preload="none" 
-  width="100%" 
-  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-</video>
+https://github.com/user-attachments/assets/293f831d-b290-43e9-8515-6b9aa75a7b85
 
 - **运行：** 智能按需隔离运行机制。
     - **选择“任务卡片”运行：** 注入输入参数，运行该卡片内所有的输出节点。
@@ -161,14 +121,7 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 ### ⚓ 数据维护与配置锚点
 
-<video 
-  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/7-config.mp4" 
-  poster="images/7-config.png" 
-  controls 
-  preload="none" 
-  width="100%" 
-  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-</video>
+https://github.com/user-attachments/assets/baa0e006-7050-4007-af0b-3051621e649b
 
 - **创建配置锚点：** 在画布上生成隐形的 `CLab_SystemConfig` 节点，将面板数据转化为 JSON 存入，随工作流 `Ctrl+S` 永久保存。
 - **清理失效记录 (全局)：** 纯前端高并发探针，瞬间扫描全盘历史记录，自动从内存中将本地已被删除的图片“死链(404)”剔除。
@@ -177,14 +130,8 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 ### 🎛️ 组件 (多媒体极客控件)
 
-<video 
-  src="https://github.com/pixixai/ComfyUI-CreativeLab/releases/download/CLab-Assets/8-component.mp4" 
-  poster="images/8-component.png" 
-  controls 
-  preload="none" 
-  width="100%" 
-  style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-</video>
+https://github.com/user-attachments/assets/896f42b5-838b-4f9d-a1cb-6c8999cfb38f
+
 
 - **视频组件：** 纯手工打造的无缝媒体播放器。
     - **滚轮调节进度：** 鼠标悬停在视频画面上，直接**滚动鼠标滚轮**即可高精度调节进度，左下角的时间码会变成绿色的 `分:秒:帧 (MM:SS:FF)` 格式；

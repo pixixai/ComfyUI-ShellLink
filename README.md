@@ -4,7 +4,10 @@ CLab (Creative Lab) 是一个为 ComfyUI 打造的沉浸式、卡片化任务管
 
 https://github.com/user-attachments/assets/535a99a4-1c8a-4c2e-94d2-b4aabb8171ce
 
-💡 **如何打开面板？**
+---
+
+### 💡 如何打开插件？
+
 - **快捷键**：按下键盘上的 `C` 键（可在设置中自定义）。
 - **界面入口**：点击 ComfyUI 顶部主菜单栏右侧的 **CLab** 图标按钮。
 

@@ -19,6 +19,7 @@ except ImportError:
 # 1. 动态注入专属保存节点 (去除原版 SaveImage 讨厌的尾部下划线)
 # =========================================================================
 class CLabSaveImage(nodes.SaveImage):
+    CATEGORY = "Creative Lab"
     def save_images(self, images, filename_prefix="CLab/Pix", prompt=None, extra_pnginfo=None):
         filename_prefix += self.prefix_append
         full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(filename_prefix, self.output_dir, images[0].shape[1], images[0].shape[0])

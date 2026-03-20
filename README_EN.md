@@ -196,6 +196,8 @@ Open ComfyUI **Settings** → **`Creative Lab`**:
 
 Panel UI strings (not Comfy’s built-in node defs) live under `locales/*/main.json` → **`clabUi`**, loaded via **`GET /i18n`**. After editing locale files, **restart ComfyUI** so the server cache refreshes.
 
+**Maintainer workflow:** keys and copy are authored in **`locales/zh` first** (Simplified Chinese as the source of truth), then mirrored to `en` and other locales; `clabT` falls back **zh → en** when a translation is missing.
+
 - **[Internationalization guide](web/docs/国际化指南.md)** (Chinese; covers `clabT`, refresh hooks, and namespace tables)
 
 ---

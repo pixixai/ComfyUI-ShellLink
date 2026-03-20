@@ -1,5 +1,6 @@
 /**
- * CLab 面板文案：从 Comfy 合并接口 /i18n 读取各语言 main.json 中的 clabUi（单一维护源在 locales/）
+ * CLab 面板文案：从 Comfy 合并接口 /i18n 读取各语言 main.json 中的 clabUi。
+ * 开发与维护以简体中文 locales/zh 为基准（先写 zh 再同步其它语言）；运行时缺键时优先回退 zh，再 en。
  */
 import { app } from "../../scripts/app.js";
 
@@ -143,6 +144,7 @@ export function clabT(key) {
     if (typeof s !== "string" && loc === "zh") {
         s = dig(_bundle?.zh?.clabUi, key);
     }
+    if (typeof s !== "string") s = dig(_bundle?.zh?.clabUi, key);
     if (typeof s !== "string") s = dig(_bundle?.en?.clabUi, key);
     if (typeof s !== "string") {
         for (const code of Object.keys(_bundle || {})) {

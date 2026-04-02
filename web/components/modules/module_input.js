@@ -138,7 +138,6 @@ export function generateInputHTML(area, card) {
             let previewHtml = '';
             const fileUrl = `/view?filename=${encodeURIComponent(area.value)}&type=input`;
             
-            // 【核心修复】：增加失效状态的降级 UI 兜底。当旧参数值无法加载为有效媒体时，显示此提示而不是干瘪的黑块
             const fallbackHtml = `
                 <div class="clab-upload-fallback" style="display: none; position: absolute; inset: 0; flex-direction: column; justify-content: center; align-items: center; z-index: 2; background: rgba(0,0,0,0.2);">
                     <div style="margin-bottom: 8px; color: #ff5555;">
@@ -214,7 +213,8 @@ export function generateInputHTML(area, card) {
             </label>
         `;
     } else {
-        inputHtml = `<textarea class="clab-input clab-edit-val" data-card="${card.id}" data-area="${area.id}" placeholder="输入参数值..." style="display:block; margin:0; box-sizing:border-box; ${area.autoHeight ? 'height: auto; resize: none; overflow: hidden;' : ''}">${area.value || ''}</textarea>`;
+        // 【UI防守更新】：移除 height: auto 带来的高度坍塌隐患，并增加强制无 max-height
+        inputHtml = `<textarea class="clab-input clab-edit-val" data-card="${card.id}" data-area="${area.id}" placeholder="输入参数值..." style="display:block; margin:0; box-sizing:border-box; ${area.autoHeight ? 'min-height: 40px; resize: none; overflow: hidden; max-height: none !important;' : ''}">${area.value || ''}</textarea>`;
     }
 
     return `
@@ -245,6 +245,19 @@ export function attachInputEvents(container) {
             saveAndRender();
         }
     };
+
+    // ==========================================
+    // 【终极方案】：建立全局单一的“离屏影子测量器”
+    // ==========================================
+    let ghostMeasurer = document.getElementById('clab-ghost-textarea-measurer');
+    if (!ghostMeasurer) {
+        ghostMeasurer = document.createElement('textarea');
+        ghostMeasurer.id = 'clab-ghost-textarea-measurer';
+        // 绝对定位、高度强制缩水为 1px（这样 scrollHeight 才能无限撑破获取真实尺寸），但绝不可见，也不参与布局
+        ghostMeasurer.style.cssText = 'position: absolute; top: -9999px; left: -9999px; visibility: hidden; z-index: -1000; overflow: hidden; height: 1px !important; min-height: 1px !important; max-height: none !important; word-wrap: break-word; white-space: pre-wrap;';
+        ghostMeasurer.tabIndex = -1;
+        document.body.appendChild(ghostMeasurer);
+    }
 
     container.querySelectorAll('.clab-upload-zone').forEach(zone => {
         const fileInput = zone.querySelector('.clab-file-input');
@@ -339,12 +352,59 @@ export function attachInputEvents(container) {
     });
 
     container.querySelectorAll('.clab-edit-val').forEach(ta => {
-        if (ta.style.height === 'auto') ta.style.height = (ta.scrollHeight) + 'px';
+        
+        let resizeTimeout;
+
+        // 【核心计算引擎】：使用 requestAnimationFrame 配合防抖，保证极速输入的流畅性
+        const handleAutoResize = () => {
+            if (ta.style.resize !== 'none') return;
+            
+            window.requestAnimationFrame(() => {
+                // 1. 将真实的文字、字体尺寸、宽度完全克隆给影子测量器
+                const comp = window.getComputedStyle(ta);
+                ghostMeasurer.style.width = comp.width;
+                ghostMeasurer.style.fontFamily = comp.fontFamily;
+                ghostMeasurer.style.fontSize = comp.fontSize;
+                ghostMeasurer.style.lineHeight = comp.lineHeight;
+                ghostMeasurer.style.padding = comp.padding;
+                ghostMeasurer.style.border = comp.border;
+                ghostMeasurer.style.boxSizing = comp.boxSizing;
+                ghostMeasurer.style.letterSpacing = comp.letterSpacing;
+                
+                ghostMeasurer.value = ta.value || ta.placeholder || 'A';
+                
+                // 2. 测量出影子真实的 scrollHeight
+                const borders = (parseFloat(comp.borderTopWidth) || 0) + (parseFloat(comp.borderBottomWidth) || 0);
+                
+                // 3. 安全余量 (8px) 彻底打败中英文混排时的亚像素高度坍塌
+                const calculatedHeight = ghostMeasurer.scrollHeight + borders + 8;
+                
+                // 4. 将高度单向直接赋给真实元素。全程没有任何 height: auto 的重排，绝对 0 跳动！
+                ta.style.height = calculatedHeight + 'px';
+            });
+        };
+
+        // 监听宽度变化：加入防抖机制，避免拖拽面板时卡顿
+        if (window.ResizeObserver) {
+            let lastWidth = null;
+            const ro = new ResizeObserver((entries) => {
+                for (let entry of entries) {
+                    if (entry.contentRect.width !== lastWidth) {
+                        lastWidth = entry.contentRect.width;
+                        clearTimeout(resizeTimeout);
+                        resizeTimeout = setTimeout(handleAutoResize, 10);
+                    }
+                }
+            });
+            ro.observe(ta);
+        }
+
+        // 初始化兜底计算
+        setTimeout(handleAutoResize, 50);
+
         ta.oninput = (e) => {
-            if (ta.style.height === 'auto' || ta.style.resize === 'none') {
-                ta.style.height = 'auto';
-                ta.style.height = (ta.scrollHeight) + 'px';
-            }
+            handleAutoResize();
+            
             const { card: cardId, area: areaId } = e.target.dataset;
             const card = state.cards.find(c => c.id === cardId);
             const area = card.areas.find(a => a.id === areaId);

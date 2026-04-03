@@ -37,7 +37,10 @@ export function setupAPIInjector(app) {
                     area.width = width;
                     area.height = height;
                     StateManager.syncToNode(app.graph);
-                    document.dispatchEvent(new CustomEvent("clab_render_ui"));
+                    
+                    // 【点穴修复】：读取完自适应尺寸后，放弃全局核弹，改用点穴更新
+                    if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(areaId);
+                    else document.dispatchEvent(new CustomEvent("clab_render_ui"));
                 }
             }
         };
@@ -493,7 +496,10 @@ export function setupAPIInjector(app) {
                                     area.width = tempVid.videoWidth;
                                     area.height = tempVid.videoHeight;
                                     StateManager.syncToNode(app.graph);
-                                    document.dispatchEvent(new CustomEvent("clab_render_ui"));
+                                    
+                                    // 【点穴修复】：读取完视频尺寸后进行点穴更新
+                                    if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(area.id);
+                                    else document.dispatchEvent(new CustomEvent("clab_render_ui"));
                                 };
                                 tempVid.onerror = (e) => console.error("[CLab] 读取视频尺寸失败", e);
                                 tempVid.src = newUrlFirst;
@@ -501,7 +507,10 @@ export function setupAPIInjector(app) {
                             } else if (isAudioFirst) {
                                 area.ratio = 'auto';
                                 StateManager.syncToNode(app.graph);
-                                document.dispatchEvent(new CustomEvent("clab_render_ui"));
+                                
+                                // 【点穴修复】：音频文件不需要获取高宽，直接点穴更新
+                                if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(area.id);
+                                else document.dispatchEvent(new CustomEvent("clab_render_ui"));
                             } else {
                                 const tempImg = new Image();
                                 tempImg.onload = () => {
@@ -509,7 +518,10 @@ export function setupAPIInjector(app) {
                                     area.width = tempImg.naturalWidth;
                                     area.height = tempImg.naturalHeight;
                                     StateManager.syncToNode(app.graph);
-                                    document.dispatchEvent(new CustomEvent("clab_render_ui"));
+                                    
+                                    // 【点穴修复】：读取完图片尺寸后进行点穴更新
+                                    if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(area.id);
+                                    else document.dispatchEvent(new CustomEvent("clab_render_ui"));
                                 };
                                 tempImg.src = newUrlFirst; 
                             }

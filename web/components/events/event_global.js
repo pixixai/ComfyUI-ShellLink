@@ -2,7 +2,7 @@
  * 文件名: event_global.js
  * 职责: 处理全局级别的生命周期事件、快捷键、以及系统级点击防误触护盾
  */
-import { state, appState, saveAndRender } from "../ui_state.js";
+import { state, appState, createEmptyWorkspace, applyWorkspaceToState, saveAndRender } from "../ui_state.js";
 import { updateSelectionUI } from "../ui_selection.js";
 import { enterBindingModeForSelected } from "../actions/action_binding.js";
 
@@ -261,10 +261,19 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
     document.addEventListener("clab_state_loaded", (e) => {
         const loadedState = e.detail || { cards: [], activeCardId: null, selectedCardIds: [], selectedAreaIds: [] };
         Object.assign(state, loadedState);
-        if (!state.selectedCardIds) state.selectedCardIds = state.activeCardId ? [state.activeCardId] : [];
-        if (!state.selectedAreaIds) state.selectedAreaIds = [];
+        if (!Array.isArray(state.workspaces) || state.workspaces.length === 0) {
+            const workspace = createEmptyWorkspace();
+            state.workspaces = [workspace];
+            state.activeWorkspaceId = workspace.id;
+            applyWorkspaceToState(workspace);
+        }
+
+        state.selectedCardIds = [];
+        state.selectedAreaIds = [];
         state.painterMode = false;
         state.painterSource = null;
+        appState.lastClickedCardId = null;
+        appState.lastClickedAreaId = null;
         
         state.cards.forEach(card => {
             if (!card.areas) {
@@ -278,7 +287,16 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
     });
 
     document.addEventListener("clab_state_cleared", () => {
-        Object.assign(state, { cards: [], activeCardId: null, selectedCardIds: [], selectedAreaIds: [], painterMode: false, painterSource: null });
+        const workspace = createEmptyWorkspace();
+        state.workspaces = [workspace];
+        state.activeWorkspaceId = workspace.id;
+        applyWorkspaceToState(workspace);
+        state.selectedCardIds = [];
+        state.selectedAreaIds = [];
+        state.painterMode = false;
+        state.painterSource = null;
+        appState.lastClickedCardId = null;
+        appState.lastClickedAreaId = null;
         if (panelContainer && panelContainer.classList.contains('visible')) performRenderFunc();
     });
 

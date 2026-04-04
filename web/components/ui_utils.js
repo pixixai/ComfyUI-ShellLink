@@ -3,7 +3,7 @@
  * 职责: UI 渲染辅助工具、ComfyUI 图谱解析、CSS 样式库
  */
 import { app } from "../../../scripts/app.js";
-import { appState } from "./ui_state.js"; 
+import { appState } from "./ui_state.js";
 
 // =========================================================================
 // --- DOM 辅助构建方法 ---
@@ -20,7 +20,7 @@ export function buildCustomSelect(id, width, valueText, itemsHtml, disabled = fa
 }
 
 export function getRatioCSS(area) {
-    if (area.matchMedia || !area.ratio) return 'aspect-ratio: 16/9;'; 
+    if (area.matchMedia || !area.ratio) return 'aspect-ratio: 16/9;';
     if (area.ratio === '自定义比例' && area.width && area.height) {
         return `aspect-ratio: ${area.width} / ${area.height};`;
     }
@@ -61,7 +61,7 @@ export function getCustomNodeMenuHTML(selectedNodeId) {
                     }
                 }
             }
-            
+
             let currentLevel = tree;
             if (groupPath[0] !== "未分组") {
                 groupPath.forEach(part => {
@@ -80,7 +80,7 @@ export function getCustomNodeMenuHTML(selectedNodeId) {
         const indent = depth * 12;
         nodeTree.nodes.forEach(n => {
             const isSel = n.id == selectedNodeId;
-            html += `<div class="clab-custom-select-item ${isSel?'selected':''}" data-value="${n.id}" style="padding-left:${indent + 12}px;">[${n.id}] ${n.title || n.type}</div>`;
+            html += `<div class="clab-custom-select-item ${isSel ? 'selected' : ''}" data-value="${n.id}" style="padding-left:${indent + 12}px;">[${n.id}] ${n.title || n.type}</div>`;
         });
         for (let childName in nodeTree.children) {
             html += `<div class="clab-custom-select-group-title" style="padding-left:${indent + 8}px;">${childName}</div>`;
@@ -92,7 +92,7 @@ export function getCustomNodeMenuHTML(selectedNodeId) {
     let finalHtml = `<div class="clab-custom-select-item" data-value="" style="color:#aaa;">(清除关联)</div>`;
     if (tree.nodes.length > 0) {
         finalHtml += `<div class="clab-custom-select-group-title">未分组</div>`;
-        finalHtml += renderTree({nodes: tree.nodes, children: {}}, 0);
+        finalHtml += renderTree({ nodes: tree.nodes, children: {} }, 0);
     }
     for (let childName in tree.children) {
         finalHtml += `<div class="clab-custom-select-group-title">${childName}</div>`;
@@ -108,7 +108,7 @@ export function getCustomWidgetMenuHTML(nodeId, selectedWidget) {
         if (node && node.widgets) {
             node.widgets.forEach(w => {
                 const isSel = w.name === selectedWidget;
-                html += `<div class="clab-custom-select-item ${isSel?'selected':''}" data-value="${w.name}">${w.name}</div>`;
+                html += `<div class="clab-custom-select-item ${isSel ? 'selected' : ''}" data-value="${w.name}">${w.name}</div>`;
             });
         }
     }
@@ -119,7 +119,7 @@ export function getMultiNodeMenuHTML(selectedIds) {
     if (!app.graph) return '';
     const nodes = app.graph._nodes || [];
     let html = '';
-    
+
     const groups = {};
     nodes.forEach(n => {
         const cat = n.category || '未分类';
@@ -139,14 +139,14 @@ export function getMultiNodeMenuHTML(selectedIds) {
 
 export function getMultiWidgetMenuHTML(nodeIds, selectedWidgets) {
     if (!app.graph || !nodeIds || nodeIds.length === 0) return '<div class="clab-custom-select-item" data-value="">请先选择关联节点</div>';
-    
+
     let html = '';
     nodeIds.forEach(nid => {
         const node = app.graph.getNodeById(Number(nid));
         if (!node) return;
-        
+
         html += `<div class="clab-custom-select-group-title">[${node.id}] ${node.title || node.type}</div>`;
-        
+
         let hasWidget = false;
         if (node.widgets && node.widgets.length > 0) {
             node.widgets.forEach(w => {
@@ -175,9 +175,9 @@ export function showBindingToast(msg, isError = false) {
         toast.id = 'clab-binding-toast';
         document.body.appendChild(toast);
     }
-    
+
     const bgColor = isError ? "rgba(244, 67, 54, 0.95)" : "var(--clab-theme-card, rgba(76, 175, 80, 0.95))";
-    
+
     toast.style.cssText = `
         position: fixed; top: 30px; left: 50%; transform: translateX(-50%);
         background: ${bgColor}; color: white; padding: 15px 30px;
@@ -210,7 +210,7 @@ export function bindComboSelectEvents(container, stateObj, saveAndRenderCallback
         const items = el.querySelectorAll('.clab-custom-select-item');
 
         el.addEventListener('mousedown', e => e.stopPropagation());
-        
+
         const openDropdown = (e) => {
             e.stopPropagation();
             document.querySelectorAll('.clab-custom-select.open').forEach(other => {
@@ -269,7 +269,7 @@ export function bindComboSelectEvents(container, stateObj, saveAndRenderCallback
                 if (currentArea) currentArea.style.zIndex = '';
                 const dp = el.querySelector('.clab-custom-select-dropdown');
                 if (dp) { dp.style.top = ''; dp.style.bottom = ''; dp.style.transform = ''; }
-                
+
                 items.forEach(item => item.style.display = 'block');
                 const groupTitles = el.querySelectorAll('.clab-custom-select-group-title');
                 groupTitles.forEach(title => title.style.display = 'flex');
@@ -285,28 +285,28 @@ export function bindComboSelectEvents(container, stateObj, saveAndRenderCallback
                 e.stopPropagation();
                 const val = item.dataset.value;
                 el.classList.remove('open');
-                
+
                 const currentArea = el.closest('.clab-area');
                 if (currentArea) currentArea.style.zIndex = '';
                 const dp = el.querySelector('.clab-custom-select-dropdown');
                 if (dp) { dp.style.top = ''; dp.style.bottom = ''; dp.style.transform = ''; }
-                
+
                 const cardId = el.dataset.cardId;
                 const areaId = el.dataset.areaId;
                 const card = stateObj.cards.find(c => c.id === cardId);
                 const area = card?.areas.find(a => a.id === areaId);
-                
+
                 if (area) {
                     area.value = val;
                     stateObj.selectedAreaIds = [areaId];
                     stateObj.selectedCardIds = [];
                     appState.lastClickedAreaId = areaId;
-                    
+
                     if (window._clabSurgicallyUpdateArea) {
                         window._clabSurgicallyUpdateArea(areaId);
                         if (window._clabJustSave) window._clabJustSave();
                     } else if (saveAndRenderCallback) {
-                        saveAndRenderCallback(); 
+                        saveAndRenderCallback();
                     }
                 }
             });
@@ -367,10 +367,30 @@ export function injectCSS() {
         .clab-toolbar {
             padding: 15px 20px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             display: flex; justify-content: space-between; align-items: center; gap: 10px;
-            cursor: grab; user-select: none; flex-wrap: wrap;
+            cursor: grab; user-select: none; flex-wrap: nowrap;
         }
         .clab-toolbar:active { cursor: grabbing; }
         .clab-toolbar button, .clab-toolbar input { cursor: pointer; }
+        .clab-toolbar-left,
+        .clab-toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+        .clab-toolbar-left {
+            flex: 1 1 auto;
+        }
+        .clab-toolbar-right {
+            flex: 0 0 auto;
+            margin-left: auto;
+        }
+        .clab-module-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
 
         .clab-btn {
             background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px;
@@ -393,6 +413,122 @@ export function injectCSS() {
         .clab-cards-container { 
             flex: 1; overflow-x: auto; overflow-y: hidden; padding: 20px; 
             display: flex; flex-direction: row; gap: 20px; align-items: stretch;
+        }
+        .clab-panel-footer {
+            display: flex;
+            align-items: stretch;
+            justify-content: flex-start;
+            gap: 0;
+            padding: 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.3);
+            flex: 0 0 auto;
+            height: 36px;
+            box-sizing: border-box;
+            width: 100%;
+            overflow: hidden;
+        }
+        #clab-card-width-ctrl {
+            position: absolute;
+            left: 20px;
+            bottom: 60px;
+            background: transparent;
+            padding: 0;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 100;
+        }
+        .clab-workspace-shell {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            min-width: 0;
+            flex: 1 1 auto;
+            justify-content: flex-start;
+            height: 100%;
+        }
+        .clab-workspace-tabs {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            min-width: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            height: 100%;
+        }
+        .clab-workspace-tabs::-webkit-scrollbar { display: none; }
+        .clab-workspace-tab {
+            flex: 0 0 auto;
+            height: 100%;
+            box-sizing: border-box;
+            border: none;
+            border-right: 1px solid rgba(255,255,255,0.08);
+            border-radius: 0;
+            background: transparent;
+            color: #aaa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 16px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            max-width: 180px;
+            font-size: 13px;
+        }
+        .clab-workspace-tab:hover { background: rgba(255,255,255,0.05); color: #ddd; }
+        .clab-workspace-tab.active {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            box-shadow: inset 0 -2px 0 var(--clab-theme-card, #4CAF50);
+        }
+        .clab-workspace-tab.clab-workspace-add {
+            flex: 0 0 auto;
+            width: 36px;
+            padding: 0;
+            font-size: 18px;
+            font-weight: normal;
+            position: sticky;
+            right: 0;
+            background: #252525;
+            border-left: 1px solid rgba(255,255,255,0.08);
+            z-index: 10;
+            justify-content: center;
+            color: #bbb;
+        }
+        .clab-workspace-tab-index {
+            display: none;
+        }
+        .clab-workspace-tab-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            outline: none;
+        }
+        .clab-workspace-tab-name[contenteditable="true"] {
+            text-overflow: clip;
+            cursor: text;
+        }
+        .clab-workspace-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 0 0 auto;
+        }
+        .clab-workspace-action {
+            padding: 6px 12px;
+            height: 30px;
+            border-radius: 15px;
+        }
+        .clab-workspace-action.clab-danger {
+            border-color: rgba(255, 80, 80, 0.35);
+            color: #ff9a9a;
+        }
+        .clab-workspace-action.clab-danger:hover {
+            background: rgba(255, 80, 80, 0.22);
+            color: #fff;
         }
         .clab-cards-container::-webkit-scrollbar, .clab-card-body::-webkit-scrollbar { height: 10px; width: 6px; }
         .clab-cards-container::-webkit-scrollbar-thumb, .clab-card-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 5px; }

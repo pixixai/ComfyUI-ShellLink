@@ -7,6 +7,7 @@ import { setupStaticToolbarEvents } from "./components/comp_toolbar.js";
 import { renderDynamicToolbar, attachDynamicToolbarEvents } from "./components/comp_toolbar.js";
 import { renderCardsList, attachCardEvents } from "./components/comp_taskcard.js";
 import { attachAreaEvents } from "./components/comp_modulearea.js";
+import { renderWorkspaceBar, attachWorkspaceEvents } from "./components/comp_workspace.js";
 
 import { setupGlobalEvents } from "./components/events/event_global.js";
 import { setupExecutionEvents } from "./components/events/event_execution.js";
@@ -69,8 +70,6 @@ function setupPanelMediaVault() {
                         const oldIsView = oldUrl.pathname === "/view" && !!oldUrl.searchParams.get("filename");
                         const newIsView = newUrl.pathname === "/view" && !!newUrl.searchParams.get("filename");
 
-                        // For ComfyUI /view URLs, t mismatch means a forced resync/refresh request.
-                        // In that case we must NOT restore old media from vault.
                         if (oldIsView && newIsView) {
                             const oldFilename = oldUrl.searchParams.get("filename");
                             const newFilename = newUrl.searchParams.get("filename");
@@ -78,9 +77,7 @@ function setupPanelMediaVault() {
                             const newT = newUrl.searchParams.get("t") || "";
                             return oldFilename === newFilename && oldT === newT;
                         }
-                    } catch (_) {
-                        // Fallback below.
-                    }
+                    } catch (_) {}
 
                     const oldBase = info.src.split("&t=")[0].split("?t=")[0];
                     const newBase = newSrc.split("&t=")[0].split("?t=")[0];
@@ -113,6 +110,7 @@ function performPanelRender() {
 
     const toolbarHandle = panelContainer.querySelector("#clab-toolbar-handle");
     const cardsContainer = panelContainer.querySelector("#clab-cards-container");
+    const workspaceBar = panelContainer.querySelector("#clab-workspace-bar");
 
     let savedScrollLeft = 0;
     const savedCardScrolls = new Map();
@@ -128,6 +126,7 @@ function performPanelRender() {
 
     renderDynamicToolbar(toolbarHandle);
     renderCardsList(cardsContainer);
+    renderWorkspaceBar(workspaceBar);
 
     if (cardsContainer) {
         cardsContainer.scrollLeft = savedScrollLeft;
@@ -142,6 +141,7 @@ function performPanelRender() {
     attachDynamicToolbarEvents(toolbarHandle);
     attachCardEvents(cardsContainer);
     attachAreaEvents(cardsContainer);
+    attachWorkspaceEvents(workspaceBar);
 
     if (window._clabUpdateAllDefaultTitles) window._clabUpdateAllDefaultTitles();
 }
@@ -281,18 +281,17 @@ function createPanelDOM() {
 
     panelContainer.innerHTML = `
         <div class="clab-toolbar" id="clab-toolbar-handle">
-            <div style="display:flex; gap:10px; align-items:center;">
+            <div class="clab-toolbar-left">
                 <button class="clab-btn" id="clab-global-add-card" title="新建空白任务卡片">+ 新建任务</button>
                 <button class="clab-btn" id="clab-global-add-module" title="在当前任务内添加新模块">+ 新建模块</button>
                 <div id="clab-module-toolbar-separator" style="width:1px; height:20px; background:rgba(255,255,255,0.2); margin:0 5px; display:none;"></div>
-                <div id="clab-module-toolbar" style="display:none; align-items:center; gap:12px;"></div>
+                <div id="clab-module-toolbar" class="clab-module-toolbar" style="display:none;"></div>
             </div>
 
-            <div style="display:flex; gap:10px; align-items:center; margin-left:auto;">
-
+            <div class="clab-toolbar-right">
                 <div style="display:inline-flex; align-items:stretch; height: 34px;">
                     <div id="clab-run-btn-wrapper" class="clab-run-wrapper" style="border-top-right-radius: 0; border-bottom-right-radius: 0; height: 100%;">
-                        <button class="clab-btn run-btn-main" id="clab-btn-run" title="按规则运行选中任务（局部）" style="height: 100%;">▶ 运行</button>
+                        <button class="clab-btn run-btn-main" id="clab-btn-run" title="按规则运行选中任务（局部）" style="height: 100%;">运行</button>
                         <div style="width:1px; height:16px; background:rgba(255,255,255,0.4); margin: 0 4px; align-self: center;"></div>
                         <button class="clab-btn run-btn-toggle" id="clab-run-dropdown-toggle" title="展开更多运行选项" style="height: 100%;">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -327,14 +326,19 @@ function createPanelDOM() {
             </div>
         </div>
         <div class="clab-cards-container" id="clab-cards-container"></div>
-
-        <div id="clab-card-width-ctrl" style="position: absolute; bottom: 16px; left: 16px; z-index: 1000; display: flex; align-items: center; gap: 8px; transition: opacity 0.2s;">
+        <div id="clab-card-width-ctrl" class="clab-card-width-ctrl">
             <svg id="clab-card-width-reset" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="恢复默认宽度" style="cursor: pointer; transition: stroke 0.2s;" onmouseover="this.style.stroke='#fff'" onmouseout="this.style.stroke='#888'">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                 <line x1="9" y1="3" x2="9" y2="21"></line>
             </svg>
             <input type="range" id="clab-card-width-slider" min="260" max="600" value="320" style="width: 80px; accent-color: #888; cursor: pointer; height: 4px; background: rgba(255,255,255,0.2); outline: none; border-radius: 2px; -webkit-appearance: none;">
             <input type="number" id="clab-card-width-input" title="手动输入宽度（回车确认）" style="width: 36px; background: transparent; border: none; color: #888; font-size: 12px; outline: none; text-align: left; padding: 0; margin: 0; font-family: monospace; transition: color 0.2s;" onfocus="this.style.color='#fff'" onblur="this.style.color='#888'">
+        </div>
+
+        <div class="clab-panel-footer">
+            <div class="clab-workspace-shell">
+                <div class="clab-workspace-tabs" id="clab-workspace-bar"></div>
+            </div>
         </div>
     `;
 

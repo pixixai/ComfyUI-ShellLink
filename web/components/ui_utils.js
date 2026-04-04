@@ -545,8 +545,8 @@ export function injectCSS() {
             background: rgba(255, 80, 80, 0.22);
             color: #fff;
         }
-        .clab-cards-container::-webkit-scrollbar, .clab-card-body::-webkit-scrollbar { height: 10px; width: 6px; }
-        .clab-cards-container::-webkit-scrollbar-thumb, .clab-card-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 5px; }
+        .clab-cards-container::-webkit-scrollbar, .clab-card-body::-webkit-scrollbar { height: 7px; width: 4px; }
+        .clab-cards-container::-webkit-scrollbar-thumb, .clab-card-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
         .clab-cards-container::-webkit-scrollbar-track, .clab-card-body::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
         
         .clab-card {

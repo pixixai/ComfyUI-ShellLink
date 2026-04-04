@@ -1,4 +1,4 @@
-﻿/**
+/**
  * event_panel.js: panel-local event wiring (selection, painter, wheel, drag, width).
  */
 import { state, saveAndRender } from "../ui_state.js";
@@ -93,17 +93,63 @@ function setupCardWidthControl(panelContainer) {
         if (numericValue < 260) numericValue = 260;
         if (numericValue > 1200) numericValue = 1200;
 
+        const cardsContainer = panelContainer.querySelector("#clab-cards-container");
+        let ratio = 0.5;
+        if (cardsContainer && cardsContainer.scrollWidth > 0) {
+            ratio = (cardsContainer.scrollLeft + cardsContainer.clientWidth / 2) / cardsContainer.scrollWidth;
+        }
+
         widthSlider.value = Math.min(numericValue, 600);
         widthInput.value = numericValue;
         panelContainer.style.setProperty("--clab-card-width", `${numericValue}px`);
         localStorage.setItem("clab-card-width-v1", numericValue);
+
+        // Sync layout immediately to update scrollWidth
+        if (window._clabUpdateCardsLayout) {
+            window._clabUpdateCardsLayout();
+        }
+
+        if (cardsContainer && cardsContainer.scrollWidth > 0) {
+            const newScrollLeft = (ratio * cardsContainer.scrollWidth) - (cardsContainer.clientWidth / 2);
+            cardsContainer.scrollLeft = newScrollLeft;
+        }
     };
+
+    widthSlider.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+        panelContainer.classList.add("clab-zooming");
+    });
+
+    const stopZooming = () => {
+        panelContainer.classList.remove("clab-zooming");
+    };
+
+    window.addEventListener("mouseup", stopZooming);
+    widthSlider.addEventListener("change", (event) => {
+        stopZooming();
+        updateWidth(event.target.value);
+    });
 
     widthSlider.addEventListener("input", (event) => {
         event.stopPropagation();
         const value = event.target.value;
         widthInput.value = value;
+        
+        const cardsContainer = panelContainer.querySelector("#clab-cards-container");
+        let ratio = 0.5;
+        if (cardsContainer && cardsContainer.scrollWidth > 0) {
+            ratio = (cardsContainer.scrollLeft + cardsContainer.clientWidth / 2) / cardsContainer.scrollWidth;
+        }
+
         panelContainer.style.setProperty("--clab-card-width", `${value}px`);
+
+        if (window._clabUpdateCardsLayout) {
+            window._clabUpdateCardsLayout();
+        }
+
+        if (cardsContainer && cardsContainer.scrollWidth > 0) {
+            cardsContainer.scrollLeft = (ratio * cardsContainer.scrollWidth) - (cardsContainer.clientWidth / 2);
+        }
     });
     widthSlider.addEventListener("change", (event) => updateWidth(event.target.value));
 

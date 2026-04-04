@@ -165,6 +165,9 @@ export function setupUI() {
             max-width: var(--clab-card-width) !important;
             transition: width 0.1s ease, min-width 0.1s ease, max-width 0.1s ease;
         }
+        #clab-panel.clab-zooming .clab-card {
+            transition: none !important;
+        }
         #clab-card-width-input::-webkit-outer-spin-button,
         #clab-card-width-input::-webkit-inner-spin-button,
         #clab-run-batch-count::-webkit-outer-spin-button,

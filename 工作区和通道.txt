@@ -1,0 +1,245 @@
+工作区：在这个插件上，可以像PS切换文件那样，可以创建不同的批处理方案（创建不同的卡片、模块，每个模块可以绑定自己的节点） 
+通道：与工作区类似，就是为当前文件创建不同的连接通道。副本与主面板之间，卡片、模块、模块的参数值、模块类型、历史生成记录都是同步的。不同的是关联节点绑定参数，每个通道可以为模块绑定不同的节点、参数。 
+
+
+
+
+你看要实现着两个功能，需要修改哪些文件，亦或者要新建文件上实现。先不要写代码，先考虑实现方案。
+
+
+已处理 6m 50s
+推荐把这两个功能拆成两层做，别直接把它们揉进现有 cards 里。
+
+工作区我建议做成“独立场景”，拥有自己的一套卡片、模块、历史记录；通道则做成“绑定配置层”，共享当前工作区的卡片/模块/历史，只保存每个模块对应的节点与参数绑定。这样最贴合你说的“通道之间内容同步，只有绑定不同”。
+
+大概的数据形态会更像这样：
+
+{
+  "activeWorkspaceId": "w1",
+  "workspaces": [
+    {
+      "id": "w1",
+      "cards": [],
+      "history": [],
+      "activeChannelId": "c1",
+      "channels": [
+        { "id": "c1", "bindings": {} }
+      ]
+    }
+  ]
+}
+会动的文件我建议是这些：
+
+web/components/ui_state.js 和 web/state_manager.js: 这里是核心，负责把单一 state.cards 升级成工作区/通道结构，以及旧数据迁移。
+web/components/comp_workspace.js: 这个文件目前是空的，最适合直接做工作区/通道切换器和 CRUD UI。
+web/ui_panel.js 和 web/components/events/event_panel.js: 切换工作区/通道时，面板的滚动位置、选择状态、媒体暂存/恢复都要一起处理。
+web/components/actions/action_module_config.js、web/components/actions/action_batch_sync.js、web/api_injector.js: 这里负责“绑定层”，要改成按当前通道注入节点/参数，而不是全局唯一绑定。
+web/components/actions/action_data_io.js: 导入/导出/复制工作区和通道时会用到，最好顺手加版本号和兼容迁移。
+web/components/comp_toolbar.js: 顶部工具栏可以放“新建工作区 / 新建通道 / 切换通道”之类的快捷入口。
+web/main.js: 负责把新组件挂进初始化流程。
+nodes/config_node.py: 目前它只是透传 scenes_data 字符串，通常不用大改；只有你要做 schema 校验或迁移逻辑时才需要碰。
+如果想把结构再整理干净一点，我会额外新建两个文件：
+
+web/components/actions/action_workspace.js: 专门放工作区/通道的创建、复制、删除、切换逻辑。
+web/components/events/event_workspace.js: 专门放切换时的键盘、焦点、选择态收尾。
+我建议的实现顺序是先做工作区，再做通道。因为工作区会先把“多套方案”的数据边界立住，通道只是往这套结构上再加一层绑定配置。你要是认可这个方向，我下一步可以继续帮你细化成“字段设计 + 迁移方案 + 文件改动清单”。
+
+
+对，通道在工作区之内的，每个工作区都有自己的通道。然后工作区切换放在哪里，通道放在哪里？你有没有设计方案？
+
+有，我建议把它做成“两层作用域切换”，而不是分散到各个按钮里。
+
+推荐摆放
+
+工作区切换放在面板最上层，靠近 CLab 标识或工具栏最左侧，做成一个明显的“工作区选择器”。
+通道切换放在工作区下面一层，或者紧挨着工作区选择器右侧，但视觉上更弱一点，做成“当前工作区的通道选择器”。
+为什么这样放
+
+工作区是“整套方案”，切换它会换掉卡片、模块、历史记录，所以它必须是全局、醒目的。
+通道是“同一工作区内的绑定方案”，只影响节点绑定和参数映射，不该抢占工作区的层级。
+你现在的面板是浮层式结构，最适合做一个固定的两行 scope bar，而不是塞到卡片右键菜单里。
+我建议的实现落点
+
+web/components/comp_workspace.js: 直接把它做成“工作区 + 通道”切换区。
+web/ui_panel.js: 在面板初始化时挂载这个组件，位置放在静态工具栏上方或其内部最左侧。
+web/components/events/event_panel.js: 负责切换后的收尾，比如保存当前状态、清理选择、恢复滚动和媒体。
+web/components/ui_state.js / web/state_manager.js: 把 activeWorkspaceId、activeChannelId 和多层数据结构放进去。
+web/components/actions/action_module_config.js / web/api_injector.js: 让“绑定”真正跟着当前通道走。
+交互上我会这样做
+
+工作区切换：先自动保存当前工作区，再整块载入目标工作区。
+通道切换：不重建卡片，不重建模块，只刷新当前通道的绑定状态和工具栏。
+如果通道很多，通道区就别做成一排标签，改成下拉列表 + 当前通道名，这样不会把面板挤爆。
+如果你愿意，我下一步可以把这个方案继续细化成一份“数据结构设计图 + 文件改动清单”，我们就能直接进入实现阶段。
+
+
+能不能把工作区放在面板的下方，就像Excel的表格切换一样。而通道放在工具栏的下方，做窄一点，代表通道就是切换工具栏？
+
+可以，这个布局挺合适，而且比放在菜单里更直观。
+
+我建议这样定：
+
+工作区放在面板最下方，做成 Excel 那种页签条。
+通道放在工具栏下方，做成更窄的一条“通道条”，像工具栏的子级切换。
+语义上：工作区切换的是整套卡片/模块/历史；通道切换的是当前工作区里的“工具栏绑定方案”。
+这样分层会很清楚：
+
+工作区是“文件级/方案级”
+通道是“当前方案里的编辑配置级”
+我觉得这个方案还有两个好处：
+
+工作区放底部不会抢工具栏注意力，像表格软件一样很自然。
+通道放工具栏下方，用户会把它理解成“当前编辑模式/绑定模式”的切换，而不是另一套大场景。
+实现上我会建议：
+
+工作区条固定在面板底部，支持横向滚动、重命名、新建、复制、删除。
+通道条固定在工具栏下面，做窄一点，只显示当前工作区的通道。
+切换工作区时，顺带切换它自己的通道列表和当前通道。
+切换通道时，不重建整个面板，只刷新工具栏绑定、节点映射、参数选择状态。
+如果你同意这个布局，我下一步就可以继续给你细化成一版“UI结构图 + 需要改的文件清单”。
+
+
+可以，继续细化
+
+Reconnecting... 1/5
+可以，继续细化
+
+
+已处理 10m 43s
+可以，方案我建议定成“上通道、下工作区”的双层结构，且两者都归 comp_workspace.js 统一管理。
+
+布局
+
+顶部主工具栏保持不变。
+主工具栏下方加一条窄的通道条，像“当前工作区的工具栏配置切换”。
+面板底部加一条工作区页签条，像 Excel 的 sheet tabs，负责切换整套卡片/模块方案。
+交互语义
+
+工作区：切换的是整套方案，包含卡片、模块、模块值、模块类型、历史记录。
+通道：切换的是当前工作区里的“绑定方案”，只影响节点绑定、参数映射、输出/预览关联等。
+推荐数据模型
+
+顶层保存：
+activeWorkspaceId
+workspaces[]
+每个工作区保存：
+cards
+history
+activeChannelId
+channels[]
+每个通道保存：
+name
+bindings
+override 里的节点/参数绑定信息
+核心原则
+
+工作区数据是“主数据”。
+通道只保存“绑定覆盖层”。
+切换通道时，不重建卡片，只重算绑定显示和工具栏状态。
+切换工作区时，整套 UI 重新载入，但保留该工作区自己的通道列表和当前通道。
+UI 落点
+
+comp_workspace.js 适合直接做两条条带：
+上半条：通道 chips / 下拉 / 新建 / 复制 / 删除
+下半条：工作区 tabs / 新建 / 重命名 / 复制 / 删除
+ui_panel.js 负责把这两条条带插进现有面板 DOM。
+event_panel.js 负责切换后的收尾：保存、清选择、恢复滚动、处理媒体暂存。
+ui_state.js 和 state_manager.js 负责新结构与旧 JSON 的兼容迁移。
+action_module_config.js 和 api_injector.js 负责让“当前通道”的绑定真正生效。
+我建议的实现顺序
+
+先做工作区层，因为它决定整套方案的边界。
+再做通道层，因为它只是工作区里的绑定覆盖。
+最后补导入/导出和旧数据迁移。
+如果你愿意，我下一步可以继续把它拆成一份更落地的“字段设计表 + 每个文件具体要改什么”的清单。
+
+
+可以，继续
+
+
+已处理 5m 26s
+可以，下面我把方案细化到“怎么放、怎么存、怎么切、改哪些文件”。
+
+布局
+
+顶部：现有主工具栏保持不动。
+工具栏下方：新增一条窄的通道条，只显示当前工作区的通道。
+中间：卡片/模块主内容区。
+底部：新增工作区页签条，像 Excel sheet 一样横向切换。
+右下角那个卡片宽度控制，建议移到工作区条右侧，避免和底部页签打架。
+数据结构
+
+顶层加 schemaVersion、activeWorkspaceId、workspaces[]。
+每个工作区包含：
+id
+name
+cards
+history
+activeChannelId
+channels[]
+每个通道包含：
+id
+name
+bindings
+toolbarState
+bindings 建议别只绑 DOM id，最好以后有个稳定的 bindKey，这样复制卡片、复制工作区时更稳。
+切换规则
+
+切工作区：
+先保存当前工作区
+再载入目标工作区的 cards/history
+清空当前选择态
+重渲染卡片和模块
+恢复该工作区自己的通道
+切通道：
+不重建卡片
+只刷新工具栏、节点绑定、参数映射
+重新应用当前通道的绑定结果
+文件建议
+
+新增或补全 web/components/comp_workspace.js：负责工作区条 + 通道条 UI。
+新增 web/components/actions/action_workspace.js：负责工作区/通道的增删改复制切换逻辑。
+修改 web/components/ui_state.js 和 web/state_manager.js：升级成多工作区结构，处理旧数据迁移。
+修改 web/ui_panel.js：把工作区条挂到底部，把通道条挂到工具栏下方。
+修改 web/components/events/event_panel.js：切换后做保存、清选择、滚动和媒体恢复。
+修改 web/components/comp_toolbar.js：让工具栏状态受当前通道影响。
+修改 web/components/actions/action_module_config.js、web/components/actions/action_batch_sync.js、web/api_injector.js：让节点绑定跟着当前通道走。
+修改 web/components/actions/action_data_io.js：导入导出时带上工作区和通道结构。
+迁移策略
+
+旧 JSON 自动包装成一个默认工作区 + 一个默认通道。
+新 JSON 增加版本号，后面方便兼容升级。
+先做工作区，再做通道，风险最低。
+我建议的实施顺序
+
+第一步：把当前单层 cards 升级为 workspaces -> cards。
+第二步：把通道作为工作区内的绑定层加进去。
+第三步：补复制、重命名、导入导出、旧数据迁移。
+如果你愿意，我下一步可以继续给你画一份更具体的“UI 草图级结构图”，或者直接把这套方案拆成“第一期工作区、第二期通道”的任务清单。
+
+
+把这套方案拆成“第一期工作区、第二期通道”的任务清单。
+
+可以，建议拆成两期，先把“工作区”立住，再加“通道”。
+
+第一期：工作区
+
+把现有单层 state.cards 升级为 workspaces -> cards 结构，新增 activeWorkspaceId。
+补全 web/components/comp_workspace.js，做底部工作区页签条。
+改 web/components/ui_state.js，让保存对象包含工作区列表、当前工作区、选择态。
+改 web/state_manager.js，完成旧 JSON 向新结构的自动迁移。
+改 web/ui_panel.js，把工作区条挂到面板底部。
+改 web/components/events/event_panel.js，处理切换工作区时的保存、清选择、滚动恢复、媒体暂存恢复。
+改 web/components/actions/action_data_io.js，让导入/导出支持工作区结构。
+验收标准：可以新建、复制、重命名、删除、切换工作区，每个工作区有自己独立的卡片、模块、历史记录。
+第二期：通道
+
+在每个工作区内部新增 channels[] 和 activeChannelId。
+新增一个通道管理模块，建议放进 web/components/actions/action_workspace.js。
+把通道条放到主工具栏下方，继续用 web/components/comp_workspace.js 统一渲染。
+改 web/components/actions/action_module_config.js，让“节点绑定、参数绑定、模式切换”按当前通道保存。
+改 web/api_injector.js，让执行前注入的是当前通道的绑定结果。
+改 web/components/actions/action_batch_sync.js，让跨模块同步只影响当前工作区内、当前通道相关的绑定。
+改 web/components/comp_toolbar.js，让工具栏 UI 随当前通道变化。
+验收标准：同一个工作区里切不同通道时，卡片/模块/历史不变，只变化节点绑定、参数映射和工具栏状态。
+如果你愿意，我下一步可以直接把这两期再拆成“每个文件具体要改哪些点”的执行清单。

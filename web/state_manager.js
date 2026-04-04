@@ -72,7 +72,7 @@ export const StateManager = {
         const node = this.getConfigNode(graph);
         if (!node) {
             const blank = createEmptyWorkspace();
-            state.schemaVersion = 2;
+            state.schemaVersion = 3;
             state.workspaces = [blank];
             state.activeWorkspaceId = blank.id;
             applyWorkspaceToState(blank);
@@ -85,7 +85,7 @@ export const StateManager = {
         const widget = node.widgets?.find((w) => w.name === "scenes_data");
         if (!widget || !widget.value) {
             const blank = createEmptyWorkspace();
-            state.schemaVersion = 2;
+            state.schemaVersion = 3;
             state.workspaces = [blank];
             state.activeWorkspaceId = blank.id;
             applyWorkspaceToState(blank);

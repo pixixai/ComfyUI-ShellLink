@@ -7,7 +7,7 @@ import { setupStaticToolbarEvents } from "./components/comp_toolbar.js";
 import { renderDynamicToolbar, attachDynamicToolbarEvents } from "./components/comp_toolbar.js";
 import { renderCardsList, attachCardEvents } from "./components/comp_taskcard.js";
 import { attachAreaEvents } from "./components/comp_modulearea.js";
-import { renderWorkspaceBar, attachWorkspaceEvents } from "./components/comp_workspace.js";
+import { renderWorkspaceBar, attachWorkspaceEvents, renderChannelBar, attachChannelEvents } from "./components/comp_workspace.js";
 
 import { setupGlobalEvents } from "./components/events/event_global.js";
 import { setupExecutionEvents } from "./components/events/event_execution.js";
@@ -109,6 +109,7 @@ function performPanelRender() {
     if (!panelContainer) return;
 
     const toolbarHandle = panelContainer.querySelector("#clab-toolbar-handle");
+    const channelBar = panelContainer.querySelector("#clab-channel-bar");
     const cardsContainer = panelContainer.querySelector("#clab-cards-container");
     const workspaceBar = panelContainer.querySelector("#clab-workspace-bar");
 
@@ -125,6 +126,7 @@ function performPanelRender() {
     if (window.CLab && window.CLab.stashMedia) window.CLab.stashMedia();
 
     renderDynamicToolbar(toolbarHandle);
+    renderChannelBar(channelBar);
     renderCardsList(cardsContainer);
     renderWorkspaceBar(workspaceBar);
 
@@ -139,6 +141,7 @@ function performPanelRender() {
     if (window.CLab && window.CLab.restoreMedia) window.CLab.restoreMedia();
 
     attachDynamicToolbarEvents(toolbarHandle);
+    attachChannelEvents(channelBar);
     attachCardEvents(cardsContainer);
     attachAreaEvents(cardsContainer);
     attachWorkspaceEvents(workspaceBar);
@@ -223,6 +226,28 @@ export function setupUI() {
             height: 1px !important;
             background: rgba(255, 255, 255, 0.1) !important;
             margin: 4px 12px !important;
+        }
+        #clab-channel-strip {
+            height: 28px;
+            min-height: 28px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 0 8px;
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.25);
+        }
+        #clab-channel-bar {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+        }
+        .clab-channel-tab {
+            font-size: 11px !important;
+            opacity: 0.9;
         }
     `;
     document.head.appendChild(overrideStyle);
@@ -327,6 +352,9 @@ function createPanelDOM() {
 
                 <button class="clab-btn" id="clab-btn-config" title="在画布创建配置锚点">创建配置锚点</button>
             </div>
+        </div>
+        <div id="clab-channel-strip">
+            <div id="clab-channel-bar"></div>
         </div>
         <div class="clab-cards-container" id="clab-cards-container"></div>
         <div id="clab-card-width-ctrl" class="clab-card-width-ctrl">

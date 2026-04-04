@@ -4,11 +4,11 @@
 
 const DEFAULT_WORKSPACE_NAME = "工作区 1";
 
-function makeId(prefix) {
+export function makeId(prefix) {
     return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 }
 
-function deepClone(value) {
+export function deepClone(value) {
     if (typeof structuredClone === "function") {
         try {
             return structuredClone(value);
@@ -75,6 +75,8 @@ export const appState = {
     isBindingMode: false,
     lastClickedCardId: null,
     lastClickedAreaId: null,
+    selectedWorkspaceIds: [],
+    lastClickedWorkspaceId: null,
 };
 
 export function getWorkspaceIndexById(workspaceId = state.activeWorkspaceId) {

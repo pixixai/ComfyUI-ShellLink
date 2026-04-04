@@ -395,6 +395,7 @@ export function injectCSS() {
         .clab-btn {
             background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px;
             padding: 8px 15px; font-size: 13px; transition: all 0.2s; white-space: nowrap; font-family: sans-serif;
+            user-select: none; outline: none;
         }
         .clab-btn:hover { background: rgba(255, 255, 255, 0.2); }
         
@@ -421,9 +422,9 @@ export function injectCSS() {
             gap: 0;
             padding: 0;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.4);
             flex: 0 0 auto;
-            height: 36px;
+            height: 27px;
             box-sizing: border-box;
             width: 100%;
             overflow: hidden;
@@ -476,27 +477,41 @@ export function injectCSS() {
             cursor: pointer;
             transition: all 0.1s ease;
             max-width: 180px;
-            font-size: 13px;
+            font-size: 11px;
+            user-select: none;
+            outline: none;
         }
         .clab-workspace-tab:hover { background: rgba(255,255,255,0.05); color: #ddd; }
         .clab-workspace-tab.active {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgb(24, 24, 24);
             color: #fff;
             box-shadow: inset 0 -2px 0 var(--clab-theme-card, #4CAF50);
         }
+        .clab-workspace-tab.selected {
+            background: rgb(24, 24, 24);
+        }
+        .clab-workspace-tab.active.selected {
+            background: rgb(24, 24, 24);
+        }
         .clab-workspace-tab.clab-workspace-add {
             flex: 0 0 auto;
-            width: 36px;
+            width: 27px;
+            height: 100%;
             padding: 0;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: normal;
             position: sticky;
             right: 0;
-            background: #252525;
-            border-left: 1px solid rgba(255,255,255,0.08);
+            background: transparent;
+            border-left: 1px solid rgba(255,255,255,0.1);
+            border-radius: 0;
             z-index: 10;
             justify-content: center;
-            color: #bbb;
+            color: #888;
+        }
+        .clab-workspace-tab.clab-workspace-add:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.05);
         }
         .clab-workspace-tab-index {
             display: none;
@@ -661,7 +676,13 @@ export function injectCSS() {
         .clab-dragging { opacity: 0.5; border-color: var(--clab-theme-card, #4CAF50) !important; }
         .clab-drag-over { border-top: 3px solid var(--clab-theme-card, #4CAF50) !important; background: var(--clab-theme-card-hover, rgba(76, 175, 80, 0.1)) !important;}
         .clab-drag-over-list { background: var(--clab-theme-card-hover, rgba(76, 175, 80, 0.1)) !important; border-radius: 8px; border: 2px dashed var(--clab-theme-card, #4CAF50) !important; box-sizing: border-box;}
+        .clab-workspace-tab.clab-dragging {
+            opacity: 0.4;
+            background: rgba(255, 255, 255, 0.1);
+        }
         .clab-drag-over-card { border-left: 3px solid var(--clab-theme-card, #4CAF50) !important; }
+        .clab-drag-over-tab-left { border-left: 2px solid var(--clab-theme-card, #4CAF50) !important; background: var(--clab-theme-card-hover, rgba(76, 175, 80, 0.1)) !important; }
+        .clab-drag-over-tab-right { border-right: 2px solid var(--clab-theme-card, #4CAF50) !important; background: var(--clab-theme-card-hover, rgba(76, 175, 80, 0.1)) !important; }
 
         /* ========================================================================= */
         /* --- 右键菜单样式 (Context Menu) --- */

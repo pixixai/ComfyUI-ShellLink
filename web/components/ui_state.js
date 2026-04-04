@@ -271,9 +271,11 @@ export function syncStateToActiveWorkspace() {
     workspace.selectedAreaIds = [];
     workspace.painterMode = false;
     workspace.painterSource = null;
-    workspace.channels = Array.isArray(state.channels) && state.channels.length > 0
-        ? state.channels.map((channel, index) => normalizeChannel(channel, index))
-        : [createEmptyChannel(DEFAULT_CHANNEL_NAME)];
+    if (Array.isArray(state.channels) && state.channels.length > 0) {
+        workspace.channels = state.channels;
+    } else if (!Array.isArray(workspace.channels) || workspace.channels.length === 0) {
+        workspace.channels = [createEmptyChannel(DEFAULT_CHANNEL_NAME)];
+    }
     workspace.activeChannelId = state.activeChannelId && workspace.channels.some((channel) => channel.id === state.activeChannelId)
         ? state.activeChannelId
         : workspace.channels[0].id;

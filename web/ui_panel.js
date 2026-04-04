@@ -7,7 +7,8 @@ import { setupStaticToolbarEvents } from "./components/comp_toolbar.js";
 import { renderDynamicToolbar, attachDynamicToolbarEvents } from "./components/comp_toolbar.js";
 import { renderCardsList, attachCardEvents } from "./components/comp_taskcard.js";
 import { attachAreaEvents } from "./components/comp_modulearea.js";
-import { renderWorkspaceBar, attachWorkspaceEvents, renderChannelBar, attachChannelEvents } from "./components/comp_workspace.js";
+import { renderWorkspaceBar, attachWorkspaceEvents } from "./components/comp_workspace.js";
+import { renderChannelBar, attachChannelEvents } from "./components/comp_channel.js";
 
 import { setupGlobalEvents } from "./components/events/event_global.js";
 import { setupExecutionEvents } from "./components/events/event_execution.js";
@@ -231,23 +232,77 @@ export function setupUI() {
             height: 28px;
             min-height: 28px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 0 8px;
+            padding: 0;
             display: flex;
-            align-items: center;
+            align-items: stretch;
             background: rgba(0, 0, 0, 0.25);
         }
         #clab-channel-bar {
             width: 100%;
             display: flex;
-            align-items: center;
-            gap: 6px;
+            align-items: stretch;
+            gap: 0;
             overflow-x: auto;
             overflow-y: hidden;
-            scrollbar-width: thin;
+            scrollbar-width: none;
+        }
+        #clab-channel-bar::-webkit-scrollbar {
+            display: none;
         }
         .clab-channel-tab {
             font-size: 11px !important;
-            opacity: 0.9;
+            opacity: 0.8;
+            height: 100%;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 16px !important;
+            background: transparent !important;
+            color: rgb(100, 100, 100) !important;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-right: 1px solid rgba(255,255,255,0.05) !important;
+            white-space: nowrap;
+        }
+        .clab-channel-tab:hover {
+            background: rgba(255, 255, 255, 0.05) !important;
+            opacity: 1;
+            color: #fff !important;
+        }
+        .clab-channel-tab.active {
+            background: rgb(24, 24, 24) !important;
+            opacity: 1;
+            color: #fff !important;
+            font-weight: normal;
+            box-shadow: inset 0 -2px 0 var(--clab-theme-card, #4CAF50);
+        }
+        .clab-channel-tab.selected {
+            background: rgb(24, 24, 24) !important;
+            opacity: 1 !important;
+        }
+        .clab-channel-tab.clab-dragging {
+            opacity: 0.4 !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px dashed rgba(255, 255, 255, 0.3) !important;
+        }
+        .clab-channel-tab.clab-drag-over-tab-left {
+            border-left: 2px solid var(--clab-theme-card, #4CAF50) !important;
+            background: rgba(255, 255, 255, 0.08) !important;
+        }
+        .clab-channel-tab.clab-drag-over-tab-right {
+            border-right: 2px solid var(--clab-theme-card, #4CAF50) !important;
+            background: rgba(255, 255, 255, 0.08) !important;
+        }
+        #clab-channel-add {
+            font-size: 14px !important;
+            padding: 0 10px !important;
+            position: sticky !important;
+            right: 0 !important;
+            background: rgb(24, 24, 24) !important; /* Fully opaque background */
+            opacity: 1 !important;
+            z-index: 15 !important;
+            border-left: 1px solid rgba(255, 255, 255, 0.15) !important;
         }
     `;
     document.head.appendChild(overrideStyle);

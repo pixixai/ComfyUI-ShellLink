@@ -431,7 +431,7 @@ export function injectCSS() {
         }
         #clab-card-width-ctrl {
             position: absolute;
-            left: 20px;
+            right: 20px;
             bottom: 60px;
             background: transparent;
             padding: 0;
@@ -469,7 +469,7 @@ export function injectCSS() {
             border-right: 1px solid rgba(255,255,255,0.08);
             border-radius: 0;
             background: transparent;
-            color: #aaa;
+            color: rgb(100, 100, 100);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -502,10 +502,10 @@ export function injectCSS() {
             font-weight: normal;
             position: sticky;
             right: 0;
-            background: transparent;
-            border-left: 1px solid rgba(255,255,255,0.1);
+            background: #181818 !important; /* Unified solid background */
+            border-left: 1px solid rgba(255,255,255,0.15);
             border-radius: 0;
-            z-index: 10;
+            z-index: 15;
             justify-content: center;
             color: #888;
         }

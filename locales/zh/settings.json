@@ -15,10 +15,22 @@
     "name": "面板背景不透明度 (%)",
     "tooltip": "调节主面板背景的通透度 (0 = 全透，100 = 纯色)。"
   },
+  "CLab_1-General_PanelWidthRatio": {
+    "name": "面板宽度比例 (%)",
+    "tooltip": "面板相对于浏览器视口宽度的占比。"
+  },
+  "CLab_1-General_PanelHeightRatio": {
+    "name": "面板高度比例 (%)",
+    "tooltip": "面板相对于浏览器视口高度的占比。"
+  },
 
   "CLab_2-PerformanceMedia_MaxHistory": {
     "name": "历史记录容量上限",
     "tooltip": "限制单个输出模块最多保存多少条生成记录，超出后会自动剔除最旧的记录以防止内存溢出。"
+  },
+  "CLab_2-PerformanceMedia_SyncHistoryParams": {
+    "name": "切换生成记录时同步回填参数",
+    "tooltip": "开启后，切换输出模块历史记录时会同步恢复当次生成对应的输入模块参数。关闭后，仅切换历史媒体，不回填输入参数。"
   },
   "CLab_2-PerformanceMedia_Autoplay": {
     "name": "自动播放视频",

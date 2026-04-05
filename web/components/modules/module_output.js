@@ -198,6 +198,7 @@ export function attachOutputEvents(container) {
 
     const applyInputSnapshotForSelection = (card, area) => {
         if (!card || !area) return false;
+        if (window._clabSyncHistoryParams === false) return false;
         const restored = restoreCardInputsFromHistorySelection(card, area);
         if (!restored.changed) return false;
 

@@ -242,20 +242,22 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                     targetArea.resultUrl = targetArea.history[idx];
                     syncTextContentWithSelection(targetArea);
 
-                    const restored = restoreCardInputsFromHistorySelection(targetCard, targetArea);
-                    if (restored.changed) {
-                        if (restored.createdAreaIds.length > 0) {
-                            if (window._clabRefreshContextView) window._clabRefreshContextView();
-                            else saveAndRender();
-                            void loadSelectedTextContent(targetArea, { refresh: true });
-                            return;
-                        }
+                    if (window._clabSyncHistoryParams !== false) {
+                        const restored = restoreCardInputsFromHistorySelection(targetCard, targetArea);
+                        if (restored.changed) {
+                            if (restored.createdAreaIds.length > 0) {
+                                if (window._clabRefreshContextView) window._clabRefreshContextView();
+                                else saveAndRender();
+                                void loadSelectedTextContent(targetArea, { refresh: true });
+                                return;
+                            }
 
-                        if (window._clabRefreshAreaForContext) {
-                            restored.touchedAreaIds.forEach((areaToRefresh) => {
-                                if (areaToRefresh === targetArea.id) return;
-                                window._clabRefreshAreaForContext(areaToRefresh);
-                            });
+                            if (window._clabRefreshAreaForContext) {
+                                restored.touchedAreaIds.forEach((areaToRefresh) => {
+                                    if (areaToRefresh === targetArea.id) return;
+                                    window._clabRefreshAreaForContext(areaToRefresh);
+                                });
+                            }
                         }
                     }
 

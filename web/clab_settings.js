@@ -26,9 +26,12 @@ window._clabShortcutRaw = 'C';
 window._clabShortcutParsed = parseShortcut('C');
 window._clabBgBlur = true;
 window._clabBgOpacity = 45;
+window._clabPanelWidthPercent = 80;
+window._clabPanelHeightPercent = 80;
 window._clabMaxHistory = 50;
 window._clabVideoAutoplay = true;
 window._clabVideoMuted = true;
+window._clabSyncHistoryParams = true;
 window._clabThumbPerfMode = false; // 默认关闭高性能缩略图模式
 window._clabArchiveDir = 'CLab'; 
 window._clabDeleteTemp = false; 
@@ -80,6 +83,30 @@ window._clabApplyTheme = function() {
     root.style.setProperty('--clab-theme-card-glow', `${window._clabThemeCardGlow}px`);
     root.style.setProperty('--clab-theme-module-border', `${window._clabThemeModuleBorder}px`);
     root.style.setProperty('--clab-theme-module-glow', `${window._clabThemeModuleGlow}px`);
+};
+
+function normalizePanelPercent(value, fallback = 80) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.max(40, Math.min(100, Math.round(num)));
+}
+
+window._clabApplyPanelLayout = function() {
+    const panel = document.getElementById('clab-panel');
+    if (!panel) return;
+
+    const widthPercent = normalizePanelPercent(window._clabPanelWidthPercent, 80);
+    const heightPercent = normalizePanelPercent(window._clabPanelHeightPercent, 80);
+
+    const leftPercent = Math.max(0, (100 - widthPercent) / 2);
+    const topPercent = Math.max(0, (100 - heightPercent) / 2);
+    panel.style.inset = '';
+    panel.style.top = `${topPercent}vh`;
+    panel.style.left = `${leftPercent}vw`;
+    panel.style.width = `${widthPercent}vw`;
+    panel.style.height = `${heightPercent}vh`;
+    panel.style.borderRadius = '12px';
+    panel.style.border = '';
 };
 
 // LIFO 倒序数组：代码越靠前，UI 界面显示越靠下
@@ -249,6 +276,15 @@ const clabSettings = [
     // 2. 性能与媒体播放 (Performance & Media)
     // =========================================================================
     {
+        id: "CLab.2-PerformanceMedia.SyncHistoryParams",
+        name: "Sync Parameters on History Switch",
+        type: "boolean",
+        defaultValue: true,
+        category: ["Creative Lab", "2-PerformanceMedia", "SyncHistoryParams"],
+        tooltip: "When enabled, switching output history also restores the input-module parameters captured at generation time.",
+        onChange: (newVal) => { window._clabSyncHistoryParams = newVal; }
+    },
+    {
         id: "CLab.2-PerformanceMedia.ThumbMode",
         name: "Thumb Performance Mode",
         type: "boolean",
@@ -301,6 +337,32 @@ const clabSettings = [
             window._clabBgOpacity = newVal;
             const panel = document.getElementById('clab-panel');
             if (panel) panel.style.background = `rgba(30, 30, 30, ${newVal / 100})`;
+        }
+    },
+    {
+        id: "CLab.1-General.PanelHeightRatio",
+        name: "Panel Height Ratio (%)",
+        type: "slider",
+        defaultValue: 80,
+        attrs: { min: 40, max: 100, step: 1 },
+        category: ["Creative Lab", "1-General", "PanelHeight"],
+        tooltip: "Panel height ratio relative to browser viewport height.",
+        onChange: (newVal) => {
+            window._clabPanelHeightPercent = normalizePanelPercent(newVal, 80);
+            if (window._clabApplyPanelLayout) window._clabApplyPanelLayout();
+        }
+    },
+    {
+        id: "CLab.1-General.PanelWidthRatio",
+        name: "Panel Width Ratio (%)",
+        type: "slider",
+        defaultValue: 80,
+        attrs: { min: 40, max: 100, step: 1 },
+        category: ["Creative Lab", "1-General", "PanelWidth"],
+        tooltip: "Panel width ratio relative to browser viewport width.",
+        onChange: (newVal) => {
+            window._clabPanelWidthPercent = normalizePanelPercent(newVal, 80);
+            if (window._clabApplyPanelLayout) window._clabApplyPanelLayout();
         }
     },
     {
@@ -386,13 +448,17 @@ app.registerExtension({
                 window._clabShortcutParsed = parseShortcut(window._clabShortcutRaw);
 
                 window._clabBgOpacity = getSet("CLab.1-General.BgOpacity", 45);
+                window._clabPanelWidthPercent = normalizePanelPercent(getSet("CLab.1-General.PanelWidthRatio", 80), 80);
+                window._clabPanelHeightPercent = normalizePanelPercent(getSet("CLab.1-General.PanelHeightRatio", 80), 80);
                 window._clabBgBlur = getSet("CLab.1-General.BackdropBlur", true);
+                if (window._clabApplyPanelLayout) window._clabApplyPanelLayout();
                 
                 // 读取性能与媒体
                 window._clabMaxHistory = getSet("CLab.2-PerformanceMedia.MaxHistory", 50);
                 window._clabVideoAutoplay = getSet("CLab.2-PerformanceMedia.Autoplay", true);
                 window._clabVideoMuted = getSet("CLab.2-PerformanceMedia.Muted", true);
                 window._clabThumbPerfMode = getSet("CLab.2-PerformanceMedia.ThumbMode", false);
+                window._clabSyncHistoryParams = getSet("CLab.2-PerformanceMedia.SyncHistoryParams", true);
                 
                 // 读取文件流转
                 window._clabArchiveDir = getSet("CLab.3-FileIO.ArchiveDir", "CLab").replace(/[\\/:"*?<>|]/g, "").trim() || "CLab";

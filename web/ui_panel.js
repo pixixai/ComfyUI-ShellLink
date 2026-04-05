@@ -442,6 +442,7 @@ export function setupUI() {
             createPanelDOM();
             if (backdropContainer) document.body.appendChild(backdropContainer);
             document.body.appendChild(panelContainer);
+            if (window._clabApplyPanelLayout) window._clabApplyPanelLayout();
 
             setupGlobalEvents(panelContainer, backdropContainer, togglePanel, performRender);
             setupExecutionEvents();

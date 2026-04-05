@@ -3,7 +3,7 @@
  * 路径: web/components/actions/action_data_io.js
  * 职责: 负责导入JSON、导出JSON、媒体打包下载、后端本地文件整理、文件上传 (全微创更新版)
  */
-import { state, appState, saveAndRender } from "../ui_state.js";
+import { state, appState, saveAndRender, getActiveWorkspace } from "../ui_state.js";
 import { showBindingToast, hideBindingToast } from "../ui_utils.js";
 import { app } from "../../../../scripts/app.js";
 
@@ -294,9 +294,7 @@ export function attachDataIOEvents(panelContainer) {
                     <div class="clab-custom-select-item" id="clab-export-media-sel-history">下载选中 (含所有生成记录)</div>
                     
                     <div class="clab-custom-select-group-title" style="padding: 6px 12px; font-size: 12px; margin-top: 4px; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05);">收集整理</div>
-                    <div class="clab-custom-select-item" id="clab-export-org-move">移动到子文件夹</div>
                     <div class="clab-custom-select-item" id="clab-export-org-copy">复制到子文件夹</div>
-                    <div class="clab-custom-select-item" id="clab-export-org-move-history">移动到子文件夹 (含所有生成记录)</div>
                     <div class="clab-custom-select-item" id="clab-export-org-copy-history">复制到子文件夹 (含所有生成记录)</div>
                     
                     <div class="clab-custom-select-group-title" style="padding: 0 0 0 12px; height: 28px; font-size: 12px; margin-top: 4px; box-sizing: border-box; font-weight: bold; color: #aaa; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; white-space: nowrap;">
@@ -711,6 +709,7 @@ export function attachDataIOEvents(panelContainer) {
         const organizeOutputFiles = async (action, includeHistory = false) => {
             exportDropdown.style.display = 'none';
             let workflowName = "Unsaved_Workflow";
+            let workspaceName = "工作区 1";
             const configNode = app.graph._nodes.find(n => n.type === "CLab_SystemConfig");
             
             // 【核心修复】：将中英文的默认节点名称（包含各种空格变体）都加入白名单，防止多语言翻译导致误判
@@ -726,8 +725,15 @@ export function attachDataIOEvents(panelContainer) {
             } else if (app?.extensionManager?.workflow?.activeWorkflow?.filename) {
                 workflowName = app.extensionManager.workflow.activeWorkflow.filename.replace(".json", "");
             }
+
+            const activeWorkspace = getActiveWorkspace();
+            if (activeWorkspace && activeWorkspace.name) {
+                workspaceName = activeWorkspace.name;
+            }
             
             workflowName = workflowName.replace(/[\\/:"*?<>|]/g, "_").trim();
+            workspaceName = workspaceName.replace(/[\\/:"*?<>|]/g, "_").trim();
+            const workflowWorkspaceName = `${workflowName || "Unsaved_Workflow"}_${workspaceName || "工作区 1"}`;
 
             const filesToProcess = [];
             const archiveBase = window._clabArchiveDir || "CLab"; // 同步获取用户设置的归档路径
@@ -753,7 +759,7 @@ export function attachDataIOEvents(panelContainer) {
                                         filename: filename,
                                         type: urlObj.searchParams.get('type') || "output", 
                                         subfolder: subfolder,
-                                        target_subfolder: `${archiveBase}/${workflowName}`, // 【核心修改】：应用用户的自定义归档路径
+                                        target_subfolder: `${archiveBase}/${workflowWorkspaceName}`, // 归档到“工作流名_工作区名”
                                         // 为历史记录添加有序后缀 (例如: _v1, _v2)，防止依赖后端容错导致排序错乱
                                         target_filename: indexSuffix ? `${taskName}_${areaName}${indexSuffix}` : `${taskName}_${areaName}`
                                     });
@@ -819,14 +825,14 @@ export function attachDataIOEvents(panelContainer) {
                             if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
                         }
                     }
-                    alert(`✅ 成功${action === 'move' ? '移动' : '复制'}并重命名了 ${res.results.length} 个文件到 ${archiveBase}/${workflowName} 文件夹！`);
+                    alert(`✅ 成功复制并重命名了 ${res.results.length} 个文件到 ${archiveBase}/${workflowWorkspaceName} 文件夹！`);
                 } else alert("❌ 操作失败: " + (res.error || "未知错误"));
             } catch (err) { alert("❌ 请求后端接口失败。\n" + err.message); }
         };
 
-        exportWrapper.querySelector("#clab-export-org-move").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('move', false); };
-        exportWrapper.querySelector("#clab-export-org-copy").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('copy', false); };
-        exportWrapper.querySelector("#clab-export-org-move-history").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('move', true); };
-        exportWrapper.querySelector("#clab-export-org-copy-history").onclick = (e) => { e.stopPropagation(); organizeOutputFiles('copy', true); };
+        const copyBtn = exportWrapper.querySelector("#clab-export-org-copy");
+        if (copyBtn) copyBtn.onclick = (e) => { e.stopPropagation(); organizeOutputFiles('copy', false); };
+        const copyHistoryBtn = exportWrapper.querySelector("#clab-export-org-copy-history");
+        if (copyHistoryBtn) copyHistoryBtn.onclick = (e) => { e.stopPropagation(); organizeOutputFiles('copy', true); };
     }
 }

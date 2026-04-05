@@ -10,6 +10,7 @@ import { showBindingToast, hideBindingToast } from "./ui_utils.js";
 import { generateSingleCardHTML, attachCardEvents } from "./comp_taskcard.js";
 import { generateAreaHTML, attachAreaEvents, justSave } from "./comp_modulearea.js";
 import { updateSelectionUI } from "./ui_selection.js";
+import { getMediaType, loadAllTextHistory, loadSelectedTextContent, loadTextHistoryEntry, removePreviewHistoryIndex, syncTextContentWithSelection } from "./modules/media_types/media_utils.js";
 
 function showMediaMissingFallback(areaId) {
     const areaEl = document.querySelector(`.clab-area[data-area-id="${areaId}"]`);
@@ -254,6 +255,7 @@ export function setupStaticToolbarEvents(panelContainer) {
             const now = Date.now();
             let syncCount = 0;
             const areaProbes = [];
+            const textReloadTasks = [];
             state.cards.forEach(card => {
                 card.areas?.filter(a => a.type === 'preview').forEach(area => {
                     if (area.history && area.history.length > 0) {
@@ -275,11 +277,18 @@ export function setupStaticToolbarEvents(panelContainer) {
                             areaProbes.push({ areaId: area.id, url: area.resultUrl });
                         } catch(e) {}
                     }
+                    syncTextContentWithSelection(area);
+                    if (area.history?.some(url => getMediaType(url) === "text")) {
+                        textReloadTasks.push(loadAllTextHistory(area, { force: true, refresh: false }));
+                    }
                 });
             });
             if (syncCount === 0) {
                 hideBindingToast();
                 return alert("当前面板没有任何媒体记录需要同步。");
+            }
+            if (textReloadTasks.length > 0) {
+                await Promise.all(textReloadTasks);
             }
             saveAndRender(); 
             if (areaProbes.length > 0) {
@@ -297,8 +306,8 @@ export function setupStaticToolbarEvents(panelContainer) {
             state.cards.forEach(card => {
                 card.areas?.filter(a => a.type === 'preview').forEach(area => {
                     if (area.history && area.history.length > 0) {
-                        area.history.forEach((url) => {
-                            if (url) areaMap.push({ areaId: area.id, url: url });
+                        area.history.forEach((url, index) => {
+                            if (url) areaMap.push({ areaId: area.id, url: url, index });
                         });
                     }
                 });
@@ -311,6 +320,13 @@ export function setupStaticToolbarEvents(panelContainer) {
             const deadItems = [];
             const checkPromises = areaMap.map(async (item) => {
                 try {
+                    const area = state.cards.flatMap(c => c.areas || []).find(a => a.id === item.areaId);
+                    if (!area) return;
+                    if (getMediaType(item.url) === "text") {
+                        await loadTextHistoryEntry(area, item.index, { force: true, refresh: false });
+                        if ((area.textHistoryStatus?.[item.index] || "") === "missing") deadItems.push(item);
+                        return;
+                    }
                     const res = await fetch(item.url, { method: 'HEAD', cache: 'no-store' });
                     if (!res.ok && res.status === 404) deadItems.push(item);
                 } catch (e) {}
@@ -325,7 +341,7 @@ export function setupStaticToolbarEvents(panelContainer) {
                         if (area && area.history) {
                             const idx = area.history.indexOf(item.url);
                             if (idx !== -1) {
-                                area.history.splice(idx, 1);
+                                removePreviewHistoryIndex(area, idx);
                             }
                         }
                     });
@@ -344,6 +360,8 @@ export function setupStaticToolbarEvents(panelContainer) {
                             }
                             area.historyIndex = activeIdx;
                             if (area.currentRecordIndex !== undefined) area.currentRecordIndex = activeIdx;
+                            syncTextContentWithSelection(area);
+                            void loadSelectedTextContent(area, { refresh: false });
 
                             // 触发局部更新
                             if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(area.id);

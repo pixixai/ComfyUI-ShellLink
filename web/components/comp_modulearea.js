@@ -302,7 +302,7 @@ export function attachAreaEvents(container) {
             const cardId = areaEl.dataset.cardId;
             const card = state.cards.find(c => c.id === cardId);
             const area = card?.areas.find(a => a.id === areaId);
-            
+
             if (area && area.type === 'preview' && area.resultUrl) {
                 if (e.target.closest('.clab-preview-bg') || e.target.closest('.clab-history-thumb')) {
                     e.preventDefault();
@@ -320,7 +320,10 @@ export function attachAreaEvents(container) {
         });
 
         areaEl.addEventListener('dragstart', (e) => {
-            if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) || e.target.closest('.clab-custom-select') || e.target.closest('.clab-bool-label') || e.target.closest('.clab-upload-zone') || e.target.closest('.clab-history-thumb')) return;
+            if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(e.target.tagName) || e.target.closest('.clab-custom-select') || e.target.closest('.clab-bool-label') || e.target.closest('.clab-upload-zone') || e.target.closest('.clab-history-thumb') || e.target.closest('.clab-text-preview-shell') || e.target.closest('.clab-text-body-scroll') || e.target.closest('.clab-text-body-content')) {
+                e.preventDefault();
+                return;
+            }
             
             e.stopPropagation(); 
             const currentAreaId = areaEl.dataset.areaId;

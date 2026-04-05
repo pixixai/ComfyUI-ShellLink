@@ -5,6 +5,7 @@
 import { api } from "../../scripts/api.js";
 import { StateManager } from "./state_manager.js";
 import { showBindingToast, hideBindingToast } from "./components/ui_utils.js";
+import { pushPreviewHistoryEntry, syncTextContentWithSelection } from "./components/modules/media_types/media_utils.js";
 
 export function setupAPIInjector(app) {
     console.log("[CLab] 初始化 API 拦截、动态剪枝与回传系统...");
@@ -17,6 +18,79 @@ export function setupAPIInjector(app) {
     window._clabCardProgress = window._clabCardProgress || {}; 
     window._clabHideTimers = window._clabHideTimers || {};     
     window._clabDoneTasks = window._clabDoneTasks || new Set();
+
+    const normalizeTextResult = (value) => {
+        if (Array.isArray(value)) return value.map((item) => String(item ?? "")).join("\n\n");
+        if (value == null) return "";
+        if (typeof value === "string") return value;
+        if (typeof value === "number" || typeof value === "boolean") return String(value);
+        if (typeof value === "object") {
+            try {
+                return JSON.stringify(value, null, 2);
+            } catch (_) {
+                return String(value);
+            }
+        }
+        return String(value);
+    };
+
+    const extractTextFromOutputData = (outputData) => {
+        if (!outputData || typeof outputData !== "object") return "";
+        const directKeys = ["text", "texts", "string", "strings", "markdown", "value"];
+        for (const key of directKeys) {
+            if (!(key in outputData)) continue;
+            const candidate = normalizeTextResult(outputData[key]);
+            if (candidate.trim()) return candidate;
+        }
+        return "";
+    };
+
+    const extractTextFromNodeWidgets = (node) => {
+        const widgets = node?.widgets || [];
+        if (!widgets.length) return "";
+
+        const candidates = [];
+        widgets.forEach((widget) => {
+            const value = normalizeTextResult(widget?.value);
+            if (!value.trim()) return;
+
+            const name = String(widget?.name || "");
+            const score =
+                (/^preview_(markdown|text)$/i.test(name) ? 100 : 0) +
+                (/(markdown|text|preview|result|output)/i.test(name) ? 20 : 0) +
+                ((widget?.options?.read_only || widget?.element?.readOnly) ? 10 : 0) +
+                Math.min(10, Math.floor(value.length / 200));
+
+            candidates.push({ score, value });
+        });
+
+        candidates.sort((left, right) => right.score - left.score);
+        return candidates[0]?.value || "";
+    };
+
+    const saveTextAsset = async (text) => {
+        const response = await fetch("/clab/save_text", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                text,
+                archive_dir: window._clabArchiveDir || "CLab",
+                file_prefix: window._clabFilePrefix || "pix",
+            }),
+        });
+
+        const data = await response.json();
+        if (data.status !== "success") {
+            throw new Error(data.error || "save_text failed");
+        }
+
+        const params = new URLSearchParams({
+            filename: data.new_filename,
+            type: data.new_type,
+            subfolder: data.new_subfolder || "",
+        });
+        return api.apiURL(`/view?${params.toString()}`);
+    };
 
     // =========================================================================
     // 【神级修复】：全局媒体加载监听器，实现切换历史记录时动态适配尺寸
@@ -393,6 +467,10 @@ export function setupAPIInjector(app) {
                 else if (outputData.audio && outputData.audio.length > 0) targetItems = outputData.audio;
                 else if (outputData.gifs && outputData.gifs.length > 0) targetItems = outputData.gifs;
                 else if (outputData.images && outputData.images.length > 0) targetItems = outputData.images;
+                const targetNode = app.graph?.getNodeById(Number(executedNodeId));
+                const textFromOutput = extractTextFromOutputData(outputData);
+                const textFromWidgets = extractTextFromNodeWidgets(targetNode);
+                const textContent = (textFromOutput || textFromWidgets || "").trim();
 
                 if (targetItems && targetItems.length > 0) {
                     
@@ -482,6 +560,7 @@ export function setupAPIInjector(app) {
 
                     if (newUrlFirst) {
                         area.resultUrl = newUrlFirst;
+                        area.resultKind = isVideoFirst ? 'video' : (isAudioFirst ? 'audio' : 'image');
 
                         // 🔥 状态变更后，立即序列化同步到 ComfyUI 图谱内保存配置！
                         StateManager.syncToNode(app.graph);
@@ -534,6 +613,18 @@ export function setupAPIInjector(app) {
                                 }));
                             }
                         }
+                    }
+                } else if (textContent) {
+                    try {
+                        const textUrl = await saveTextAsset(textContent);
+                        pushPreviewHistoryEntry(area, textUrl, { kind: "text", text: textContent });
+                        syncTextContentWithSelection(area);
+                        StateManager.syncToNode(app.graph);
+
+                        if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(area.id);
+                        else document.dispatchEvent(new CustomEvent("clab_render_ui"));
+                    } catch (textErr) {
+                        console.error("[CLab] Text capture failed:", textErr);
                     }
                 }
             }

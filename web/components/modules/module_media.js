@@ -2,11 +2,12 @@
  * 文件名: module_media.js
  * 职责: 通用媒体引擎 (Router)，负责根据媒体类型向下级子组件分发渲染与交互请求
  */
-import { getMediaType } from "./media_types/media_utils.js";
+import { getAreaResultType, getMediaType } from "./media_types/media_utils.js";
 import { renderVideo, attachVideoEvents, updateVideoProgress } from "./media_types/media_video.js";
 import { renderAudio, attachAudioEvents, updateAudioProgress } from "./media_types/media_audio.js";
 import { renderFile } from "./media_types/media_file.js";
 import { renderImage } from "./media_types/media_image.js";
+import { renderText, attachTextEvents } from "./media_types/media_text.js";
 
 // =========================================================================
 // 1. 动态注入媒体组件专用全局 CSS
@@ -119,6 +120,188 @@ function injectMediaCSS() {
 
         /* --- 文件组件样式 --- */
         .clab-file-display { border: 1px dashed #666; border-radius: 6px; text-align: center; color: #999; background: rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px; width: 100%; box-sizing: border-box;}
+
+        .clab-text-preview-shell {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-sizing: border-box;
+            color: #e8edf5;
+            padding-top: 24px;
+            background: rgb(25, 25, 25);
+        }
+        .clab-text-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding: 0 2px 2px 2px;
+        }
+        .clab-text-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: rgba(232, 237, 245, 0.9);
+            font-size: 11px;
+            font-family: sans-serif;
+            cursor: pointer;
+            user-select: none;
+        }
+        .clab-text-option input {
+            width: 14px;
+            height: 14px;
+            margin: 0;
+            cursor: pointer;
+        }
+        .clab-text-copy-btn {
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.08);
+            color: #eef3f8;
+            font: 11px/1 sans-serif;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+        }
+        .clab-text-copy-btn:hover {
+            background: rgba(255,255,255,0.14);
+            border-color: rgba(255,255,255,0.2);
+        }
+        .clab-text-copy-btn:disabled {
+            cursor: default;
+            opacity: 0.75;
+        }
+        .clab-text-body-scroll {
+            width: 100%;
+            overflow-x: hidden;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            background: rgb(32, 32, 32);
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.28) transparent;
+            cursor: text;
+        }
+        .clab-text-body-scroll::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .clab-text-body-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .clab-text-body-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.28);
+            border-radius: 999px;
+        }
+        .clab-text-body-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.4);
+        }
+        .clab-text-body-content {
+            padding: 12px 14px;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            line-height: 1.55;
+            color: #eef3f8;
+            word-break: break-word;
+            user-select: text;
+            -webkit-user-select: text;
+            cursor: text;
+        }
+        .clab-text-state {
+            min-height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(238, 243, 248, 0.72);
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 12px;
+            text-align: center;
+        }
+        .clab-text-state-missing {
+            color: #ff8f8f;
+        }
+        .clab-text-plain,
+        .clab-text-code-pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 12px;
+            line-height: 1.6;
+            user-select: text;
+            -webkit-user-select: text;
+            cursor: text;
+        }
+        .clab-text-plain code,
+        .clab-text-code-pre code {
+            font-family: inherit;
+            font-size: inherit;
+        }
+        .clab-text-inline-code {
+            padding: 0.15em 0.35em;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.08);
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 0.95em;
+        }
+        .clab-text-code-block {
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.26);
+            overflow: hidden;
+            margin: 0 0 10px 0;
+        }
+        .clab-text-code-lang {
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.68);
+            font-size: 10px;
+            font-family: sans-serif;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .clab-text-code-pre {
+            padding: 10px 12px;
+            overflow-x: auto;
+        }
+        .clab-text-heading {
+            margin: 0 0 10px 0;
+            line-height: 1.3;
+            font-family: sans-serif;
+        }
+        .clab-text-heading.h1 { font-size: 22px; }
+        .clab-text-heading.h2 { font-size: 19px; }
+        .clab-text-heading.h3 { font-size: 16px; }
+        .clab-text-heading.h4, .clab-text-heading.h5, .clab-text-heading.h6 { font-size: 14px; }
+        .clab-text-paragraph {
+            margin: 0 0 10px 0;
+            font-size: 12px;
+        }
+        .clab-text-list {
+            margin: 0 0 10px 18px;
+            padding: 0;
+            font-size: 12px;
+        }
+        .clab-text-quote {
+            margin: 0 0 10px 0;
+            padding: 8px 12px;
+            border-left: 3px solid rgba(110, 193, 255, 0.7);
+            background: rgba(110, 193, 255, 0.08);
+            color: rgba(238, 243, 248, 0.9);
+        }
+        .clab-text-link {
+            color: #7fc8ff;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .clab-text-link:hover {
+            text-decoration: underline;
+        }
+        .clab-text-token-string { color: #f7b267; }
+        .clab-text-token-number { color: #7fd8be; }
+        .clab-text-token-boolean { color: #ff7aa2; }
+        .clab-text-token-keyword { color: #7cb7ff; font-weight: 600; }
+        .clab-text-token-comment { color: #7f8da1; font-style: italic; }
     `;
     document.head.appendChild(style);
 }
@@ -129,17 +312,18 @@ function injectMediaCSS() {
 export function renderMedia(area, objectFit) {
     injectMediaCSS();
     
-    if (!area.resultUrl) {
+    if (!area.resultUrl && getAreaResultType(area) !== 'text') {
         return `<img id="clab-img-${area.id}" class="clab-preview-img" src="" draggable="false" style="display:none;" />`;
     }
 
-    const type = getMediaType(area.resultUrl);
+    const type = getAreaResultType(area) || getMediaType(area.resultUrl);
     const url = area.resultUrl;
     const errCall = `if(window.CLab && window.CLab.handleMediaError) window.CLab.handleMediaError('${area.cardId || ""}', '${area.id}', '${url}');`;
 
     // 根据文件类型，将活分发给专员
     if (type === 'video') return renderVideo(area, objectFit, url, errCall);
     if (type === 'audio') return renderAudio(area, url, errCall);
+    if (type === 'text') return renderText(area);
     if (type === 'file') return renderFile(area, url);
     return renderImage(area, objectFit, url, errCall);
 }
@@ -180,4 +364,5 @@ export function attachMediaEvents(container) {
     // 分发到专员执行实际的事件绑定
     attachVideoEvents(container);
     attachAudioEvents(container);
+    attachTextEvents(container);
 }

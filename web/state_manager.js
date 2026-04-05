@@ -10,6 +10,7 @@ import {
     syncStateToActiveWorkspace,
     applyWorkspaceToState,
 } from "./components/ui_state.js";
+import { loadAllTextHistory } from "./components/modules/media_types/media_utils.js";
 
 export const StateManager = {
     state,
@@ -115,6 +116,7 @@ export const StateManager = {
             });
 
             await this.syncLocalHistoryToOutputAreas();
+            await this.reloadTextHistoriesFromFiles();
             document.dispatchEvent(new CustomEvent("clab_state_loaded", { detail: state }));
         } catch (e) {
             console.error("[CLab] Failed to parse saved state:", e);
@@ -151,6 +153,26 @@ export const StateManager = {
             });
         } catch (e) {
             console.error("[CLab] syncLocalHistoryToOutputAreas failed:", e);
+        }
+    },
+
+    async reloadTextHistoriesFromFiles() {
+        if (!Array.isArray(state.cards) || state.cards.length === 0) return;
+
+        const tasks = [];
+        state.cards.forEach((card) => {
+            card.areas?.forEach((area) => {
+                if (area.type !== "preview") return;
+                tasks.push(loadAllTextHistory(area, { force: true, refresh: false }));
+            });
+        });
+
+        if (tasks.length === 0) return;
+
+        try {
+            await Promise.all(tasks);
+        } catch (e) {
+            console.error("[CLab] reloadTextHistoriesFromFiles failed:", e);
         }
     },
 

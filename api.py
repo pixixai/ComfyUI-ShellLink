@@ -241,3 +241,62 @@ async def clab_copy_temp_asset(request):
     except Exception as e:
         print(f"[CLab] 截胡转移资产时发生错误: {str(e)}")
         return web.json_response({"status": "error", "error": str(e)})
+
+
+@server.PromptServer.instance.routes.get("/clab/get_local_history")
+async def clab_get_local_history(request):
+    return web.json_response({
+        "status": "success",
+        "history": []
+    })
+
+
+@server.PromptServer.instance.routes.post("/clab/save_text")
+async def clab_save_text(request):
+    try:
+        data = await request.json()
+        text = data.get("text", "")
+
+        archive_dir = data.get("archive_dir", "CLab")
+        archive_dir = "".join(c for c in archive_dir if c.isalnum() or c in (' ', '.', '_', '-')).strip()
+        if not archive_dir:
+            archive_dir = "CLab"
+
+        file_prefix = data.get("file_prefix", "pix")
+        file_prefix = "".join(c for c in file_prefix if c.isalnum() or c in ('_', '-')).strip()
+        if not file_prefix:
+            file_prefix = "pix"
+
+        target_base_dir = folder_paths.get_output_directory()
+        target_subfolder = f"{archive_dir}/text"
+        target_dir = os.path.normpath(os.path.join(target_base_dir, target_subfolder))
+        target_base_norm = os.path.abspath(target_base_dir)
+
+        if os.path.commonpath([target_base_norm, os.path.abspath(target_dir)]) != target_base_norm:
+            return web.json_response({"status": "error", "error": "Illegal target path"})
+
+        os.makedirs(target_dir, exist_ok=True)
+
+        counter = 1
+        new_filename = f"{file_prefix}_{counter:02}.txt"
+        target_path = os.path.normpath(os.path.join(target_dir, new_filename))
+
+        while os.path.exists(target_path):
+            counter += 1
+            new_filename = f"{file_prefix}_{counter:02}.txt"
+            target_path = os.path.normpath(os.path.join(target_dir, new_filename))
+
+        with open(target_path, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write("" if text is None else str(text))
+
+        print(f"[CLab] Saved text asset: {target_subfolder}/{new_filename}")
+        return web.json_response({
+            "status": "success",
+            "new_filename": new_filename,
+            "new_subfolder": target_subfolder,
+            "new_type": "output"
+        })
+
+    except Exception as e:
+        print(f"[CLab] Save text failed: {str(e)}")
+        return web.json_response({"status": "error", "error": str(e)})

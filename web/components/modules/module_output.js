@@ -6,6 +6,7 @@ import { state, dragState, saveAndRender } from "../ui_state.js";
 import { getRatioCSS, showBindingToast, hideBindingToast } from "../ui_utils.js";
 // 【完美保留】：继续使用你原本正确的媒体路由专员，绝不破坏底层架构！
 import { renderMedia, attachMediaEvents } from "./module_media.js";
+import { getAreaResultType, getMediaType, loadSelectedTextContent, syncTextContentWithSelection } from "./media_types/media_utils.js";
 
 // 【防裂图引擎】：解析并强制刷新 ComfyUI 原生 /view URL 的访问时间戳
 function getValidMediaUrl(urlStr) {
@@ -20,6 +21,40 @@ function getValidMediaUrl(urlStr) {
     } catch(e) {
         return urlStr;
     }
+}
+
+function getTextSnippet(text) {
+    const source = String(text || "").replace(/\s+/g, " ").trim();
+    return source.length > 90 ? `${source.slice(0, 90)}...` : (source || "Empty Text");
+}
+
+function getTextHistoryLabel(url) {
+    try {
+        const resolved = new URL(url, window.location.origin);
+        return resolved.searchParams.get("filename") || "Text";
+    } catch (_) {
+        return "Text";
+    }
+}
+
+function renderTextHistoryThumb(area, idx) {
+    const status = area.textHistoryStatus?.[idx] || "idle";
+    const sourceText = area.textHistory?.[idx] || "";
+    const snippet = status === "missing"
+        ? "媒体丢失"
+        : status === "loading"
+            ? "正在读取..."
+            : sourceText
+                ? getTextSnippet(sourceText)
+                : getTextHistoryLabel(area.history?.[idx]);
+    const safeSnippet = snippet.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `
+        <div style="width:100%; height:100%; display:flex; align-items:flex-start; justify-content:flex-start; background:linear-gradient(180deg, rgba(18,24,32,0.95), rgba(13,17,24,0.98)); color:#eaf1f8; padding:10px; box-sizing:border-box; font: 12px/1.45 sans-serif; overflow:hidden;">
+            <div style="display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word;">
+                ${safeSnippet}
+            </div>
+        </div>
+    `;
 }
 
 export function generateOutputHTML(area, card) {
@@ -44,9 +79,10 @@ export function generateOutputHTML(area, card) {
             
             // 【关键修复】：这里必须先解析出安全的 displayUrl，下面才能正常使用！
             const displayUrl = getValidMediaUrl(hUrl); 
+            const historyType = getMediaType(displayUrl);
 
             let media = '';
-            if (isVid) {
+            if (historyType === 'video' || isVid) {
                 // 【设置项支持】：动态判断是否启用高性能缩略图模式
                 if (window._clabThumbPerfMode !== false) {
                     // 高性能模式：加入 preload="metadata" 和 #t=0.1，只截取首帧！
@@ -55,8 +91,10 @@ export function generateOutputHTML(area, card) {
                     // 动态模式：全量加载并自动循环播放 (极具视觉冲击力但较吃配置)
                     media = `<video src="${displayUrl}" preload="auto" autoplay loop muted style="width:100%; height:100%; object-fit:cover; pointer-events:none;"></video>`;
                 }
-            } else if (isAud) {
+            } else if (historyType === 'audio' || isAud) {
                 media = `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#222; color:#fff; font-size:24px;">🎵</div>`;
+            } else if (historyType === 'text') {
+                media = renderTextHistoryThumb(area, idx);
             } else {
                 media = `<img src="${displayUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" />`;
             }
@@ -102,9 +140,13 @@ export function generateOutputHTML(area, card) {
         `;
     }
 
+    const resultType = getAreaResultType(area);
     let finalRatioCSS = getRatioCSS(area);
     if (area.matchMedia && area.width && area.height) {
         finalRatioCSS = `aspect-ratio: ${area.width} / ${area.height};`;
+    }
+    if (resultType === 'text') {
+        finalRatioCSS = 'min-height: 72px;';
     }
 
     let objectFit = 'contain'; 
@@ -119,14 +161,16 @@ export function generateOutputHTML(area, card) {
 
     // 🌟 将原本庞杂的媒体判定逻辑交给专员去处理！
     let mediaHtml = renderMedia(area, objectFit);
+    const previewBgClass = resultType === 'text' ? 'clab-preview-bg clab-preview-bg-text' : 'clab-preview-bg';
+    const previewPlaceholderVisible = resultType === 'text' ? false : !area.resultUrl;
 
     return `
         <div class="clab-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="padding:0; overflow:hidden; position:relative;">
             <button class="clab-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输出模块" style="z-index: 30;">✖</button>
             ${historyHtml}
-            <div class="clab-preview-bg" style="${finalRatioCSS} position: relative;">
+            <div class="${previewBgClass}" style="${finalRatioCSS} position: relative; ${resultType === 'text' ? 'display:block; padding:12px 10px 10px 10px; background: rgb(25, 25, 25);' : ''}">
                 ${mediaHtml}
-                <span class="clab-preview-placeholder" style="display:${area.resultUrl ? 'none' : 'block'}; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; text-align: center;">${area.targetNodeId ? `等待节点 [${area.targetNodeId}] 输出...` : '未关联节点'}</span>
+                <span class="clab-preview-placeholder" style="display:${previewPlaceholderVisible ? 'block' : 'none'}; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; text-align: center;">${area.targetNodeId ? `等待节点 [${area.targetNodeId}] 输出...` : '未关联节点'}</span>
             </div>
         </div>
     `;
@@ -170,17 +214,27 @@ export function attachOutputEvents(container) {
                 if (targetIndices.length > 0) {
                     const activeUrl = area.resultUrl;
                     area.history = area.history.filter((_, i) => !targetIndices.includes(i));
+                    if (Array.isArray(area.textHistory) && area.textHistory.length > 0) {
+                        area.textHistory = area.textHistory.filter((_, i) => !targetIndices.includes(i));
+                    }
+                    if (Array.isArray(area.textHistoryStatus) && area.textHistoryStatus.length > 0) {
+                        area.textHistoryStatus = area.textHistoryStatus.filter((_, i) => !targetIndices.includes(i));
+                    }
                     
                     if (area.history.length === 0) {
                         area.resultUrl = '';
                         area.historyIndex = 0;
                         area.selectedThumbIndices = [];
+                        if (Array.isArray(area.textHistory)) area.textContent = '';
+                        area.textLoadState = 'idle';
                     } else {
                         let newActiveIdx = area.history.indexOf(activeUrl);
                         if (newActiveIdx === -1) newActiveIdx = Math.max(0, area.history.length - 1);
                         area.historyIndex = newActiveIdx;
                         area.resultUrl = area.history[newActiveIdx];
                         area.selectedThumbIndices = []; 
+                        syncTextContentWithSelection(area);
+                        void loadSelectedTextContent(area, { refresh: true });
                     }
                     applySurgicalUpdate(area);
                 }
@@ -218,17 +272,27 @@ export function attachOutputEvents(container) {
                 
                 const activeUrl = area.resultUrl;
                 area.history = area.history.filter((_, i) => !toDelete.includes(i));
+                if (Array.isArray(area.textHistory) && area.textHistory.length > 0) {
+                    area.textHistory = area.textHistory.filter((_, i) => !toDelete.includes(i));
+                }
+                if (Array.isArray(area.textHistoryStatus) && area.textHistoryStatus.length > 0) {
+                    area.textHistoryStatus = area.textHistoryStatus.filter((_, i) => !toDelete.includes(i));
+                }
                 
                 if (area.history.length === 0) {
                     area.resultUrl = '';
                     area.historyIndex = 0;
                     area.selectedThumbIndices = [];
+                    if (Array.isArray(area.textHistory)) area.textContent = '';
+                    area.textLoadState = 'idle';
                 } else {
                     let newActiveIdx = area.history.indexOf(activeUrl);
                     if (newActiveIdx === -1) newActiveIdx = Math.max(0, area.history.length - 1);
                     area.historyIndex = newActiveIdx;
                     area.resultUrl = area.history[newActiveIdx];
                     area.selectedThumbIndices = [];
+                    syncTextContentWithSelection(area);
+                    void loadSelectedTextContent(area, { refresh: true });
                 }
                 applySurgicalUpdate(area);
             }
@@ -272,6 +336,8 @@ export function attachOutputEvents(container) {
                         area.selectedThumbIndices = [idx];
                     }
                     area.lastClickedThumbIdx = idx;
+                    syncTextContentWithSelection(area);
+                    void loadSelectedTextContent(area, { refresh: true });
                 }
                 applySurgicalUpdate(area);
             }
@@ -356,7 +422,15 @@ export function attachOutputEvents(container) {
                     const targetUrl = area.history[targetIdx];
 
                     const movedItems = draggedIndices.map(i => area.history[i]);
+                    const movedTextItems = Array.isArray(area.textHistory) ? draggedIndices.map(i => area.textHistory[i]) : null;
+                    const movedTextStatuses = Array.isArray(area.textHistoryStatus) ? draggedIndices.map(i => area.textHistoryStatus[i]) : null;
                     let newHistory = area.history.filter((_, i) => !draggedIndices.includes(i));
+                    let newTextHistory = Array.isArray(area.textHistory)
+                        ? area.textHistory.filter((_, i) => !draggedIndices.includes(i))
+                        : null;
+                    let newTextStatusHistory = Array.isArray(area.textHistoryStatus)
+                        ? area.textHistoryStatus.filter((_, i) => !draggedIndices.includes(i))
+                        : null;
                     
                     let newTargetIdx = newHistory.indexOf(targetUrl);
                     if (newTargetIdx === -1) newTargetIdx = newHistory.length; 
@@ -364,9 +438,21 @@ export function attachOutputEvents(container) {
                     
                     newHistory.splice(newTargetIdx, 0, ...movedItems);
                     area.history = newHistory;
+                    if (newTextHistory && movedTextItems) {
+                        newTextHistory.splice(newTargetIdx, 0, ...movedTextItems);
+                        area.textHistory = newTextHistory;
+                    }
+                    if (newTextStatusHistory && movedTextStatuses) {
+                        newTextStatusHistory.splice(newTargetIdx, 0, ...movedTextStatuses);
+                        area.textHistoryStatus = newTextStatusHistory;
+                    }
                     
                     const newActiveIdx = area.history.indexOf(activeUrl);
-                    if (newActiveIdx !== -1) area.historyIndex = newActiveIdx;
+                    if (newActiveIdx !== -1) {
+                        area.historyIndex = newActiveIdx;
+                        syncTextContentWithSelection(area);
+                        void loadSelectedTextContent(area, { refresh: true });
+                    }
 
                     area.selectedThumbIndices = [];
                     for(let i=0; i<movedItems.length; i++) {

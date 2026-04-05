@@ -7,6 +7,7 @@ import { state, saveAndRender } from "./ui_state.js";
 import { showBindingToast, hideBindingToast } from "./ui_utils.js";
 import { execSelectSameModules, execDeleteSameModules, execMoveBackward, execMoveForward } from "./actions/action_batch_sync.js";
 import { updateSelectionUI } from "./ui_selection.js";
+import { clearPreviewHistory, getMediaType, loadAllTextHistory, loadSelectedTextContent, loadTextHistoryEntry, removePreviewHistoryIndex, syncTextContentWithSelection } from "./modules/media_types/media_utils.js";
 
 // 辅助方法：触发定时消失的提示
 function showAutoToast(msg, isError = false) {
@@ -168,11 +169,12 @@ export function setupContextMenu(panelContainer) {
                     const arr = getHistoryArr(o.area);
                     if (arr.length > 0) {
                         const idx = getHistoryIdx(o.area);
-                        arr.splice(idx, 1);
-                        const newIdx = Math.max(0, arr.length - 1);
-                        if (o.area.historyIndex !== undefined) o.area.historyIndex = newIdx;
-                        else if (o.area.currentRecordIndex !== undefined) o.area.currentRecordIndex = newIdx;
-                        o.area.resultUrl = arr.length > 0 ? arr[newIdx] : null;
+                        removePreviewHistoryIndex(o.area, idx);
+                        const newIdx = Math.max(0, (o.area.history || []).length - 1);
+                        if (o.area.historyIndex === undefined && o.area.currentRecordIndex !== undefined) {
+                            o.area.currentRecordIndex = newIdx;
+                        }
+                        void loadSelectedTextContent(o.area, { refresh: false });
                     } else {
                         o.area.resultUrl = null;
                     }
@@ -187,8 +189,8 @@ export function setupContextMenu(panelContainer) {
             menuEl.querySelector('#clab-ctx-clear').onclick = () => {
                 menuEl.style.display = 'none';
                 selectedAreaObjs.forEach(o => {
+                    clearPreviewHistory(o.area);
                     o.area.resultUrl = null;
-                    if (o.area.history) o.area.history = [];
                     if (o.area.historyUrls) o.area.historyUrls = [];
                     if (o.area.results) o.area.results = [];
                     if (o.area.historyIndex !== undefined) o.area.historyIndex = 0;
@@ -211,9 +213,19 @@ export function setupContextMenu(panelContainer) {
                 selectedAreaObjs.forEach(o => {
                     const arr = getHistoryArr(o.area);
                     if (arr && arr.length > 0) {
-                        arr.forEach((url) => {
+                        arr.forEach((url, index) => {
                             if (!url) return;
                             totalChecked++;
+                            if (getMediaType(url) === "text") {
+                                const p = (async () => {
+                                    await loadTextHistoryEntry(o.area, index, { force: true, refresh: false });
+                                    return (o.area.textHistoryStatus?.[index] || "") === "missing"
+                                        ? { area: o.area, url: url }
+                                        : null;
+                                })();
+                                checkPromises.push(p);
+                                return;
+                            }
                             const p = fetch(url, { method: 'HEAD', cache: 'no-store' }).then(res => {
                                 if (!res.ok && res.status === 404) {
                                     return { area: o.area, url: url };
@@ -242,7 +254,7 @@ export function setupContextMenu(panelContainer) {
                         if (arr) {
                             const idx = arr.indexOf(item.url);
                             if (idx !== -1) {
-                                arr.splice(idx, 1);
+                                removePreviewHistoryIndex(area, idx);
                                 if (area.resultUrl === item.url) {
                                     area.resultUrl = arr.length > 0 ? arr[0] : "";
                                     if (area.historyIndex !== undefined) area.historyIndex = 0;
@@ -253,6 +265,8 @@ export function setupContextMenu(panelContainer) {
                     });
                     
                     selectedAreaObjs.forEach(o => {
+                        syncTextContentWithSelection(o.area);
+                        void loadSelectedTextContent(o.area, { refresh: false });
                         if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(o.area.id);
                     });
                     if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
@@ -268,6 +282,7 @@ export function setupContextMenu(panelContainer) {
                 const now = Date.now();
                 let syncCount = 0;
                 const areaProbes = [];
+                const textReloadTasks = [];
 
                 selectedAreaObjs.forEach(o => {
                     if (o.area.history && o.area.history.length > 0) {
@@ -289,6 +304,10 @@ export function setupContextMenu(panelContainer) {
                             areaProbes.push({ areaId: o.area.id, url: o.area.resultUrl });
                         } catch(e) {}
                     }
+                    syncTextContentWithSelection(o.area);
+                    if (o.area.history?.some(url => getMediaType(url) === "text")) {
+                        textReloadTasks.push(loadAllTextHistory(o.area, { force: true, refresh: false }));
+                    }
                     
                     if (window._clabSurgicallyUpdateArea) window._clabSurgicallyUpdateArea(o.area.id);
                 });
@@ -298,6 +317,9 @@ export function setupContextMenu(panelContainer) {
                     return;
                 }
 
+                if (textReloadTasks.length > 0) {
+                    await Promise.all(textReloadTasks);
+                }
                 if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
                 if (areaProbes.length > 0) {
                     // Proactively probe refreshed URLs so deleted videos can switch to missing state immediately.

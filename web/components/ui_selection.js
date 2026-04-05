@@ -5,8 +5,8 @@ import { state, appState } from "./ui_state.js";
 import { app } from "../../../scripts/app.js";
 import { renderDynamicToolbar, attachDynamicToolbarEvents } from "./comp_toolbar.js";
 
-const INTERACTIVE_SELECTOR = "button, input, select, textarea, .clab-custom-select, .clab-edit-val-bool, .clab-del-area-btn, .clab-del-card-btn, .clab-history-thumb, .clab-upload-zone, .clab-video-controls-interactive";
-const MEDIA_SELECTOR = ".clab-video-player, .clab-audio-player, .clab-preview-bg, video, audio";
+const INTERACTIVE_SELECTOR = "button, input, select, textarea, .clab-custom-select, .clab-edit-val-bool, .clab-del-area-btn, .clab-del-card-btn, .clab-history-thumb, .clab-upload-zone, .clab-video-controls-interactive, .clab-text-preview-shell, .clab-text-body-scroll, .clab-text-body-content";
+const MEDIA_SELECTOR = ".clab-video-player, .clab-audio-player, .clab-preview-bg, video, audio, .clab-text-preview-shell, .clab-text-body-scroll, .clab-text-body-content";
 
 export function isInteractiveTarget(target) {
     return !!(target && typeof target.closest === "function" && target.closest(INTERACTIVE_SELECTOR));

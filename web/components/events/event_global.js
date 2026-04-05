@@ -5,6 +5,7 @@
 import { state, appState, createEmptyWorkspace, applyWorkspaceToState, saveAndRender } from "../ui_state.js";
 import { updateSelectionUI } from "../ui_selection.js";
 import { enterBindingModeForSelected } from "../actions/action_binding.js";
+import { loadSelectedTextContent, syncTextContentWithSelection } from "../modules/media_types/media_utils.js";
 
 // 【核心新增】：快捷键解析引擎下沉至此，根据字符串动态计算修饰键和主键
 function parseShortcut(shortcutStr) {
@@ -234,6 +235,7 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                 if (targetArea.historyIndex !== idx) {
                     targetArea.historyIndex = idx;
                     targetArea.resultUrl = targetArea.history[idx];
+                    syncTextContentWithSelection(targetArea);
 
                     if (window._clabSurgicallyUpdateArea) {
                         window._clabSurgicallyUpdateArea(targetArea.id);
@@ -241,6 +243,7 @@ export function setupGlobalEvents(panelContainer, backdropContainer, togglePanel
                     } else {
                         saveAndRender();
                     }
+                    void loadSelectedTextContent(targetArea, { refresh: true });
                 }
                 return;
             }

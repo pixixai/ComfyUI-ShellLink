@@ -1,6 +1,7 @@
 /**
  * ui_state.js: runtime state container and workspace helpers.
  */
+import { syncTextContentWithSelection } from "./modules/media_types/media_utils.js";
 
 const DEFAULT_WORKSPACE_NAME = "工作区 1";
 const DEFAULT_CHANNEL_NAME = "通道 1";
@@ -438,19 +439,32 @@ export const removeUrlsGlobally = (urlsToRemove) => {
 
             if (area.history && area.history.length > 0) {
                 const activeUrl = area.resultUrl;
+                const keepIndices = [];
+                area.history.forEach((historyUrl, index) => {
+                    if (!pathsToRemove.includes(getPathAndQuery(historyUrl))) keepIndices.push(index);
+                });
                 const originalLength = area.history.length;
-                area.history = area.history.filter((historyUrl) => !pathsToRemove.includes(getPathAndQuery(historyUrl)));
+                area.history = keepIndices.map((index) => area.history[index]);
+                if (Array.isArray(area.textHistory) && area.textHistory.length > 0) {
+                    area.textHistory = keepIndices.map((index) => area.textHistory[index]);
+                }
+                if (Array.isArray(area.textHistoryStatus) && area.textHistoryStatus.length > 0) {
+                    area.textHistoryStatus = keepIndices.map((index) => area.textHistoryStatus[index]);
+                }
 
                 if (area.history.length !== originalLength) {
                     if (area.history.length === 0) {
                         area.resultUrl = "";
                         area.historyIndex = 0;
                         area.selectedThumbIndices = [];
+                        if (Array.isArray(area.textHistory)) area.textContent = "";
+                        area.textLoadState = "idle";
                     } else {
                         let newActiveIdx = area.history.indexOf(activeUrl);
                         if (newActiveIdx === -1) newActiveIdx = Math.max(0, area.history.length - 1);
                         area.historyIndex = newActiveIdx;
                         area.resultUrl = area.history[newActiveIdx];
+                        syncTextContentWithSelection(area);
                         if (area.selectedThumbIndices) {
                             area.selectedThumbIndices = area.selectedThumbIndices.filter((i) => i < area.history.length);
                         }

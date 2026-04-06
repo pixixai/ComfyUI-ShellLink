@@ -38,6 +38,33 @@ window._clabDeleteTemp = false;
 window._clabFilePrefix = 'pix';
 window._clabHaltOnError = true; 
 
+window._clabIsVideoAutoplayEnabled = function() {
+    const raw = window._clabVideoAutoplay;
+    if (typeof raw === "string") {
+        const normalized = raw.trim().toLowerCase();
+        if (normalized === "false" || normalized === "0" || normalized === "off") return false;
+        if (normalized === "true" || normalized === "1" || normalized === "on") return true;
+    }
+    return raw !== false;
+};
+
+window._clabApplyVideoAutoplaySetting = function() {
+    const enabled = window._clabIsVideoAutoplayEnabled ? window._clabIsVideoAutoplayEnabled() : (window._clabVideoAutoplay !== false);
+    const videos = document.querySelectorAll(".clab-video-player .clab-media-target, .clab-video-player video");
+    videos.forEach((video) => {
+        if (!(video instanceof HTMLVideoElement)) return;
+        if (enabled) {
+            video.autoplay = true;
+            video.setAttribute("autoplay", "");
+            if (video.paused) video.play().catch(() => {});
+        } else {
+            video.autoplay = false;
+            video.removeAttribute("autoplay");
+            if (!video.paused) video.pause();
+        }
+    });
+};
+
 // =========================================================================
 // 全新主题专属变量 
 // =========================================================================
@@ -309,7 +336,10 @@ const clabSettings = [
         defaultValue: true,
         category: ["Creative Lab", "2-PerformanceMedia", "Autoplay"],
         tooltip: "When disabled, main videos only show the first frame and play on click (saves GPU decoding).",
-        onChange: (newVal) => { window._clabVideoAutoplay = newVal; }
+        onChange: (newVal) => {
+            window._clabVideoAutoplay = newVal;
+            if (window._clabApplyVideoAutoplaySetting) window._clabApplyVideoAutoplaySetting();
+        }
     },
     {
         id: "CLab.2-PerformanceMedia.MaxHistory",

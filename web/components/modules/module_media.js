@@ -76,6 +76,7 @@ function injectMediaCSS() {
         .clab-media-dropdown.show { display: flex; }
         .clab-media-dropdown-item { padding: 8px 12px; font-size: 11px; color: #eee; cursor: pointer; white-space: nowrap; transition: background 0.1s; font-family: sans-serif; }
         .clab-media-dropdown-item:hover { background: #2196F3; color: #fff; }
+        .clab-more-dropdown .clab-media-dropdown-item { text-align: left; }
 
         .clab-vid-speed-opt:hover { background: rgba(255,255,255,0.2) !important; color: #fff !important; }
 
@@ -346,6 +347,7 @@ if (!window._clabMediaLoopRunning) {
 // 4. 全局交互绑定路由
 // =========================================================================
 export function attachMediaEvents(container) {
+    injectMediaCSS();
     // 全局清理器：点击任意地方，关闭被剥离到 Body 层的悬浮菜单，并送回原处
     if (!window._clabMediaGlobalEventsBound) {
         const closeDropdownsGlobally = (e) => {

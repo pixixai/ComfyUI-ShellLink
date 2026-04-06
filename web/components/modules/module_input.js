@@ -1,11 +1,14 @@
-/**
- * 文件名: module_input.js
- * 职责: 负责卡片内“输入模块”的 UI 渲染与交互 (文本、布尔、下拉、文件上传)
+﻿/**
+ * 文件: module_input.js
+ * 职责: 渲染并处理输入模块 UI（文本、布尔、下拉、媒体上传等）。
  */
 import { state, saveAndRender } from "../ui_state.js";
 import { buildCustomSelect, getWidgetDef, truncateString } from "../ui_utils.js";
 import { uploadImageToServer } from "../actions/action_data_io.js";
 import { app } from "../../../../scripts/app.js";
+import { renderVideo } from "./media_types/media_video.js";
+import { renderAudio } from "./media_types/media_audio.js";
+import { attachMediaEvents } from "./module_media.js";
 
 export function generateInputHTML(area, card) {
     const isAreaSelected = state.selectedAreaIds.includes(area.id);
@@ -16,7 +19,7 @@ export function generateInputHTML(area, card) {
     const displayTitle = area.title ? area.title : defaultTitle;
 
     let hintText = '未绑定参数';
-    let fullHintText = '未绑定参数'; 
+    let fullHintText = '未绑定参数';
     let primaryNodeId = area.targetNodeId;
     let primaryWidget = area.targetWidget;
     
@@ -67,15 +70,15 @@ export function generateInputHTML(area, card) {
     let uploadType = 'file';
     let comboValues = [];
     
-    // 【核心修复】：将原本包裹在 if(widgetDef) 里的逻辑提取出来！
+    // 关键修复：即使 widgetDef 暂时为空，也提前初始化 opts/wType，避免后续分支漏判。
     let opts = widgetDef ? (widgetDef.options || {}) : {};
     let wType = widgetDef ? widgetDef.type : null;
     let isComboWidget = widgetDef ? (wType === "combo" || Array.isArray(wType) || Array.isArray(opts.values)) : false;
 
     const node = app.graph ? app.graph.getNodeById(Number(primaryNodeId)) : null;
     
-    // 关键突破：即使 ComfyUI 刚重启，节点的 widgetDef 还没来得及懒加载（为 null），
-    // 它的静态类定义 (constructor.nodeData) 是永远常驻内存的！我们可以直接去底层扒出原始参数类型！
+    // 核心兜底：ComfyUI 刚启动时 widgetDef 可能尚未懒加载完成（为 null），
+    // 但 constructor.nodeData 仍可读取到原始输入定义，可用于判断参数类型与上传能力。
     if (node && node.constructor && node.constructor.nodeData) {
         const nodeData = node.constructor.nodeData;
         const inputs = { ...(nodeData.input?.required || {}), ...(nodeData.input?.optional || {}) };
@@ -98,7 +101,7 @@ export function generateInputHTML(area, card) {
         }
     }
 
-    // 只要扒出的 options 里带有 upload 标识，无论动态 widgetDef 在不在，都强制渲染媒体组件！
+    // 只要 options 中带 upload 标记，就强制走媒体上传组件渲染（不依赖 widgetDef 是否可用）。
     if (opts.image_upload || opts.upload === 'image_upload' || opts.upload === 'image') { isUpload = true; uploadType = 'image'; }
     else if (opts.video_upload || opts.upload === 'video_upload' || opts.upload === 'video') { isUpload = true; uploadType = 'video'; }
     else if (opts.audio_upload || opts.upload === 'audio_upload' || opts.upload === 'audio') { isUpload = true; uploadType = 'audio'; }
@@ -116,14 +119,57 @@ export function generateInputHTML(area, card) {
         }
     }
 
+    const escapeHtml = (str = '') => String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
     if (isUpload) {
         let iconSvg = '';
+        const cloudUploadIconSvg = `<svg width="15" height="15" viewBox="0 0 171.37 147.71" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M43.68,51.32h116.52c3.4,0,6.16,2.76,6.16,6.16v79.08c0,3.4-2.76,6.16-6.16,6.16H37.52V57.48c0-3.4,2.76-6.16,6.16-6.16Z" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M141.73,51.32v-16.5c0-3.4-2.76-6.16-6.16-6.16h-45.57c-3.4,0-6.16-2.76-6.16-6.16v-11.33c0-3.4-2.76-6.16-6.16-6.16H11.16c-3.4,0-6.16,2.76-6.16,6.16v125.39c0,3.4,2.76,6.16,6.16,6.16h26.36" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><line x1="79.44" y1="97.02" x2="124.44" y2="97.02" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><line x1="101.94" y1="119.52" x2="101.94" y2="74.52" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        const fileIconSvg = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h5"></path></svg>`;
+        const fileTopIconSvg = `<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h5"></path></svg>`;
+        const removeIconSvg = `<svg width="15" height="15" viewBox="0 0 174.7 167.95" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><line x1="46.03" y1="6" x2="158.33" y2="139.83" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><line x1="80.57" y1="91.05" x2="45.49" y2="120.48" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><line x1="123.23" y1="55.25" x2="102.18" y2="72.92" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M47.29,51.39l-22.8,19.13C2.59,88.9-.27,121.56,18.11,143.46h0c18.38,21.9,51.03,24.76,72.93,6.38l22.8-19.13" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M83.65,20.88l-14.75,12.37,66.55,79.31,14.75-12.37c21.9-18.38,24.76-51.03,6.38-72.93h0c-18.38-21.9-51.03-24.76-72.93-6.38Z" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        const getDisplayFileName = (rawPath) => {
+            const raw = String(rawPath || '');
+            if (!raw) return '';
+            const parts = raw.split(/[\\/]/);
+            return parts[parts.length - 1] || raw;
+        };
+        const buildFileUploadPanel = (rawFileName, hasFile) => {
+            const fileName = hasFile ? getDisplayFileName(rawFileName) : 'No file selected';
+            const safeName = escapeHtml(fileName);
+            const removeDisabledAttr = hasFile ? '' : 'disabled';
+            const removeDisabledStyle = hasFile ? '' : 'opacity: 0.45; cursor: not-allowed; pointer-events: none;';
+            return `
+                <div class="clab-file-upload-shell" style="width: 100%; display: flex; flex-direction: column; gap: 8px; position: relative; z-index: 1; align-items: center;">
+                    <div class="clab-file-upload-top" style="width: 100%; min-height: 84px; border: 1px solid #4a4a4a; border-radius: 6px; background: rgba(255,255,255,0.03); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 10px 12px; box-sizing: border-box;">
+                        <span style="display:flex; align-items:center; justify-content:center; color: ${hasFile ? '#9aa4b2' : '#666'};">${fileTopIconSvg}</span>
+                        <span class="clab-file-upload-name" title="${safeName}" style="max-width: 100%; min-width: 0; font-size: 12px; color: ${hasFile ? '#ddd' : '#888'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">${safeName}</span>
+                    </div>
+                    <div class="clab-file-upload-actions" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        <button type="button" class="clab-file-upload-btn" title="Upload file"
+                            style="height: 30px; width: 30px; min-width: 30px; padding: 0; border-radius: 6px; border: 1px solid #5a5a5a; background: rgba(255,255,255,0.08); color: #eee; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                            ${cloudUploadIconSvg}
+                        </button>
+                        <button type="button" class="clab-file-remove-btn" title="Remove file" ${removeDisabledAttr}
+                            style="height: 30px; width: 30px; min-width: 30px; padding: 0; border-radius: 6px; border: 1px solid #5a5a5a; background: rgba(255,255,255,0.08); color: #eee; cursor: pointer; display: flex; align-items: center; justify-content: center; ${removeDisabledStyle}">
+                            ${removeIconSvg}
+                        </button>
+                    </div>
+                </div>
+            `;
+        };
         if (uploadType === 'image') {
             iconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
         } else if (uploadType === 'video') {
             iconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>`;
+        } else if (uploadType === 'audio') {
+            iconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`;
         } else {
-            iconSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
+            iconSvg = fileIconSvg;
         }
 
         let acceptType = "*/*";
@@ -131,12 +177,19 @@ export function generateInputHTML(area, card) {
         else if (uploadType === 'video') acceptType = "video/*";
         else if (uploadType === 'audio') acceptType = "audio/*";
 
+        const isImageUpload = uploadType === 'image';
+        const isVideoUpload = uploadType === 'video';
+        const isAudioUpload = uploadType === 'audio';
+        const isFileUpload = uploadType === 'file';
+        const useButtonUpload = isImageUpload || isVideoUpload || isAudioUpload;
+        const mediaAutoRatio = (isImageUpload || isVideoUpload) && area.autoHeight !== false;
         const isMedia = (uploadType === 'image' || uploadType === 'video');
         const ratioStyle = isMedia ? 'aspect-ratio: 16 / 9;' : '';
 
         if (area.value) {
             let previewHtml = '';
             const fileUrl = `/view?filename=${encodeURIComponent(area.value)}&type=input`;
+            const errCall = `if(window.CLab && window.CLab.handleMediaError) window.CLab.handleMediaError('${card.id}', '${area.id}', '${fileUrl}');`;
             
             const fallbackHtml = `
                 <div class="clab-upload-fallback" style="display: none; position: absolute; inset: 0; flex-direction: column; justify-content: center; align-items: center; z-index: 2; background: rgba(0,0,0,0.2);">
@@ -149,55 +202,95 @@ export function generateInputHTML(area, card) {
             `;
 
             if (uploadType === 'image') {
+                const imageOnLoad = mediaAutoRatio
+                    ? "const p=this.parentElement; if(p&&this.naturalWidth&&this.naturalHeight){p.style.aspectRatio=this.naturalWidth + ' / ' + this.naturalHeight; p.style.height='auto';}"
+                    : "";
                 previewHtml = `
-                    <img src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.clab-upload-fallback'); if(fb) fb.style.display='flex';" />
+                    <img class="clab-preview-img clab-media-target" src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" onload="${imageOnLoad}" onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.clab-upload-fallback'); if(fb) fb.style.display='flex';" />
                     ${fallbackHtml}
                 `;
             } else if (uploadType === 'video') {
-                const autoplayAttr = window._clabVideoAutoplay !== false ? 'autoplay' : '';
-                const mutedAttr = window._clabVideoMuted !== false ? 'muted' : '';
-                
-                previewHtml = `
-                    <video src="${fileUrl}" draggable="false" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: block;" ${autoplayAttr} loop ${mutedAttr} onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.clab-upload-fallback'); if(fb) fb.style.display='flex';"></video>
-                    ${fallbackHtml}
-                `;
+                previewHtml = renderVideo({ ...area, id: area.id }, 'contain', fileUrl, errCall);
             } else if (uploadType === 'audio') {
-                previewHtml = `
-                    <audio src="${fileUrl}" controls style="position: relative; z-index: 1; width: 90%; height: 40px; margin: 20px 5%;" onerror="this.style.display='none'; const fb=this.parentElement.querySelector('.clab-upload-fallback'); if(fb) fb.style.display='flex';"></audio>
-                    ${fallbackHtml}
-                `;
+                previewHtml = renderAudio({ ...area, id: area.id, matchMedia: false }, fileUrl, errCall);
+            } else if (uploadType === 'file') {
+                previewHtml = buildFileUploadPanel(area.value, true);
             } else {
-                previewHtml = `<div style="font-size: 24px; color: #666; padding: 30px 0; position: relative; z-index: 1;">📄</div>`;
+                previewHtml = `<div style="color: #666; padding: 30px 0; position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;">${fileIconSvg}</div>`;
             }
 
-            const minHeightStyle = isMedia ? '' : 'min-height: 80px;';
+            const minHeightStyle = isMedia ? '' : (isFileUpload ? 'min-height: 96px;' : 'min-height: 80px;');
+            const zonePadding = isFileUpload ? 'padding: 8px;' : 'padding: 0;';
+            const zoneTextAlign = isFileUpload ? 'text-align: left;' : 'text-align: center;';
+            const zoneLayout = isFileUpload ? 'display: block;' : 'display: flex; align-items: center; justify-content: center;';
+            const zoneCursor = isFileUpload ? 'cursor: default;' : 'cursor: pointer;';
 
             inputHtml = `
-                <div class="clab-upload-zone has-file" data-card="${card.id}" data-area="${area.id}" 
-                     style="border: 1px solid #444; border-radius: 6px; padding: 0; position: relative; text-align: center; cursor: pointer; background: rgba(0,0,0,0.3); transition: border-color 0.2s; ${minHeightStyle} ${ratioStyle} display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                    <input type="file" class="clab-file-input" accept="${acceptType}" style="display:none;" />
+                <div class="clab-upload-zone has-file" data-card="${card.id}" data-area="${area.id}" data-upload-type="${uploadType}" data-auto-ratio="${mediaAutoRatio ? '1' : '0'}"
+                     style="border: 1px solid #444; border-radius: 6px; ${zonePadding} position: relative; ${zoneTextAlign} ${zoneCursor} background: rgba(0,0,0,0.3); transition: border-color 0.2s; ${minHeightStyle} ${ratioStyle} ${zoneLayout} overflow: hidden;">
+                    <input type="file" class="clab-file-input" data-upload-type="${uploadType}" accept="${acceptType}" style="display:none;" />
                     ${previewHtml}
                 </div>
             `;
         } else {
-            const emptyPadding = isMedia ? '' : 'padding: 16px 10px;';
+            const emptyPadding = isMedia ? '' : (isFileUpload ? 'padding: 8px;' : 'padding: 16px 10px;');
             const emptyFlex = isMedia ? 'display: flex; flex-direction: column; justify-content: center; align-items: center;' : '';
-
-            inputHtml = `
-                <div class="clab-upload-zone" data-card="${card.id}" data-area="${area.id}" style="border: 1px dashed #666; border-radius: 6px; text-align: center; cursor: pointer; color: #999; background: rgba(0,0,0,0.1); transition: all 0.2s; box-sizing: border-box; ${emptyPadding} ${emptyFlex} ${ratioStyle}">
-                    <input type="file" class="clab-file-input" accept="${acceptType}" style="display:none;" />
+            const emptyTextAlign = isFileUpload ? 'text-align: left;' : 'text-align: center;';
+            const emptyCursor = isFileUpload ? 'cursor: default;' : 'cursor: pointer;';
+            let emptyInnerHtml = `
                     <div style="margin-bottom: 8px; color: #666;">${iconSvg}</div>
                     <div style="font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #ccc;">上传${uploadType === 'image' ? '图片' : uploadType === 'video' ? '视频' : uploadType === 'audio' ? '音频' : '文件'}</div>
-                    <div style="font-size: 10px; color: #666;">点击或拖拽至此处上传服务器</div>
+                    <div style="font-size: 10px; color: #666;">点击、粘贴或拖拽上传到服务器</div>
+            `;
+            if (isFileUpload) {
+                emptyInnerHtml = buildFileUploadPanel('', false);
+            }
+
+            inputHtml = `
+                <div class="clab-upload-zone" data-card="${card.id}" data-area="${area.id}" data-upload-type="${uploadType}" data-auto-ratio="${mediaAutoRatio ? '1' : '0'}" style="border: 1px dashed #666; border-radius: 6px; ${emptyTextAlign} ${emptyCursor} color: #999; background: rgba(0,0,0,0.1); transition: all 0.2s; box-sizing: border-box; ${emptyPadding} ${emptyFlex} ${ratioStyle}">
+                    <input type="file" class="clab-file-input" data-upload-type="${uploadType}" accept="${acceptType}" style="display:none;" />
+                    ${emptyInnerHtml}
                 </div>
             `;
         }
+
+        const uploadButtonHtml = useButtonUpload ? `
+            <button type="button" class="clab-upload-trigger-btn" data-card="${card.id}" data-area="${area.id}" title="Upload media"
+                style="height: 30px; width: 30px; min-width: 30px; padding: 0; border-radius: 6px; border: 1px solid #5a5a5a; background: rgba(255,255,255,0.08); color: #eee; cursor: pointer; display:flex; align-items:center; justify-content:center;">
+                ${cloudUploadIconSvg}
+            </button>
+        ` : '';
+        const clearDisabledAttr = area.value ? '' : 'disabled';
+        const clearDisabledStyle = area.value ? '' : 'opacity: 0.45; cursor: not-allowed; pointer-events: none;';
+        const clearButtonHtml = useButtonUpload ? `
+            <button type="button" class="clab-upload-clear-btn" data-card="${card.id}" data-area="${area.id}" title="Clear media" ${clearDisabledAttr}
+                style="height: 30px; width: 30px; min-width: 30px; padding: 0; border-radius: 6px; border: 1px solid #5a5a5a; background: rgba(255,255,255,0.08); color: #eee; cursor: pointer; display:flex; align-items:center; justify-content:center; ${clearDisabledStyle}">
+                ${removeIconSvg}
+            </button>
+        ` : '';
+        const mediaActionButtons = useButtonUpload ? `
+            <div style="display:flex; align-items:center; gap:6px;">
+                ${clearButtonHtml}
+                ${uploadButtonHtml}
+            </div>
+        ` : '';
 
         if (comboValues.length > 0) {
             let itemsHtml = comboValues.map(opt => `<div class="clab-custom-select-item ${area.value === opt ? 'selected' : ''}" data-value="${opt}">${opt}</div>`).join('');
             let currentVal = area.value || comboValues[0] || '或选择服务器已有文件...';
             const comboHtml = buildCustomSelect(`area-select-${area.id}`, '100%', currentVal, itemsHtml, false, `data-card-id="${card.id}" data-area-id="${area.id}" data-type="module-combo"`);
-            inputHtml += `<div style="margin-top: 6px; position:relative;">${comboHtml}</div>`;
+            if (useButtonUpload) {
+                inputHtml += `
+                    <div style="margin-top: 6px; position:relative; display:flex; align-items:center; gap:6px;">
+                        <div style="position: relative; flex: 1; min-width: 0;">${comboHtml}</div>
+                        ${mediaActionButtons}
+                    </div>
+                `;
+            } else {
+                inputHtml += `<div style="margin-top: 6px; position:relative;">${comboHtml}</div>`;
+            }
+        } else if (useButtonUpload) {
+            inputHtml += `<div style="margin-top: 6px; display:flex; justify-content:flex-end;">${mediaActionButtons}</div>`;
         }
 
     } else if (comboValues.length > 0) {
@@ -213,13 +306,13 @@ export function generateInputHTML(area, card) {
             </label>
         `;
     } else {
-        // 【UI防守更新】：移除 height: auto 带来的高度坍塌隐患，并增加强制无 max-height
+        // 文本框高度防抖更新：移除 height:auto 造成的跳动，并显式取消 max-height 限制。
         inputHtml = `<textarea class="clab-input clab-edit-val" data-card="${card.id}" data-area="${area.id}" placeholder="输入参数值..." style="display:block; margin:0; box-sizing:border-box; ${area.autoHeight ? 'min-height: 40px; resize: none; overflow: hidden; max-height: none !important;' : ''}">${area.value || ''}</textarea>`;
     }
 
     return `
         <div class="clab-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="overflow: visible;">
-            <button class="clab-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输入">✖</button>
+            <button class="clab-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输入">&#10006;</button>
             
             <div class="clab-input-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:4px; padding: 8px 8px 0 8px;">
                 <input class="clab-area-title-input" data-card="${card.id}" data-area="${area.id}" type="text" value="${displayTitle}" placeholder="${defaultTitle}" size="${Math.max(displayTitle.length, 2)}" style="max-width:150px; min-width:15px; background:transparent; border:none; color:#ddd; font-weight:normal; font-size:12px; outline:none; font-family:sans-serif; padding:0; margin:0;" />
@@ -371,6 +464,8 @@ export function refreshInputAreaInPlace(areaEl, area, card) {
                 zone.style.cssText = nextZone.style.cssText;
                 zone.dataset.card = nextZone.dataset.card;
                 zone.dataset.area = nextZone.dataset.area;
+                zone.dataset.uploadType = nextZone.dataset.uploadType;
+                zone.dataset.autoRatio = nextZone.dataset.autoRatio;
                 if (window._clabAttachAreaEvents) window._clabAttachAreaEvents(areaEl);
                 return true;
             });
@@ -378,6 +473,8 @@ export function refreshInputAreaInPlace(areaEl, area, card) {
 
         zone.dataset.card = nextZone.dataset.card;
         zone.dataset.area = nextZone.dataset.area;
+        zone.dataset.uploadType = nextZone.dataset.uploadType;
+        zone.dataset.autoRatio = nextZone.dataset.autoRatio;
         zone.className = nextZone.className;
         zone.style.cssText = nextZone.style.cssText;
 
@@ -387,6 +484,7 @@ export function refreshInputAreaInPlace(areaEl, area, card) {
             fileInput.accept = nextFileInput.accept;
             fileInput.dataset.card = nextFileInput.dataset.card;
             fileInput.dataset.area = nextFileInput.dataset.area;
+            fileInput.dataset.uploadType = nextFileInput.dataset.uploadType;
         }
         return true;
     }
@@ -445,30 +543,237 @@ export function attachInputEvents(container) {
     };
 
     // ==========================================
-    // 【终极方案】：建立全局单一的“离屏影子测量器”
+    // 建立全局唯一的“离屏文本测量器”，用于稳定计算 textarea 自适应高度
     // ==========================================
     let ghostMeasurer = document.getElementById('clab-ghost-textarea-measurer');
     if (!ghostMeasurer) {
         ghostMeasurer = document.createElement('textarea');
         ghostMeasurer.id = 'clab-ghost-textarea-measurer';
-        // 绝对定位、高度强制缩水为 1px（这样 scrollHeight 才能无限撑破获取真实尺寸），但绝不可见，也不参与布局
+        // 绝对定位并隐藏，固定 1px 高度，使 scrollHeight 可反映真实内容高度且不参与页面布局。
         ghostMeasurer.style.cssText = 'position: absolute; top: -9999px; left: -9999px; visibility: hidden; z-index: -1000; overflow: hidden; height: 1px !important; min-height: 1px !important; max-height: none !important; word-wrap: break-word; white-space: pre-wrap;';
         ghostMeasurer.tabIndex = -1;
         document.body.appendChild(ghostMeasurer);
     }
 
+    attachMediaEvents(container);
+
+    if (!window._clabUploadHandlers) {
+        window._clabUploadHandlers = new Map();
+    }
+
+    const EXT_MAP = {
+        image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'svg'],
+        video: ['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'],
+        audio: ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'],
+    };
+
+    const getFileExt = (file) => {
+        const name = (file?.name || '').toLowerCase();
+        const dot = name.lastIndexOf('.');
+        return dot >= 0 ? name.slice(dot + 1) : '';
+    };
+
+    const isUploadTypeMatch = (file, uploadType) => {
+        if (!file || !uploadType) return false;
+        if (uploadType === 'file') return true;
+
+        const mime = (file.type || '').toLowerCase();
+        const ext = getFileExt(file);
+
+        if (uploadType === 'image') {
+            return mime.startsWith('image/') || EXT_MAP.image.includes(ext);
+        }
+        if (uploadType === 'video') {
+            return mime.startsWith('video/') || EXT_MAP.video.includes(ext);
+        }
+        if (uploadType === 'audio') {
+            return mime.startsWith('audio/') || EXT_MAP.audio.includes(ext);
+        }
+        return false;
+    };
+
+    const useButtonUploadType = (uploadType) => uploadType === 'image' || uploadType === 'video' || uploadType === 'audio';
+
+    const isVideoAutoplayEnabled = () => {
+        const raw = window._clabVideoAutoplay;
+        if (typeof raw === 'string') {
+            const normalized = raw.trim().toLowerCase();
+            if (normalized === 'false' || normalized === '0' || normalized === 'off') return false;
+            if (normalized === 'true' || normalized === '1' || normalized === 'on') return true;
+        }
+        return raw !== false;
+    };
+
+    const enforceInputVideoAutoplaySetting = (zone) => {
+        if (!zone || (zone.dataset.uploadType || '') !== 'video') return;
+        if (isVideoAutoplayEnabled()) return;
+
+        const vid = zone.querySelector('video.clab-media-target, video');
+        if (!vid) return;
+
+        vid.removeAttribute('autoplay');
+        vid.autoplay = false;
+
+        const pauseIfNeeded = () => {
+            if (!isVideoAutoplayEnabled() && !vid.paused) {
+                vid.pause();
+            }
+        };
+
+        pauseIfNeeded();
+        if (vid.readyState >= 1) {
+            requestAnimationFrame(pauseIfNeeded);
+        } else {
+            vid.addEventListener('loadedmetadata', pauseIfNeeded, { once: true });
+            vid.addEventListener('canplay', pauseIfNeeded, { once: true });
+        }
+    };
+
+    const applyMediaAutoRatio = (zone) => {
+        if (!zone || zone.dataset.autoRatio !== '1') return;
+        const uploadType = zone.dataset.uploadType || '';
+
+        if (uploadType === 'image') {
+            const img = zone.querySelector('img.clab-media-target, img');
+            if (!img) return;
+            const applyRatio = () => {
+                if (img.naturalWidth && img.naturalHeight) {
+                    zone.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+                    zone.style.height = 'auto';
+                }
+            };
+            if (img.complete) applyRatio();
+            else img.addEventListener('load', applyRatio, { once: true });
+            return;
+        }
+
+        if (uploadType === 'video') {
+            const vid = zone.querySelector('video.clab-media-target, video');
+            if (!vid) return;
+            const applyRatio = () => {
+                if (vid.videoWidth && vid.videoHeight) {
+                    zone.style.aspectRatio = `${vid.videoWidth} / ${vid.videoHeight}`;
+                    zone.style.height = 'auto';
+                }
+            };
+            if (vid.readyState >= 1) applyRatio();
+            else vid.addEventListener('loadedmetadata', applyRatio, { once: true });
+        }
+    };
+
+    if (!window._clabMediaPasteUploadBoundV2) {
+        document.addEventListener('paste', (e) => {
+            if (e.defaultPrevented) return;
+            const active = document.activeElement;
+            if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+
+            const selectedAreaIds = Array.isArray(state.selectedAreaIds) ? state.selectedAreaIds : [];
+            if (!selectedAreaIds.length) return;
+
+            const itemFiles = Array.from(e.clipboardData?.items || [])
+                .filter(item => item.kind === 'file')
+                .map(item => item.getAsFile())
+                .filter(Boolean);
+            const clipboardFiles = [...itemFiles, ...Array.from(e.clipboardData?.files || [])].filter(Boolean);
+            if (!clipboardFiles.length) return;
+
+            for (const areaId of selectedAreaIds) {
+                const handlerEntry = window._clabUploadHandlers?.get(areaId);
+                if (!handlerEntry || typeof handlerEntry.upload !== 'function') continue;
+
+                const matchedFile = clipboardFiles.find(file => isUploadTypeMatch(file, handlerEntry.uploadType));
+                if (!matchedFile) continue;
+
+                const areaEl = document.querySelector(`.clab-area[data-area-id="${areaId}"]`);
+                const zone = areaEl?.querySelector(`.clab-upload-zone[data-upload-type="${handlerEntry.uploadType}"]`);
+                if (!zone) continue;
+
+                e.preventDefault();
+                e.stopPropagation();
+                handlerEntry.upload(matchedFile);
+                return;
+            }
+        }, true);
+        window._clabMediaPasteUploadBoundV2 = true;
+    }
+
     container.querySelectorAll('.clab-upload-zone').forEach(zone => {
         const fileInput = zone.querySelector('.clab-file-input');
         if (!fileInput) return;
+        const uploadType = zone.dataset.uploadType || fileInput.dataset.uploadType || 'file';
+        const useButtonUpload = useButtonUploadType(uploadType);
 
         zone.onclick = (e) => {
+            if (useButtonUpload || uploadType === 'file') return;
             if(e.target.closest('.clab-custom-select')) return; 
             e.stopPropagation();
             fileInput.click();
         };
 
+        const areaEl = zone.closest('.clab-area');
+        const uploadBtn = areaEl ? areaEl.querySelector('.clab-upload-trigger-btn') : null;
+        if (uploadBtn && !uploadBtn.dataset.clabEventsBound) {
+            uploadBtn.dataset.clabEventsBound = "1";
+            uploadBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                fileInput.click();
+            };
+        }
+
+        const fileUploadBtn = zone.querySelector('.clab-file-upload-btn');
+        if (fileUploadBtn && !fileUploadBtn.dataset.clabEventsBound) {
+            fileUploadBtn.dataset.clabEventsBound = "1";
+            fileUploadBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                fileInput.click();
+            };
+        }
+
+        const clearFileValue = () => {
+            const cardId = zone.dataset.card;
+            const areaId = zone.dataset.area;
+            const card = state.cards.find(c => c.id === cardId);
+            const area = card?.areas.find(a => a.id === areaId);
+            if (!area) return;
+            area.value = '';
+            state.selectedAreaIds = [areaId];
+            state.selectedCardIds = [];
+            applySurgicalUpdate(areaId);
+        };
+
+        const clearMediaBtn = areaEl ? areaEl.querySelector('.clab-upload-clear-btn') : null;
+        if (clearMediaBtn && !clearMediaBtn.dataset.clabEventsBound) {
+            clearMediaBtn.dataset.clabEventsBound = "1";
+            clearMediaBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (clearMediaBtn.disabled) return;
+                clearFileValue();
+            };
+        }
+
+        const fileRemoveBtn = zone.querySelector('.clab-file-remove-btn');
+        if (fileRemoveBtn && !fileRemoveBtn.dataset.clabEventsBound) {
+            fileRemoveBtn.dataset.clabEventsBound = "1";
+            fileRemoveBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (fileRemoveBtn.disabled) return;
+                clearFileValue();
+            };
+        }
+
         const handleUpload = async (file) => {
             if(!file) return;
+            if (!isUploadTypeMatch(file, uploadType)) {
+                if (uploadType === 'image') alert('Only image files are supported.');
+                else if (uploadType === 'video') alert('Only video files are supported.');
+                else if (uploadType === 'audio') alert('Only audio files are supported.');
+                return;
+            }
+
             const cardId = zone.dataset.card;
             const areaId = zone.dataset.area;
             
@@ -482,7 +787,7 @@ export function attachInputEvents(container) {
                         <line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line>
                         <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
                     </svg>
-                    正在加密上传至服务器...
+                    正在上传到服务器...
                 </div>
             `;
 
@@ -503,6 +808,11 @@ export function attachInputEvents(container) {
                 applySurgicalUpdate(areaId);
             }
         };
+
+        window._clabUploadHandlers.set(zone.dataset.area, {
+            uploadType,
+            upload: handleUpload
+        });
 
         fileInput.onchange = (e) => {
             const file = e.target.files[0];
@@ -533,6 +843,9 @@ export function attachInputEvents(container) {
                 handleUpload(file);
             }
         });
+
+        enforceInputVideoAutoplaySetting(zone);
+        applyMediaAutoRatio(zone);
     });
 
     container.querySelectorAll('.clab-edit-val-bool').forEach(cb => {
@@ -553,12 +866,12 @@ export function attachInputEvents(container) {
         
         let resizeTimeout;
 
-        // 【核心计算引擎】：使用 requestAnimationFrame 配合防抖，保证极速输入的流畅性
+        // 核心计算：requestAnimationFrame + 轻量防抖，保证快速输入时也平滑。
         const handleAutoResize = () => {
             if (ta.style.resize !== 'none') return;
             
             window.requestAnimationFrame(() => {
-                // 1. 将真实的文字、字体尺寸、宽度完全克隆给影子测量器
+                // 1. 将真实输入框的关键样式同步到离屏测量器
                 const comp = window.getComputedStyle(ta);
                 ghostMeasurer.style.width = comp.width;
                 ghostMeasurer.style.fontFamily = comp.fontFamily;
@@ -571,18 +884,18 @@ export function attachInputEvents(container) {
                 
                 ghostMeasurer.value = ta.value || ta.placeholder || 'A';
                 
-                // 2. 测量出影子真实的 scrollHeight
+                // 2. 读取离屏测量器的 scrollHeight
                 const borders = (parseFloat(comp.borderTopWidth) || 0) + (parseFloat(comp.borderBottomWidth) || 0);
                 
-                // 3. 安全余量 (8px) 彻底打败中英文混排时的亚像素高度坍塌
+                // 3. 增加 8px 安全余量，避免中英文混排时出现截断
                 const calculatedHeight = ghostMeasurer.scrollHeight + borders + 8;
                 
-                // 4. 将高度单向直接赋给真实元素。全程没有任何 height: auto 的重排，绝对 0 跳动！
+                // 4. 直接回写最终高度，避免反复 height:auto 导致重排抖动
                 ta.style.height = calculatedHeight + 'px';
             });
         };
 
-        // 监听宽度变化：加入防抖机制，避免拖拽面板时卡顿
+        // 监听宽度变化并做防抖，减少拖拽面板时的频繁重算
         if (window.ResizeObserver) {
             let lastWidth = null;
             const ro = new ResizeObserver((entries) => {
@@ -597,7 +910,7 @@ export function attachInputEvents(container) {
             ro.observe(ta);
         }
 
-        // 初始化兜底计算
+        // 初始化一次高度
         setTimeout(handleAutoResize, 50);
 
         ta.oninput = (e) => {
@@ -614,3 +927,4 @@ export function attachInputEvents(container) {
         };
     });
 }
+

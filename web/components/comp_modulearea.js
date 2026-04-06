@@ -1,15 +1,15 @@
-﻿/**
- * 鏂囦欢鍚? comp_modulearea.js
- * 鑱岃矗: 銆愯矾鐢卞櫒涓庡澹炽€戣礋璐ｅ垎鍙?Input/Output 娓叉煋锛岀鐞嗗澹虫嫋鎷姐€?
+/**
+ * 文件: comp_modulearea.js
+ * 职责: 负责输入/输出区域渲染、拖拽排序与局部刷新。
  */
 import { state, dragState, saveAndRender } from "./ui_state.js";
 import { injectDnDCSS, bindComboSelectEvents } from "./ui_utils.js";
 import { generateInputHTML, attachInputEvents, refreshInputAreaInPlace } from "./modules/module_input.js";
 import { generateOutputHTML, attachOutputEvents } from "./modules/module_output.js";
-import { updateSelectionUI } from "./ui_selection.js"; // 銆愭柊澧炪€戯細寮曞叆鏇存柊閫変腑鐘舵€佺殑 UI 鏂规硶
+import { updateSelectionUI } from "./ui_selection.js"; // [新增] 引入更新选中状态的 UI 方法
 import { app } from "../../../scripts/app.js";
 
-// 銆愭牳蹇冭В鑰︺€戯細浠呬繚瀛樼姸鎬佸埌鍚庡彴鑺傜偣锛屾嫆缁濊Е鍙戝叏灞€鍒锋柊
+// 核心解耦：仅保存状态到后端节点，不触发整页刷新
 export function justSave() {
     // Prefer extension save bridge so latest in-memory state is always persisted.
     if (window.CLab && typeof window.CLab.saveState === "function") {
@@ -22,7 +22,14 @@ export function justSave() {
     }
 }
 
-// 銆愮粓鏋佸畾鐐圭垎鐮淬€戯細鑷甫 Mini-Stash锛堝井鍨嬬墿鐞嗛噾搴擄級锛屽眬閮ㄦ浛鎹?DOM 鏃跺畬缇庝繚鎶よ棰戠姸鎬侊紒
+function isVideoAutoplayEnabled() {
+    if (typeof window._clabIsVideoAutoplayEnabled === "function") {
+        return window._clabIsVideoAutoplayEnabled();
+    }
+    return window._clabVideoAutoplay !== false;
+}
+
+// 微创更新单个区域：只替换目标 DOM，尽量保留媒体播放状态，避免控件错位。
 export function surgicallyUpdateArea(areaId) {
     const areaEl = document.querySelector(`.clab-area[data-area-id="${areaId}"]`);
     if (!areaEl) return;
@@ -61,8 +68,8 @@ export function surgicallyUpdateArea(areaId) {
             if (newMediaEl) {
                 const newSrc = newMediaEl.getAttribute('src') || '';
                 
-                // 銆愭牳蹇冧慨澶嶃€戯細绮剧‘姣斿鏃堕棿鎴?t銆傚鏋滅敤鎴风偣鍑讳簡鈥滈噸鏂板悓姝モ€濓紝t 鍙傛暟浼氭敼鍙橈紝
-                // 姝ゆ椂閲戝簱蹇呴』鏀惧純鎷︽埅锛岃瑙嗛鐪熸鍦伴噸鏂板姞杞芥覆鏌擄紝瀹炵幇鐪熸鐨勫己鍒跺埛鏂帮紒
+                // 通过标准化 URL 比较路径与 filename，忽略临时时间戳等缓存参数，
+                // 若判定为同一资源则复用旧媒体元素，避免播放状态在局部刷新时丢失。
                 let isSame = false;
                 try {
                     const oU = new URL(stashedSrc, window.location.origin);
@@ -79,7 +86,16 @@ export function surgicallyUpdateArea(areaId) {
                     if (Math.abs(stashedMedia.currentTime - stashedTime) > 0.1) {
                         stashedMedia.currentTime = stashedTime;
                     }
-                    if (!stashedPaused) stashedMedia.play().catch(()=>{});
+                    if (stashedMedia instanceof HTMLVideoElement) {
+                        const autoplayEnabled = isVideoAutoplayEnabled();
+                        stashedMedia.autoplay = autoplayEnabled;
+                        if (autoplayEnabled) stashedMedia.setAttribute("autoplay", "");
+                        else stashedMedia.removeAttribute("autoplay");
+                        if (autoplayEnabled && !stashedPaused) stashedMedia.play().catch(()=>{});
+                        else stashedMedia.pause();
+                    } else if (!stashedPaused) {
+                        stashedMedia.play().catch(()=>{});
+                    }
                 } else {
                     stashedMedia.remove();
                 }
@@ -133,7 +149,7 @@ export function refreshAreaForContext(areaId) {
     return true;
 }
 
-// 銆愰瓟娉曠籂鍋忋€戯細闈欓粯鎵弿鍏ㄥ満锛岀粰鎵€鏈夌殑鍗＄墖鍜屾ā鍧楃悊椤烘帓闃熷簭鍙?
+// 同步所有卡片/区域的默认标题（仅在标题未自定义时更新）。
 export function updateAllDefaultTitles() {
     document.querySelectorAll('.clab-card:not(.clab-add-card-inline)').forEach((cardEl) => {
         const cardId = cardEl.dataset.cardId;
@@ -185,7 +201,7 @@ export function updateAllDefaultTitles() {
     });
 }
 
-// 銆愬叏鏂版礂鐗屽紩鎿庛€戯細褰撴ā鍧楀彂鐢熺墿鐞嗕綅绉绘椂锛岄噸鍐?DOM 涓婃墍鏈夋畫鐣欑殑鍗＄墖 ID 鐑欏嵃
+// 当区域跨卡片移动后，修正该区域及其子元素上的 data-card / data-card-id。
 export function updateAreaDOMIdentity(areaId, newCardId) {
     try {
         const el = document.querySelector(`.clab-area[data-area-id="${areaId}"]`);
@@ -194,7 +210,7 @@ export function updateAreaDOMIdentity(areaId, newCardId) {
             el.querySelectorAll('[data-card]').forEach(child => child.dataset.card = newCardId);
             el.querySelectorAll('[data-card-id]').forEach(child => child.dataset.cardId = newCardId);
         }
-    } catch(e) { console.error("[CLab] DOM 韬唤鏇存柊澶辫触:", e); }
+    } catch(e) { console.error("[CLab] DOM 身份更新失败:", e); }
 }
 
 window._clabSurgicallyUpdateArea = surgicallyUpdateArea;
@@ -294,7 +310,7 @@ export function attachAreaEvents(container) {
         if (areaEl.dataset.clabEventsBound) return;
         areaEl.dataset.clabEventsBound = "1";
         
-        // 銆愰槻寰¤ˉ涓併€戯細寮鸿纭繚鎵€鏈夋ā鍧楄妭鐐归兘鍏峰鍘熺敓鐗╃悊鎷栨嫿鑳藉姏
+        // 强制确保每个区域都可拖拽，防止局部重渲染后 draggable 丢失。
         areaEl.setAttribute('draggable', 'true');
 
         areaEl.addEventListener('contextmenu', (e) => {
@@ -349,7 +365,7 @@ export function attachAreaEvents(container) {
                 }
             });
             
-            // 銆愭牳蹇冧慨澶嶃€戯細涓烘柊鐢熷効锛堟柊寤哄伐浣滄祦涓垰娣诲姞鐨勬ā鍧楋級鎻愪緵鎴峰彛鏈ˉ褰曚繚闄?
+            // 兜底：如果当前区域未进入批量选中，补录其 sourceInfo，保证单个拖拽也可用。
             if (!dragState.sourceInfo[currentAreaId]) {
                 state.cards.forEach(c => {
                     const idx = c.areas?.findIndex(a => a.id === currentAreaId);
@@ -359,7 +375,7 @@ export function attachAreaEvents(container) {
                 });
             }
             
-            e.dataTransfer.effectAllowed = 'copyMove'; // 銆愪慨鏀广€戯細鍏佽鎷栨嫿鍛堢幇涓哄鍒?
+            e.dataTransfer.effectAllowed = 'copyMove'; // 允许拖拽操作同时支持 copy 与 move
             e.dataTransfer.setData('text/plain', 'area');
             
             setTimeout(() => {
@@ -384,13 +400,13 @@ export function attachAreaEvents(container) {
             if (e.dataTransfer.types.includes('Files')) return;
             if (dragState.type === 'area' && dragState.areaIds) {
                 const targetAreaId = areaEl.dataset.areaId;
-                const isClone = e.altKey; // 銆愭敞鍏ャ€戯細妫€娴嬫槸鍚︽寜涓嬩簡 Alt
+                const isClone = e.altKey; // 按住 Alt 表示复制（克隆），否则为移动
 
-                // 銆愭牳蹇冪獊鐮淬€戯細濡傛灉鏄Щ鍔ㄦā寮忥紝绂佹闄嶈惤鍒拌嚜宸辫韩涓婏紱濡傛灉鏄厠闅嗘ā寮忥紝鍒欏厑璁稿師鍦伴檷钀藉苟鍏嬮殕
+                // 非克隆模式下，拖到已选中的自身区域时直接忽略，避免无效操作。
                 if (dragState.areaIds.includes(targetAreaId) && !isClone) return;
 
                 e.preventDefault(); e.stopPropagation();
-                e.dataTransfer.dropEffect = isClone ? 'copy' : 'move'; // 銆愭敞鍏ャ€戯細鏀瑰彉鍏夋爣鐗规晥
+                e.dataTransfer.dropEffect = isClone ? 'copy' : 'move'; // 实时反馈当前将执行复制还是移动
 
                 const rect = areaEl.getBoundingClientRect();
                 const midY = rect.top + rect.height / 2;
@@ -415,7 +431,7 @@ export function attachAreaEvents(container) {
             }
         });
 
-        // 闄嶈惤闃舵 - 銆愬叏鏂扮粷瀵归暅鍍忓钩琛屾嫋鎷藉紩鎿?+ 鍏嬮殕鍒嗚鏀寔銆?
+        // 处理拖拽落点：统一执行跨卡片/同卡片的复制或移动逻辑。
         areaEl.addEventListener('drop', (e) => {
             if (e.dataTransfer.types.includes('Files')) return;
             if (dragState.type === 'area' && dragState.areaIds) {
@@ -426,7 +442,7 @@ export function attachAreaEvents(container) {
                 
                 const targetCardId = areaEl.dataset.cardId;
                 const targetAreaId = areaEl.dataset.areaId;
-                const isClone = e.altKey; // 銆愭牳蹇冩敞鍏ャ€戯細鍒ゆ柇鎸夐敭锛佽繘鍏?Alt 鍏嬮殕妯″紡
+                const isClone = e.altKey; // drop 阶段再次读取 Alt，决定复制或移动
                 
                 if (dragState.areaIds.includes(targetAreaId) && !isClone) return;
                 const isSameCard = (targetCardId === dragState.cardId);
@@ -441,12 +457,12 @@ export function attachAreaEvents(container) {
                     c.areas.forEach((a, aIdx) => {
                         if (dragState.areaIds.includes(a.id)) {
                             if (isClone) {
-                                // 娣卞害鎷疯礉鐢熸垚鍏ㄦ柊鍏嬮殕浣擄紙甯︽棤鎹熷巻鍙茶褰曪級
+                                // 复制模式：深拷贝区域并分配新 id，避免与原区域冲突。
                                 const cloned = JSON.parse(JSON.stringify(a));
                                 cloned.id = 'area_clone_' + Date.now() + '_' + Math.floor(Math.random() * 10000) + '_' + cIdx + '_' + aIdx;
                                 movedAreasByCard[c.id].push(cloned);
                                 allMovedAreas.push(cloned);
-                                remainingAreas.push(a); // 鐣欎笅鍘熸湰鐨勬暟鎹笉鍓旈櫎锛?
+                                remainingAreas.push(a); // 复制模式保留原区域不移除
                             } else {
                                 movedAreasByCard[c.id].push(a);
                                 allMovedAreas.push(a);
@@ -455,7 +471,7 @@ export function attachAreaEvents(container) {
                             remainingAreas.push(a);
                         }
                     });
-                    if (!isClone) c.areas = remainingAreas; // 浠呭湪绉诲姩鏃舵娊璧板師浠?
+                    if (!isClone) c.areas = remainingAreas; // 移动模式才从原卡片移除被拖拽区域
                 });
 
                 const targetCard = state.cards.find(c => c.id === targetCardId);
@@ -470,16 +486,16 @@ export function attachAreaEvents(container) {
                     }
 
                     if (isSameCard) {
-                        // 銆愭牳蹇冧慨澶嶃€戯細鏀惧純瀹规槗閫犳垚姝т箟鐨勭浉瀵?delta 杩愮畻锛?
-                        // 鐩存帴浣跨敤涓荤洰鏍囧崱鐗囩殑缁濆鎻掑叆浣嶇疆 (targetIdx) 浣滀负鍏ㄥ畤瀹欑殑闄嶈惤鍧愭爣锛?
+                        // 同卡片内拖拽时，需要按目标索引回插，保持顺序一致。
+                        // 这里直接使用计算后的 targetIdx（已包含上下半区偏移）。
                         state.cards.forEach(c => {
                             const moved = movedAreasByCard[c.id];
                             if (moved && moved.length > 0) {
-                                // 寮哄埗鍦ㄥ悓涓€缁濆绱㈠紩澶勬墽琛屾彃鍏ワ紝杈炬垚瀹岀編鐨勫钩琛岄暅鍍忓悓姝ワ紒
+                                // 以目标索引为镜像位置插入，避免顺序错乱。
                                 let absoluteMirrorIdx = Math.max(0, Math.min(targetIdx, c.areas.length));
                                 c.areas.splice(absoluteMirrorIdx, 0, ...moved);
                                 
-                                // 銆愭敞鍏ャ€戯細鍦ㄥ厠闅嗘ā寮忎笅涓哄叏鏂板厓绱犳棤缂濋摵璁?DOM
+                                // 复制模式需补建新增区域 DOM，并重新绑定事件。
                                 if (isClone) {
                                     const listEl = document.querySelector(`.clab-card[data-card-id="${c.id}"] .clab-area-list`);
                                     if (listEl) {
@@ -505,7 +521,7 @@ export function attachAreaEvents(container) {
                             }
                         });
                         
-                        // 銆愭敞鍏ャ€戯細鍦ㄨ法鍗＄墖鍏嬮殕妯″紡涓嬩负鍏ㄦ柊鍏冪礌鏃犵紳閾鸿 DOM
+                        // 跨卡片复制时也要补建目标卡片中的新增 DOM。
                         if (isClone) {
                             const listEl = document.querySelector(`.clab-card[data-card-id="${targetCardId}"] .clab-area-list`);
                             if (listEl) {
@@ -522,7 +538,7 @@ export function attachAreaEvents(container) {
                         if (window._clabUpdateAreaDOMIdentity) allMovedAreas.forEach(a => window._clabUpdateAreaDOMIdentity(a.id, targetCardId));
                     }
                     
-                    // 銆愭柊澧炪€戯細鍏嬮殕瀹屾垚鍚庯紝灏嗛€変腑鐘舵€佽嚜鍔ㄨ浆绉诲埌鏂扮敓鎴愮殑鎵€鏈夋ā鍧椾笂
+                    // 复制完成后，将新克隆出的区域设为当前选中，便于后续连续操作。
                     if (isClone && allMovedAreas.length > 0) {
                         state.selectedAreaIds = allMovedAreas.map(a => a.id);
                         updateSelectionUI();

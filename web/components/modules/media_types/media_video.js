@@ -5,7 +5,16 @@
 import { formatTime, formatTimeWithFrames } from "./media_utils.js";
 
 export function renderVideo(area, objectFit, url, errCall) {
-    const autoplayAttr = window._clabVideoAutoplay !== false ? 'autoplay' : '';
+    const autoplayEnabled = (() => {
+        const raw = window._clabVideoAutoplay;
+        if (typeof raw === 'string') {
+            const normalized = raw.trim().toLowerCase();
+            if (normalized === 'false' || normalized === '0' || normalized === 'off') return false;
+            if (normalized === 'true' || normalized === '1' || normalized === 'on') return true;
+        }
+        return raw !== false;
+    })();
+    const autoplayAttr = autoplayEnabled ? 'autoplay' : '';
     const mutedAttr = window._clabVideoMuted !== false ? 'muted' : '';
     
     // 初始化静音图标的状态，与视频标签保持一致
@@ -38,7 +47,7 @@ export function renderVideo(area, objectFit, url, errCall) {
                         
                         <div class="clab-media-opt-wrapper clab-video-controls-interactive">
                             <button class="clab-media-opt-btn clab-more-toggle">⋮</button>
-                            <div class="clab-media-dropdown clab-more-dropdown">
+                            <div class="clab-media-dropdown clab-more-dropdown" style="text-align: left;">
                                 <div style="padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1);">
                                     <span style="font-size: 11px; color: #aaa; font-family: sans-serif !important;">播放速度</span>
                                     <div style="display: flex; align-items: center; background: rgba(0,0,0,0.5); border: 1px solid #555; border-radius: 4px; padding: 0 4px;">

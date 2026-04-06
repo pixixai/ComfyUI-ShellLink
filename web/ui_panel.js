@@ -19,6 +19,13 @@ console.log("[CLab] UI split version loaded (entry/composition mode)");
 let panelContainer = null;
 let backdropContainer = null;
 
+function isVideoAutoplayEnabled() {
+    if (typeof window._clabIsVideoAutoplayEnabled === "function") {
+        return window._clabIsVideoAutoplayEnabled();
+    }
+    return window._clabVideoAutoplay !== false;
+}
+
 function ensureMiniVault() {
     if (window._clabMiniVault) return window._clabMiniVault;
     const vault = document.createElement("div");
@@ -90,7 +97,16 @@ function setupPanelMediaVault() {
                     if (Math.abs(info.el.currentTime - info.time) > 0.1) {
                         info.el.currentTime = info.time;
                     }
-                    if (!info.paused) info.el.play().catch(() => {});
+                    if (info.el instanceof HTMLVideoElement) {
+                        const autoplayEnabled = isVideoAutoplayEnabled();
+                        info.el.autoplay = autoplayEnabled;
+                        if (autoplayEnabled) info.el.setAttribute("autoplay", "");
+                        else info.el.removeAttribute("autoplay");
+                        if (autoplayEnabled && !info.paused) info.el.play().catch(() => {});
+                        else info.el.pause();
+                    } else if (!info.paused) {
+                        info.el.play().catch(() => {});
+                    }
                 } else {
                     info.el.remove();
                 }
@@ -238,6 +254,7 @@ function performPanelRender() {
     }
 
     if (window.CLab && window.CLab.restoreMedia) window.CLab.restoreMedia();
+    if (window._clabApplyVideoAutoplaySetting) window._clabApplyVideoAutoplaySetting();
 
     attachDynamicToolbarEvents(toolbarHandle);
     attachChannelEvents(channelBar);

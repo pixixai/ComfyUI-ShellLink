@@ -12,6 +12,7 @@ import { attachMediaEvents } from "./module_media.js";
 
 export function generateInputHTML(area, card) {
     const isAreaSelected = state.selectedAreaIds.includes(area.id);
+    const nodeBypassedClass = (area.runtimeNodeBypassed === true || area.runtimeNodeDisabled === true) ? "clab-node-bypassed" : "";
     
     const editAreas = card.areas.filter(a => a.type === 'edit');
     const editIndex = editAreas.findIndex(a => a.id === area.id) + 1;
@@ -311,7 +312,7 @@ export function generateInputHTML(area, card) {
     }
 
     return `
-        <div class="clab-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="overflow: visible;">
+        <div class="clab-area ${isAreaSelected ? 'active' : ''} ${nodeBypassedClass}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="overflow: visible;">
             <button class="clab-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输入">&#10006;</button>
             
             <div class="clab-input-header" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:4px; padding: 8px 8px 0 8px;">

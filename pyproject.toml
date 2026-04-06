@@ -1,7 +1,7 @@
 [project]
 name = "CreativeLab"
 description = "沉浸式、卡片化任务管理插件"
-version = "0.7.3"
+version = "0.7.4"
 license = {file = "LICENSE"} 
 # classifiers = [
 #     # For OS-independent nodes (works on all operating systems)

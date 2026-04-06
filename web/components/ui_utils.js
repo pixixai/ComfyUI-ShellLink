@@ -608,6 +608,18 @@ export function injectCSS() {
             box-shadow: 0 0 var(--clab-theme-module-glow, 10px) var(--clab-theme-module-alpha, rgba(33, 150, 243, 0.4)); 
             background: var(--clab-theme-module-bg, rgba(33, 150, 243, 0.05)); 
         }
+        .clab-area.clab-node-bypassed {
+            opacity: 0.45;
+        }
+        .clab-area.clab-node-bypassed::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: rgba(255, 0, 0, 0.05);
+            pointer-events: none;
+            z-index: 2;
+        }
 
         .clab-input { 
             width: 100%; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid #555; 

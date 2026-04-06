@@ -38,6 +38,41 @@ function showMediaMissingFallback(areaId) {
     }
 }
 
+function getAreaAssociatedNodeIds(area) {
+    if (!area || typeof area !== "object") return [];
+
+    const nodeIds = new Set();
+    const pushNodeId = (raw) => {
+        const id = raw == null ? "" : String(raw).trim();
+        if (id) nodeIds.add(id);
+    };
+
+    if (Array.isArray(area.targetNodeIds)) {
+        area.targetNodeIds.forEach(pushNodeId);
+    }
+
+    if (Array.isArray(area.targetWidgets)) {
+        area.targetWidgets.forEach((item) => {
+            const [nodeId] = String(item || "").split("||");
+            pushNodeId(nodeId);
+        });
+    }
+
+    pushNodeId(area.targetNodeId);
+    return [...nodeIds];
+}
+
+function isAreaNodeBypassed(area) {
+    if (!area || typeof area !== "object") return false;
+    return area.runtimeNodeBypassed === true || area.runtimeNodeDisabled === true;
+}
+
+function setAreaNodeBypassed(area, bypassed) {
+    if (!area || typeof area !== "object") return;
+    area.runtimeNodeBypassed = bypassed;
+    area.runtimeNodeDisabled = bypassed;
+}
+
 async function probeMissingAndFallback(areaProbes) {
     const checks = areaProbes.map(async (item) => {
         if (!item || !item.url) return;
@@ -279,6 +314,15 @@ export function setupContextMenu(panelContainer) {
 
         const mainObj = selectedAreaObjs.find(o => o.area.id === clickedAreaId);
         if (!mainObj) return;
+        const selectedAreaInfos = selectedAreaObjs.map((item) => ({
+            ...item,
+            nodeIds: getAreaAssociatedNodeIds(item.area),
+        }));
+        const selectedAreaInfosWithNodes = selectedAreaInfos.filter((item) => item.nodeIds.length > 0);
+        const allSelectedAreasBypassed = selectedAreaInfosWithNodes.length > 0
+            && selectedAreaInfosWithNodes.every((item) => isAreaNodeBypassed(item.area));
+        const toggleNodeBypassLabel = allSelectedAreasBypassed ? "取消绕过节点" : "绕过节点";
+        const toggleNodeBypassClass = allSelectedAreasBypassed ? "" : "clab-danger";
 
         const showContentGroup = mainObj.area.type === 'preview';
         let menuHTML = ``;
@@ -298,6 +342,8 @@ export function setupContextMenu(panelContainer) {
         }
 
         menuHTML += `
+            <div class="clab-context-menu-title">节点</div>
+            <div class="clab-context-menu-item ${toggleNodeBypassClass}" id="clab-ctx-toggle-node-bypass">${toggleNodeBypassLabel}</div>
             <div class="clab-context-menu-title">模块</div>
             <div class="clab-context-menu-item" id="clab-ctx-select-same">选择相同模块</div>
             <div class="clab-context-menu-item clab-danger" id="clab-ctx-del-same">删除相同模块</div>
@@ -559,6 +605,34 @@ export function setupContextMenu(panelContainer) {
         menuEl.querySelector('#clab-ctx-del-same').onclick = () => { 
             menuEl.style.display = 'none'; 
             selectedAreaObjs.forEach(o => execDeleteSameModules(o.area, o.card));
+        };
+        menuEl.querySelector('#clab-ctx-toggle-node-bypass').onclick = () => {
+            menuEl.style.display = 'none';
+
+            if (selectedAreaInfosWithNodes.length === 0) {
+                showAutoToast("选中模块未关联节点，无法切换绕过状态。", true);
+                return;
+            }
+
+            const shouldBypass = !allSelectedAreasBypassed;
+            let affectedNodeCount = 0;
+
+            selectedAreaInfosWithNodes.forEach((item) => {
+                setAreaNodeBypassed(item.area, shouldBypass);
+                affectedNodeCount += item.nodeIds.length;
+                if (window._clabRefreshAreaForContext) {
+                    window._clabRefreshAreaForContext(item.area.id);
+                } else if (window._clabSurgicallyUpdateArea) {
+                    window._clabSurgicallyUpdateArea(item.area.id);
+                }
+            });
+
+            if (window._clabJustSave) window._clabJustSave(); else saveAndRender();
+            if (shouldBypass) {
+                showAutoToast(`已将 ${selectedAreaInfosWithNodes.length} 个模块关联的 ${affectedNodeCount} 个节点设为绕过（仅插件运行时生效）。`);
+            } else {
+                showAutoToast(`已取消 ${selectedAreaInfosWithNodes.length} 个模块关联节点的绕过状态。`);
+            }
         };
         menuEl.querySelector('#clab-ctx-move-back').onclick = () => { 
             menuEl.style.display = 'none'; 

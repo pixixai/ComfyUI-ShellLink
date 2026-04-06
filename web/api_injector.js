@@ -97,6 +97,72 @@ export function setupAPIInjector(app) {
         return api.apiURL(`/view?${params.toString()}`);
     };
 
+    const NODE_MODE_BYPASS = (() => {
+        const eventMode = (typeof globalThis !== "undefined" && globalThis.LGraphEventMode)
+            ? globalThis.LGraphEventMode
+            : null;
+        if (eventMode && Number.isFinite(eventMode.BYPASS)) return eventMode.BYPASS;
+        if (typeof LiteGraph !== "undefined" && Number.isFinite(LiteGraph.BYPASS)) return LiteGraph.BYPASS;
+        return 4;
+    })();
+
+    const collectAreaAssociatedNodeIds = (area) => {
+        if (!area || typeof area !== "object") return [];
+
+        const nodeIds = new Set();
+        const pushNodeId = (raw) => {
+            const value = raw == null ? "" : String(raw).trim();
+            if (value) nodeIds.add(value);
+        };
+
+        if (Array.isArray(area.targetNodeIds)) {
+            area.targetNodeIds.forEach(pushNodeId);
+        }
+        if (Array.isArray(area.targetWidgets)) {
+            area.targetWidgets.forEach((item) => {
+                const [nodeId] = String(item || "").split("||");
+                pushNodeId(nodeId);
+            });
+        }
+        pushNodeId(area.targetNodeId);
+        return [...nodeIds];
+    };
+
+    const collectBypassedNodeIdsFromCard = (card) => {
+        if (!card || !Array.isArray(card.areas)) return [];
+        const nodeIds = new Set();
+        card.areas.forEach((area) => {
+            if (!area) return;
+            const isBypassed = area.runtimeNodeBypassed === true || area.runtimeNodeDisabled === true;
+            if (!isBypassed) return;
+            collectAreaAssociatedNodeIds(area).forEach((nodeId) => nodeIds.add(nodeId));
+        });
+        return [...nodeIds];
+    };
+
+    const applyTemporaryNodeBypass = (card) => {
+        const graph = app?.graph;
+        if (!graph || typeof graph.getNodeById !== "function") return () => {};
+
+        const targetNodeIds = collectBypassedNodeIdsFromCard(card);
+        if (targetNodeIds.length === 0) return () => {};
+
+        const rollbackList = [];
+        targetNodeIds.forEach((nodeId) => {
+            const node = graph.getNodeById(Number(nodeId));
+            if (!node) return;
+            rollbackList.push({ node, mode: node.mode });
+            node.mode = NODE_MODE_BYPASS;
+        });
+
+        if (rollbackList.length === 0) return () => {};
+        return () => {
+            rollbackList.forEach((item) => {
+                item.node.mode = item.mode;
+            });
+        };
+    };
+
     // =========================================================================
     // 【神级修复】：全局媒体加载监听器，实现切换历史记录时动态适配尺寸
     // =========================================================================
@@ -336,7 +402,18 @@ export function setupAPIInjector(app) {
     // =========================================================================
     const originalGraphToPrompt = app.graphToPrompt;
     app.graphToPrompt = async function () {
-        const result = await originalGraphToPrompt.apply(this, arguments);
+        const pendingTask = window._clabExecQueue.length > 0 ? window._clabExecQueue[0] : null;
+        const pendingCard = pendingTask
+            ? StateManager.state.cards.find((card) => card.id === pendingTask.cardId)
+            : null;
+        const rollbackTemporaryBypass = pendingCard ? applyTemporaryNodeBypass(pendingCard) : (() => {});
+
+        let result;
+        try {
+            result = await originalGraphToPrompt.apply(this, arguments);
+        } finally {
+            rollbackTemporaryBypass();
+        }
         
         let execTask = window._clabExecQueue.shift();
         if (!execTask) return result; 

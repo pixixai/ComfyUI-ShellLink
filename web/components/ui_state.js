@@ -11,6 +11,8 @@ const CHANNEL_BINDING_KEYS = [
     "targetWidget",
     "targetNodeIds",
     "targetWidgets",
+    "runtimeNodeBypassed",
+    "runtimeNodeDisabled",
     "dataType",
     "autoHeight",
     "ratio",
@@ -79,6 +81,8 @@ function resetAreaBindingFields(area) {
     area.targetWidget = null;
     area.targetNodeIds = [];
     area.targetWidgets = [];
+    area.runtimeNodeBypassed = false;
+    area.runtimeNodeDisabled = false;
 
     if (area.type === "edit") {
         area.dataType = "string";

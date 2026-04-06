@@ -65,6 +65,7 @@ function renderTextHistoryThumb(area, idx) {
 
 export function generateOutputHTML(area, card) {
     const isAreaSelected = state.selectedAreaIds.includes(area.id);
+    const nodeBypassedClass = (area.runtimeNodeBypassed === true || area.runtimeNodeDisabled === true) ? "clab-node-bypassed" : "";
 
     if (area.isManageMode && area.history && area.history.length > 0) {
         let gridHtml = `<div class="clab-history-grid" data-card-id="${card.id}" data-area-id="${area.id}" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px; width: 100%; box-sizing: border-box; max-height: 400px; overflow-y: auto;">`;
@@ -131,7 +132,7 @@ export function generateOutputHTML(area, card) {
         const btnRemoveStyle = hasSelection ? btnActiveStyle : btnDisabledStyle;
 
         return `
-            <div class="clab-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="padding:0; overflow:hidden; position:relative; background: rgba(0,0,0,0.4); min-height: 100px;">
+            <div class="clab-area ${isAreaSelected ? 'active' : ''} ${nodeBypassedClass}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="padding:0; overflow:hidden; position:relative; background: rgba(0,0,0,0.4); min-height: 100px;">
                 <button class="clab-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输出模块" style="z-index: 30;">✖</button>
                 
                 <div style="padding: 8px 10px; font-size: 12px; font-weight: bold; color: #ccc; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3);">
@@ -171,7 +172,7 @@ export function generateOutputHTML(area, card) {
     const previewPlaceholderVisible = resultType === 'text' ? false : !area.resultUrl;
 
     return `
-        <div class="clab-area ${isAreaSelected ? 'active' : ''}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="padding:0; overflow:hidden; position:relative;">
+        <div class="clab-area ${isAreaSelected ? 'active' : ''} ${nodeBypassedClass}" draggable="true" data-card-id="${card.id}" data-area-id="${area.id}" style="padding:0; overflow:hidden; position:relative;">
             <button class="clab-del-area-btn" data-card="${card.id}" data-area="${area.id}" title="删除输出模块" style="z-index: 30;">✖</button>
             ${historyHtml}
             <div class="${previewBgClass}" style="${finalRatioCSS} position: relative; ${resultType === 'text' ? 'display:block; padding:12px 10px 10px 10px; background: rgb(25, 25, 25);' : ''}">

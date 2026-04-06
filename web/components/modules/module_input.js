@@ -150,12 +150,12 @@ export function generateInputHTML(area, card) {
                         <span class="clab-file-upload-name" title="${safeName}" style="max-width: 100%; min-width: 0; font-size: 12px; color: ${hasFile ? '#ddd' : '#888'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">${safeName}</span>
                     </div>
                     <div class="clab-file-upload-actions" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                        <button type="button" class="clab-file-upload-btn" title="Upload file"
-                            style="height: 30px; width: 30px; min-width: 30px; padding: 0; border-radius: 6px; border: 1px solid #5a5a5a; background: rgba(255,255,255,0.08); color: #eee; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                        <button type="button" class="clab-file-upload-btn clab-icon-only-btn" title="Upload file"
+                            style="height: 24px; width: 24px; min-width: 24px; padding: 0; border: none; border-radius: 0; background: transparent; color: #cfcfcf; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: none; outline: none; appearance: none; -webkit-appearance: none; opacity: 0.82; transition: opacity 0.16s ease, filter 0.16s ease, color 0.16s ease;">
                             ${cloudUploadIconSvg}
                         </button>
-                        <button type="button" class="clab-file-remove-btn" title="Remove file" ${removeDisabledAttr}
-                            style="height: 30px; width: 30px; min-width: 30px; padding: 0; border-radius: 6px; border: 1px solid #5a5a5a; background: rgba(255,255,255,0.08); color: #eee; cursor: pointer; display: flex; align-items: center; justify-content: center; ${removeDisabledStyle}">
+                        <button type="button" class="clab-file-remove-btn clab-icon-only-btn" title="Remove file" ${removeDisabledAttr}
+                            style="height: 24px; width: 24px; min-width: 24px; padding: 0; border: none; border-radius: 0; background: transparent; color: #cfcfcf; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: none; outline: none; appearance: none; -webkit-appearance: none; opacity: 0.82; transition: opacity 0.16s ease, filter 0.16s ease, color 0.16s ease; ${removeDisabledStyle}">
                             ${removeIconSvg}
                         </button>
                     </div>
@@ -255,23 +255,23 @@ export function generateInputHTML(area, card) {
         }
 
         const uploadButtonHtml = useButtonUpload ? `
-            <button type="button" class="clab-upload-trigger-btn" data-card="${card.id}" data-area="${area.id}" title="Upload media"
-                style="height: 30px; width: 30px; min-width: 30px; padding: 0; border-radius: 6px; border: 1px solid #5a5a5a; background: rgba(255,255,255,0.08); color: #eee; cursor: pointer; display:flex; align-items:center; justify-content:center;">
+            <button type="button" class="clab-upload-trigger-btn clab-icon-only-btn" data-card="${card.id}" data-area="${area.id}" title="Upload media"
+                style="height: 24px; width: 24px; min-width: 24px; padding: 0; border: none; border-radius: 0; background: transparent; color: #cfcfcf; cursor: pointer; display:flex; align-items:center; justify-content:center; box-shadow:none; outline:none; appearance:none; -webkit-appearance:none; opacity: 0.82; transition: opacity 0.16s ease, filter 0.16s ease, color 0.16s ease;">
                 ${cloudUploadIconSvg}
             </button>
         ` : '';
         const clearDisabledAttr = area.value ? '' : 'disabled';
         const clearDisabledStyle = area.value ? '' : 'opacity: 0.45; cursor: not-allowed; pointer-events: none;';
         const clearButtonHtml = useButtonUpload ? `
-            <button type="button" class="clab-upload-clear-btn" data-card="${card.id}" data-area="${area.id}" title="Clear media" ${clearDisabledAttr}
-                style="height: 30px; width: 30px; min-width: 30px; padding: 0; border-radius: 6px; border: 1px solid #5a5a5a; background: rgba(255,255,255,0.08); color: #eee; cursor: pointer; display:flex; align-items:center; justify-content:center; ${clearDisabledStyle}">
+            <button type="button" class="clab-upload-clear-btn clab-icon-only-btn" data-card="${card.id}" data-area="${area.id}" title="Clear media" ${clearDisabledAttr}
+                style="height: 24px; width: 24px; min-width: 24px; padding: 0; border: none; border-radius: 0; background: transparent; color: #cfcfcf; cursor: pointer; display:flex; align-items:center; justify-content:center; box-shadow:none; outline:none; appearance:none; -webkit-appearance:none; opacity: 0.82; transition: opacity 0.16s ease, filter 0.16s ease, color 0.16s ease; ${clearDisabledStyle}">
                 ${removeIconSvg}
             </button>
         ` : '';
         const mediaActionButtons = useButtonUpload ? `
             <div style="display:flex; align-items:center; gap:6px;">
-                ${clearButtonHtml}
                 ${uploadButtonHtml}
+                ${clearButtonHtml}
             </div>
         ` : '';
 
@@ -559,6 +559,26 @@ export function attachInputEvents(container) {
 
     if (!window._clabUploadHandlers) {
         window._clabUploadHandlers = new Map();
+    }
+    if (!document.getElementById('clab-icon-only-btn-style')) {
+        const btnStyle = document.createElement('style');
+        btnStyle.id = 'clab-icon-only-btn-style';
+        btnStyle.textContent = `
+            .clab-icon-only-btn:hover:not(:disabled) {
+                opacity: 1 !important;
+                color: #ffffff !important;
+                filter: brightness(1.18) drop-shadow(0 0 3px rgba(255, 255, 255, 0.22));
+            }
+            .clab-icon-only-btn:active:not(:disabled) {
+                filter: brightness(1.28) drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+            }
+            .clab-icon-only-btn:disabled {
+                opacity: 0.45 !important;
+                cursor: not-allowed !important;
+                pointer-events: none !important;
+            }
+        `;
+        document.head.appendChild(btnStyle);
     }
 
     const EXT_MAP = {
